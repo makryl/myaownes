@@ -1,0 +1,81 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "Base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/dist/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+      }
+    },
+    {
+      "name": "Debug",
+      "hidden": true,
+      "inherits": ["Base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "RelWithDebInfo",
+      "hidden": true,
+      "inherits": ["Base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "Release",
+      "hidden": true,
+      "inherits": ["Base"],
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "Clang",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "Emscripten",
+      "hidden": true,
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-g",
+        "CMAKE_CXX_FLAGS": "-g",
+        "CMAKE_LINK_FLAGS": "-gsource-map -sSINGLE_FILE -sENVIRONMENT=web -sINITIAL_MEMORY=128MB"
+      }
+    },
+    {
+      "name": "Desktop-Debug",
+      "inherits": ["Clang", "Debug"]
+    },
+    {
+      "name": "Desktop-RelWithDebInfo",
+      "inherits": ["Clang", "RelWithDebInfo"]
+    },
+    {
+      "name": "Desktop-Release",
+      "inherits": ["Clang", "Release"]
+    },
+    {
+      "name": "Emscripten-Debug",
+      "inherits": ["Emscripten", "Debug"]
+    },
+    {
+      "name": "Emscripten-RelWithDebInfo",
+      "inherits": ["Emscripten", "RelWithDebInfo"]
+    },
+    {
+      "name": "Emscripten-Release",
+      "inherits": ["Emscripten", "Release"]
+    }
+  ]
+}
