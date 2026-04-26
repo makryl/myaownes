@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifndef MN_TRACE
@@ -188,10 +189,10 @@ static const char* trace_opname = "";
   code
 #define trace_tick(fmt, ...)                                                                                   \
   _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")                 \
-    tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU: %11$3d,%12$3d CYC:%13$d\n",              \
+    tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",               \
            *cpu_map_(start_cpu_reg.pc + 1), *cpu_map_(start_cpu_reg.pc + 2), *cpu_map_(start_cpu_reg.pc),      \
            start_cpu_reg.pc, trace_opname, start_cpu_reg.a, start_cpu_reg.x, start_cpu_reg.y, start_cpu_reg.p, \
-           start_cpu_reg.sp, ppu_reg.ctrl, ppu_reg.mask, start_cycle, __VA_ARGS__) _Pragma("clang diagnostic pop")
+           start_cpu_reg.sp, -10, -10, start_cycle, __VA_ARGS__) _Pragma("clang diagnostic pop")
 
 #else
 #define trace_op(val) (void)0
@@ -206,17 +207,17 @@ static const char* trace_opname = "";
 #define trace_abs(ptr) trace_tick2("$%14$04X = %15$02X                ", ptr, *cpu_map_(ptr))
 #define trace_abx(ptr) trace_tick2("$%2$02X%1$02X,X @ %14$04X = %15$02X       ", ptr, *cpu_map_(ptr))
 #define trace_aby(ptr) trace_tick2("$%2$02X%1$02X,Y @ %14$04X = %15$02X       ", ptr, *cpu_map_(ptr))
-#define trace_acc() trace_tick0("A                        ", 0)
-#define trace_imm() trace_tick0("#$%1$02X                      ", 0)
+#define trace_acc() trace_tick0("A                         ", 0)
+#define trace_imm() trace_tick1("#$%1$02X                      ", 0)
 #define trace_imp() trace_tick0("                          ", 0)
-#define trace_ind(ptr) trace_tick2("(%14$04X) = %15$02X  ", ptr, *cpu_map_(ptr))
+#define trace_ind(ptr0, ptr1) trace_tick2("($%14$04X) = %15$04X               ", ptr0, ptr1)
 #define trace_jmp(ptr) trace_tick2("$%14$04X                     ", ptr)
 #define trace_ndx(ptr0, ptr1) trace_tick1("($%1$02X,X) @ %14$02X = %15$04X = %16$02X  ", ptr0, ptr1, *cpu_map_(ptr1))
-#define trace_ndy(ptr0, ptr1) trace_tick1("($%1$02X),Y @ %14$02X = %15$04X = %16$02X  ", ptr0, ptr1, *cpu_map_(ptr1))
+#define trace_ndy(ptr0, ptr1) trace_tick1("($%1$02X),Y = %14$04X @ %15$04X = %16$02X", ptr0, ptr1, *cpu_map_(ptr1))
 #define trace_rel(ptr) trace_tick1("$%14$04X                     ", ptr, *cpu_map_(ptr))
 #define trace_zpg(ptr) trace_tick1("$%1$02X = %15$02X                  ", ptr, *cpu_map_(ptr))
-#define trace_zpx(ptr) trace_tick1("$%1$02X,X @ %14$04X = %15$02X           ", ptr, *cpu_map_(ptr))
-#define trace_zpy(ptr) trace_tick1("$%1$02X,Y @ %14$04X = %15$02X           ", ptr, *cpu_map_(ptr))
+#define trace_zpx(ptr) trace_tick1("$%1$02X,X @ %14$02X = %15$02X           ", ptr, *cpu_map_(ptr))
+#define trace_zpy(ptr) trace_tick1("$%1$02X,Y @ %14$02X = %15$02X           ", ptr, *cpu_map_(ptr))
 
 static u8 cpu_flag_zn(u8 val)
 {
@@ -254,6 +255,7 @@ static void cpu_flag_overflow(u8 a, u8 b, u8 res)
 
 static u8 cpu_read_ptr(u16 ptr) { return *cpu_map(ptr); }
 static u16 cpu_read16_ptr(u16 ptr) { return (u16)cpu_read_ptr(ptr) | ((u16)cpu_read_ptr(ptr + 1) << 8); }
+static u16 cpu_read16_zptr(u8 zptr) { return (u16)cpu_read_ptr(zptr) | ((u16)cpu_read_ptr((u8)(zptr + 1)) << 8); }
 static void cpu_write_ptr(u16 ptr, u8 val) { *cpu_map(ptr) = val; }
 
 static u8 cpu_op() { return cpu_read_ptr(cpu_reg.pc++); }
@@ -266,22 +268,31 @@ static u16 cpu_addr_abs()
   return ptr;
 }
 
-static u16 cpu_addr_abx()
+static u16 cpu_addr_abx(bool write)
 {
-  u16 ptr = cpu_op16() + cpu_reg.x;
+  u16 val = cpu_op16();
+  if (write || (((u16)(u8)val + cpu_reg.x) & 0xFF00)) {
+    ++ctx.cycle;
+  }
+  u16 ptr = val + cpu_reg.x;
   trace_abx(ptr);
   return ptr;
-} // todo: ++cycle
+}
 
-static u16 cpu_addr_aby()
+static u16 cpu_addr_aby(bool write)
 {
-  u16 ptr = cpu_op16() + cpu_reg.y;
+  u16 val = cpu_op16();
+  if (write || (((u16)(u8)val + cpu_reg.y) & 0xFF00)) {
+    ++ctx.cycle;
+  }
+  u16 ptr = val + cpu_reg.y;
   trace_aby(ptr);
   return ptr;
-} // todo: ++cycle
+}
 
 static u8 cpu_read_acc()
 {
+  ++ctx.cycle;
   trace_acc();
   return cpu_reg.a;
 }
@@ -294,6 +305,7 @@ static u8 cpu_read_imm()
 
 static u8 cpu_read_imp(u8 val)
 {
+  ++ctx.cycle;
   trace_imp();
   return val;
 }
@@ -302,10 +314,10 @@ static u16 cpu_addr_ind()
 {
   u16 ptr0 = cpu_op16();
   u8 lo = cpu_read_ptr(ptr0);
-  u16 hi_ptr = (ptr0 & 0xFF00) | ((ptr0 + 1) & 0x00FF); // NES bug emulation
+  u16 hi_ptr = (ptr0 & 0xFF00) | ((ptr0 + 1) & 0x00FF); // NES bug: incrementing only low byte
   u8 hi = cpu_read_ptr(hi_ptr);
   u16 ptr1 = (u16)lo | ((u16)hi << 8);
-  trace_ind(ptr0);
+  trace_ind(ptr0, ptr1);
   return ptr1;
 }
 
@@ -318,26 +330,31 @@ static u16 cpu_addr_jmp()
 
 static u16 cpu_addr_ndx()
 {
-  u16 ptr0 = (u8)(cpu_op() + cpu_reg.x);
-  u16 ptr1 = cpu_read16_ptr(ptr0);
-  trace_ndx(ptr0, ptr1);
-  return ptr1;
+  ++ctx.cycle;
+  u16 zptr = (u8)(cpu_op() + cpu_reg.x);
+  u16 ptr = cpu_read16_zptr(zptr);
+  trace_ndx(zptr, ptr);
+  return ptr;
 }
 
-static u16 cpu_addr_ndy()
+static u16 cpu_addr_ndy(bool write)
 {
-  u16 ptr0 = cpu_read16_ptr(cpu_op());
+  u16 ptr0 = cpu_read16_zptr(cpu_op());
+  if (write || (((u16)(u8)ptr0 + cpu_reg.y) & 0xFF00)) {
+    ++ctx.cycle;
+  }
   u16 ptr1 = ptr0 + cpu_reg.y;
   trace_ndy(ptr0, ptr1);
   return ptr1;
-} // todo: ++cycle
+}
 
 static u16 cpu_addr_rel()
 {
-  u16 ptr = (i8)cpu_op() + cpu_reg.pc;
+  i8 val = (i8)cpu_op();
+  u16 ptr = cpu_reg.pc + val;
   trace_rel(ptr);
   return ptr;
-} // todo: ++cycle
+}
 
 static u16 cpu_addr_zpg()
 {
@@ -348,6 +365,7 @@ static u16 cpu_addr_zpg()
 
 static u16 cpu_addr_zpx()
 {
+  ++ctx.cycle;
   u16 ptr = (u8)(cpu_op() + cpu_reg.x);
   trace_zpx(ptr);
   return ptr;
@@ -355,35 +373,44 @@ static u16 cpu_addr_zpx()
 
 static u16 cpu_addr_zpy()
 {
+  ++ctx.cycle;
   u16 ptr = (u8)(cpu_op() + cpu_reg.y);
   trace_zpy(ptr);
   return ptr;
 }
 
 static void cpu_stack_push(u8 val) { cpu_write_ptr(0x100 | cpu_reg.sp--, val); }
-static u8 cpu_stack_pop() { return cpu_read_ptr(++cpu_reg.sp | 0x100); }
+
+static u8 cpu_stack_pop()
+{
+  ++ctx.cycle;
+  return cpu_read_ptr(++cpu_reg.sp | 0x100);
+}
+
 static void cpu_stack_push16(u16 val)
 {
   cpu_stack_push((u8)(val >> 8));
   cpu_stack_push((u8)(val & 0xFF));
 }
+
 static u16 cpu_stack_pop16() { return (u16)cpu_stack_pop() | ((u16)cpu_stack_pop() << 8); }
 
 
-static u16 cpu_addr(u8 addr)
+static u16 cpu_addr(u8 addr, bool write)
 {
   switch (addr) {
     case CPU_ADDR_NDX: return cpu_addr_ndx();
     case CPU_ADDR_ZPG: return cpu_addr_zpg();
     case CPU_ADDR_ABS: return cpu_addr_abs();
-    case CPU_ADDR_NDY: return cpu_addr_ndy();
+    case CPU_ADDR_NDY: return cpu_addr_ndy(write);
     case CPU_ADDR_ZPX: return cpu_addr_zpx();
-    case CPU_ADDR_ABY: return cpu_addr_aby();
-    case CPU_ADDR_ABX: return cpu_addr_abx();
+    case CPU_ADDR_ABY: return cpu_addr_aby(write);
+    case CPU_ADDR_ABX: return cpu_addr_abx(write);
 
     case CPU_ADDR_ZPY: return cpu_addr_zpy();
   }
   errorf("wrong address method %d\n", addr);
+  exit(1);
   return 0;
 }
 
@@ -397,32 +424,37 @@ static u8 cpu_read(u8 addr)
     case CPU_ADDR_XXX: return cpu_read_imp(cpu_reg.x);
     case CPU_ADDR_YYY: return cpu_read_imp(cpu_reg.y);
   }
-  return cpu_read_ptr(cpu_addr(addr));
+  return cpu_read_ptr(cpu_addr(addr, false));
 }
 
 static void cpu_write(u8 addr, u8 val)
 {
   switch (addr) {
+    case CPU_ADDR_IMM: trace_opcode("*NOP", cpu_read_imm()); return;
     case CPU_ADDR_ACC:
-    case CPU_ADDR_IMA: cpu_reg.a = cpu_flag_zn(val); return;
-    case CPU_ADDR_STA: cpu_reg.sp = val; return;
-    case CPU_ADDR_XXX: cpu_reg.x = cpu_flag_zn(val); return;
-    case CPU_ADDR_YYY: cpu_reg.y = cpu_flag_zn(val); return;
+    case CPU_ADDR_IMA: cpu_reg.a = cpu_flag_zn(cpu_read_imp(val)); return;
+    case CPU_ADDR_STA: cpu_reg.sp = cpu_read_imp(val); return;
+    case CPU_ADDR_XXX: cpu_reg.x = cpu_flag_zn(cpu_read_imp(val)); return;
+    case CPU_ADDR_YYY: cpu_reg.y = cpu_flag_zn(cpu_read_imp(val)); return;
   }
-  cpu_write_ptr(cpu_addr(addr), val);
+  cpu_write_ptr(cpu_addr(addr, true), val);
 }
 
 static void cpu_read_write(u8 addr, u8 (*cb)(u8))
 {
   switch (addr) {
+    case CPU_ADDR_NDY: trace_opcode("*KIL", exit(cpu_read_imp(1))); return;
+    case CPU_ADDR_ABY: trace_opcode("*NOP", cpu_read_imp(0)); return;
+    case CPU_ADDR_IMM: trace_opcode("*NOP", cpu_read_imm()); return;
     case CPU_ADDR_ACC:
-    case CPU_ADDR_IMA:
-    case CPU_ADDR_STA:
-    case CPU_ADDR_XXX:
-    case CPU_ADDR_YYY: cpu_write(addr, cb(cpu_read(addr))); return;
+    case CPU_ADDR_IMA: cpu_reg.a = cpu_flag_zn(cb(cpu_read(addr))); return;
+    case CPU_ADDR_STA: cpu_reg.sp = cb(cpu_read(addr)); return;
+    case CPU_ADDR_XXX: cpu_reg.x = cpu_flag_zn(cb(cpu_read(addr))); return;
+    case CPU_ADDR_YYY: cpu_reg.y = cpu_flag_zn(cb(cpu_read(addr))); return;
   }
-  u16 ptr = cpu_addr(addr);
+  u16 ptr = cpu_addr(addr, true);
   cpu_write_ptr(ptr, cb(cpu_read_ptr(ptr)));
+  ++ctx.cycle;
 }
 
 static void cpu_adc(u8 val)
@@ -466,6 +498,7 @@ static u8 cpu_ror(u8 val)
 }
 
 static u8 cpu_dec(u8 val) { return cpu_flag_zn(--val); }
+
 static u8 cpu_inc(u8 val) { return cpu_flag_zn(++val); }
 
 static void cpu_brk()
@@ -482,27 +515,42 @@ static void cpu_rti()
   cpu_read_imp(0);
   cpu_reg.p = (cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
   cpu_reg.pc = cpu_stack_pop16();
+  ctx.cycle -= 2; // sequential stack
 }
 
 static void cpu_jsr()
 {
-  cpu_stack_push16(cpu_reg.pc);
-  cpu_reg.pc = cpu_addr_jmp();
+  ++ctx.cycle;
+  u16 ptr = cpu_addr_jmp();
+  cpu_stack_push16(cpu_reg.pc - 1);
+  cpu_reg.pc = ptr;
 }
 
 static void cpu_rts()
 {
   cpu_read_imp(0);
-  cpu_reg.pc = cpu_stack_pop16();
+  cpu_reg.pc = cpu_stack_pop16() + 1;
 }
 
-static void cpu_branch(bool cond)
+static void cpu_branch(u8 flag, bool cond)
 {
-  if (cond) {
-    cpu_reg.pc = cpu_addr_rel();
-  } else {
-    ++cpu_reg.pc;
+  u16 ptr = cpu_addr_rel();
+  if (((cpu_reg.p & flag) != 0) == cond) {
+    ++ctx.cycle;
+    cpu_reg.pc = ptr;
   }
+}
+
+static void cpu_bit(u8 addr)
+{
+  u8 val = cpu_read(addr);
+  if ((cpu_reg.a & val) == 0) {
+    cpu_reg.p |= CPU_FLAG_ZERO;
+  } else {
+    cpu_reg.p &= ~CPU_FLAG_ZERO;
+  }
+  cpu_reg.p &= ~(CPU_FLAG_NEGATIVE | CPU_FLAG_OVERFLOW);
+  cpu_reg.p |= (val & 0xC0);
 }
 
 static void cpu_reset()
@@ -539,83 +587,82 @@ void mn_tick()
     case 0b00000000: {
       switch (addr) {
         case 0: trace_opcode("BRK", cpu_brk()); break;
-        case 1: errorf("DOP ZP\n"); break;
-        case 2: trace_opcode("PHP", cpu_stack_push(cpu_read_imp(cpu_reg.p | CPU_FLAG_ALWAYS_ONE))); break;
-        case 3: errorf("TOP ABS\n"); break;
-        case 4: trace_opcode("BPL", cpu_branch((cpu_reg.p & CPU_FLAG_NEGATIVE) == 0)); break;
-        case 5: errorf("DOP ZPX\n"); break;
+        case 2:
+          trace_opcode("PHP", cpu_stack_push(cpu_read_imp(cpu_reg.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE)));
+          break;
+        case 4: trace_opcode("BPL", cpu_branch(CPU_FLAG_NEGATIVE, 0)); break;
         case 6: trace_opcode("CLC", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_CARRY)); break;
-        case 7: errorf("TOP ABX\n"); break;
+        default: trace_opcode("*NOP", cpu_read(addr)); break;
       }
     } break;
     case 0b00100000: {
       switch (addr) {
         case 0: trace_opcode("JSR", cpu_jsr()); break;
-        case 2: trace_opcode("PLP", cpu_reg.p = cpu_read_imp(cpu_stack_pop() | CPU_FLAG_ALWAYS_ONE)); break;
-        case 1:
-        case 3:
-          trace_opcode("BIT", cpu_reg.p = (cpu_reg.p & 0b00111111) | (0b11000000 & cpu_reg.a & cpu_read(addr)));
+        case 2:
+          trace_opcode("PLP", cpu_reg.p = cpu_read_imp((cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE));
           break;
-        case 4: trace_opcode("BMI", cpu_branch(cpu_reg.p & CPU_FLAG_NEGATIVE)); break;
-        case 5: errorf("DOP ZPX\n"); break;
+        case 4: trace_opcode("BMI", cpu_branch(CPU_FLAG_NEGATIVE, 1)); break;
         case 6: trace_opcode("SEC", cpu_reg.p = cpu_read_imp(cpu_reg.p | CPU_FLAG_CARRY)); break;
-        case 7: errorf("TOP ABX\n"); break;
+        case 1:
+        case 3: trace_opcode("BIT", cpu_bit(addr)); break;
+        default: trace_opcode("*NOP", cpu_read(addr)); break;
       }
     } break;
     case 0b01000000: {
       switch (addr) {
         case 0: trace_opcode("RTI", cpu_rti()); break;
-        case 1: errorf("DOP ZP\n"); break;
         case 2: trace_opcode("PHA", cpu_stack_push(cpu_read_imp(cpu_reg.a))); break;
-        case 3: trace_opcode("JMP", cpu_reg.pc = cpu_addr_jmp()); break;
-        case 4: trace_opcode("BVC", cpu_branch((cpu_reg.p & CPU_FLAG_OVERFLOW) == 0)); break;
-        case 5: errorf("DOP ZPX\n"); break;
+        case 4: trace_opcode("BVC", cpu_branch(CPU_FLAG_OVERFLOW, 0)); break;
         case 6: trace_opcode("CLI", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_INTERRUPT_DISABLED)); break;
-        case 7: errorf("TOP ABX\n"); break;
+        case 3: trace_opcode("JMP", cpu_reg.pc = cpu_addr_jmp()); break;
+        default: trace_opcode("*NOP", cpu_read(addr)); break;
       }
     } break;
     case 0b01100000: {
       switch (addr) {
         case 0: trace_opcode("RTS", cpu_rts()); break;
-        case 1: errorf("DOP ZP\n"); break;
-        case 2: trace_opcode("PLA", cpu_reg.a = cpu_read_imp(cpu_stack_pop())); break;
-        case 3: trace_opcode("JMP", cpu_reg.pc = cpu_addr_ind()); break;
-        case 4: trace_opcode("BVS", cpu_branch(cpu_reg.p & CPU_FLAG_OVERFLOW)); break;
-        case 5: errorf("DOP ZPX\n"); break;
+        case 2: trace_opcode("PLA", cpu_reg.a = cpu_flag_zn(cpu_read_imp(cpu_stack_pop()))); break;
+        case 4: trace_opcode("BVS", cpu_branch(CPU_FLAG_OVERFLOW, 1)); break;
         case 6: trace_opcode("SEI", cpu_reg.p = cpu_read_imp(cpu_reg.p | CPU_FLAG_INTERRUPT_DISABLED)); break;
-        case 7: errorf("TOP ABX\n"); break;
+        case 3: trace_opcode("JMP", cpu_reg.pc = cpu_addr_ind()); break;
+        default: trace_opcode("*NOP", cpu_read(addr)); break;
       }
     } break;
     case 0b10000000: {
-      trace_op("STY");
       switch (addr) {
-        case 0: errorf("DOP IMM\n"); break;
         case 2: trace_opcode("DEY", cpu_read_write(CPU_ADDR_YYY, cpu_dec)); break;
-        case 4: trace_opcode("BCC", cpu_branch((cpu_reg.p & CPU_FLAG_CARRY) == 0)); break;
-        case 7: errorf("SYA ABX\n"); break;
-        case 6: trace_opcode("TYA", addr = CPU_ADDR_IMA);
-        default: cpu_write(addr, cpu_reg.y); break;
+        case 4: trace_opcode("BCC", cpu_branch(CPU_FLAG_CARRY, 0)); break;
+        default:
+          trace_op("STY");
+          switch (addr) {
+            case 0: addr = CPU_ADDR_IMM; break;
+            case 6: trace_opcode("TYA", addr = CPU_ADDR_IMA); break;
+          }
+          cpu_write(addr, cpu_reg.y);
+          break;
       }
     } break;
     case 0b10100000: {
-      trace_op("LDY");
       switch (addr) {
-        case 0: addr = CPU_ADDR_IMM; break;
-        case 2: trace_opcode("TAY", addr = CPU_ADDR_IMA); break;
-      }
-      switch (addr) {
-        case 4: trace_opcode("BCS", cpu_branch(cpu_reg.p & CPU_FLAG_CARRY)); break;
+        case 4: trace_opcode("BCS", cpu_branch(CPU_FLAG_CARRY, 1)); break;
         case 6: trace_opcode("CLV", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_OVERFLOW)); break;
-        default: cpu_write(CPU_ADDR_YYY, cpu_read(addr)); break;
+        default:
+          trace_op("LDY");
+          switch (addr) {
+            case 0: addr = CPU_ADDR_IMM; break;
+            case 2: trace_opcode("TAY", addr = CPU_ADDR_IMA); break;
+          }
+          cpu_reg.y = cpu_flag_zn(cpu_read(addr));
+          break;
       }
     } break;
     case 0b11000000: {
       switch (addr) {
         case 2: trace_opcode("INY", cpu_read_write(CPU_ADDR_YYY, cpu_inc)); break;
-        case 4: trace_opcode("BNE", cpu_branch((cpu_reg.p & CPU_FLAG_ZERO) == 0)); break;
-        case 5: errorf("DOP ZPX\n"); break;
-        case 6: trace_opcode("CLC", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_DECIMAL)); break;
-        case 7: errorf("TOP ABX\n"); break;
+        case 4: trace_opcode("BNE", cpu_branch(CPU_FLAG_ZERO, 0)); break;
+        case 6: trace_opcode("CLD", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_DECIMAL)); break;
+        case 5:
+        case 7: trace_opcode("*NOP", cpu_read(addr)); break;
         case 0: addr = CPU_ADDR_IMM;
         default: trace_opcode("CPY", cpu_cmp(cpu_reg.y, cpu_read(addr))); break;
       }
@@ -623,10 +670,10 @@ void mn_tick()
     case 0b11100000: {
       switch (addr) {
         case 2: trace_opcode("INX", cpu_read_write(CPU_ADDR_XXX, cpu_inc)); break;
-        case 4: trace_opcode("BEQ", cpu_branch(cpu_reg.p & CPU_FLAG_ZERO)); break;
-        case 5: errorf("DOP ZPX\n"); break;
-        case 6: trace_opcode("CLC", cpu_reg.p = cpu_read_imp(cpu_reg.p | CPU_FLAG_DECIMAL)); break;
-        case 7: errorf("TOP ABX\n"); break;
+        case 4: trace_opcode("BEQ", cpu_branch(CPU_FLAG_ZERO, 1)); break;
+        case 6: trace_opcode("SED", cpu_reg.p = cpu_read_imp(cpu_reg.p | CPU_FLAG_DECIMAL)); break;
+        case 5:
+        case 7: trace_opcode("*NOP", cpu_read(addr)); break;
         case 0: addr = CPU_ADDR_IMM;
         default: trace_opcode("CPX", cpu_cmp(cpu_reg.x, cpu_read(addr))); break;
       }
@@ -635,47 +682,30 @@ void mn_tick()
     case 0b00100001: trace_opcode("AND", cpu_reg.a = cpu_flag_zn(cpu_reg.a & cpu_read(addr))); break;
     case 0b01000001: trace_opcode("EOR", cpu_reg.a = cpu_flag_zn(cpu_reg.a ^ cpu_read(addr))); break;
     case 0b01100001: trace_opcode("ADC", cpu_adc(cpu_read(addr))); break;
-    case 0b10000001: {
-      switch (addr) {
-        case 2: errorf("DOP IMM\n"); break;
-        default: trace_opcode("STA", cpu_write(addr, cpu_reg.a)); break;
-      }
-    } break;
+    case 0b10000001: trace_opcode("STA", cpu_write(addr, cpu_reg.a)); break;
     case 0b10100001: trace_opcode("LDA", cpu_reg.a = cpu_flag_zn(cpu_read(addr))); break;
     case 0b11000001: trace_opcode("CMP", cpu_cmp(cpu_reg.a, cpu_read(addr))); break;
     case 0b11100001: trace_opcode("SBC", cpu_adc(~cpu_read(addr))); break;
     case 0b00000010: {
       switch (addr) {
-        case 0:
-        case 4: errorf("KIL\n"); break;
-        case 6: errorf("NOP\n"); break;
         case 2: addr = CPU_ADDR_ACC;
         default: trace_opcode("ASL", cpu_read_write(addr, cpu_asl)); break;
       }
     } break;
     case 0b00100010: {
       switch (addr) {
-        case 0:
-        case 4: errorf("KIL\n"); break;
-        case 6: errorf("NOP\n"); break;
         case 2: addr = CPU_ADDR_ACC;
         default: trace_opcode("ROL", cpu_read_write(addr, cpu_rol)); break;
       }
     } break;
     case 0b01000010: {
       switch (addr) {
-        case 0:
-        case 4: errorf("KIL\n"); break;
-        case 6: errorf("NOP\n"); break;
         case 2: addr = CPU_ADDR_ACC;
         default: trace_opcode("LSR", cpu_read_write(addr, cpu_lsr)); break;
       }
     } break;
     case 0b01100010: {
       switch (addr) {
-        case 0:
-        case 4: errorf("KIL\n"); break;
-        case 6: errorf("NOP\n"); break;
         case 2: addr = CPU_ADDR_ACC;
         default: trace_opcode("ROR", cpu_read_write(addr, cpu_ror)); break;
       }
@@ -683,47 +713,37 @@ void mn_tick()
     case 0b10000010: {
       trace_op("STX");
       switch (addr) {
+        case 0: addr = CPU_ADDR_IMM; break;
         case 2: trace_opcode("TXA", addr = CPU_ADDR_IMA); break;
-        case 5: addr = CPU_ADDR_ZPY; break;
         case 6: trace_opcode("TXS", addr = CPU_ADDR_STA); break;
+        case 5: addr = CPU_ADDR_ZPY; break;
+        case 7: addr = CPU_ADDR_ABY; break;
       }
-      switch (addr) {
-        case 0: errorf("DOP IMM\n"); break;
-        case 4: errorf("KIL\n"); break;
-        case 7: errorf("SXA ABY\n"); break;
-        default: cpu_write(addr, cpu_reg.x); break;
-      }
+      cpu_write(addr, cpu_reg.x);
     } break;
     case 0b10100010: {
       trace_op("LDX");
       switch (addr) {
         case 0: addr = CPU_ADDR_IMM; break;
         case 2: trace_opcode("TAX", addr = CPU_ADDR_IMA); break;
-        case 5: addr = CPU_ADDR_ZPY; break;
         case 6: trace_opcode("TSX", addr = CPU_ADDR_STA); break;
+        case 5: addr = CPU_ADDR_ZPY; break;
         case 7: addr = CPU_ADDR_ABY; break;
       }
-      switch (addr) {
-        case 4: errorf("KIL\n"); break;
-        default: cpu_write(CPU_ADDR_XXX, cpu_read(addr)); break;
-      }
+      cpu_reg.x = cpu_flag_zn(cpu_read(addr));
     } break;
     case 0b11000010: {
       trace_op("DEC");
       switch (addr) {
-        case 0: errorf("DOP IMM\n"); break;
-        case 4: errorf("KIL\n"); break;
-        case 6: errorf("NOP\n"); break;
-        case 2: trace_opcode("DEX", addr = CPU_ADDR_XXX);
-        default: cpu_read_write(addr, cpu_dec); break;
+        case 0: addr = CPU_ADDR_IMM; break;
+        case 2: trace_opcode("DEX", addr = CPU_ADDR_XXX); break;
       }
+      cpu_read_write(addr, cpu_dec);
     } break;
     case 0b11100010: {
       switch (addr) {
-        case 0: errorf("DOP IMM\n"); break;
         case 2: trace_opcode("NOP", cpu_read_imp(0)); break;
-        case 4: errorf("KIL\n"); break;
-        case 6: errorf("NOP\n"); break;
+        case 0: addr = CPU_ADDR_IMM;
         default: trace_opcode("INC", cpu_read_write(addr, cpu_inc)); break;
       }
     } break;
@@ -735,7 +755,10 @@ void mn_tick()
     // case 0b10100011: break;
     // case 0b11000011: break;
     // case 0b11100011: break;
-    default: errorf("unknown opcode %02X\n", op); break;
+    default:
+      errorf("unknown opcode %02X\n", op);
+      exit(cpu_read_imp(1));
+      break;
   }
 }
 
