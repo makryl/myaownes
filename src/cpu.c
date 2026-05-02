@@ -1,41 +1,9 @@
-#include "myanes.h"
+#include "cpu.h"
 
-#include <errno.h>
-#include <stdio.h>
+#include "common.h"
+#include "device.h"
+
 #include <stdlib.h>
-#include <string.h>
-
-#ifndef MN_TRACE
-#define MN_TRACE 1
-#endif
-
-#ifndef MN_ERROR
-#define MN_ERROR 1
-#endif
-
-#ifdef MN_TRACE
-#define tracef(...) printf(__VA_ARGS__)
-#else
-#define tracef(...) ((void)0)
-#endif
-
-#ifdef MN_ERROR
-#define errorf(...) fprintf(stderr, __VA_ARGS__)
-#else
-#define errorf(...) ((void)0)
-#endif
-
-typedef unsigned short u16;
-typedef unsigned char u8;
-typedef signed char i8;
-
-enum NesFlag : u8
-{
-  NES_FLAG_MIRROR = (1 << 0),
-  NES_FLAG_BATTERY = (1 << 1),
-  NES_FLAG_TRAINER = (1 << 2),
-  NES_FLAG_VRAM = (1 << 3),
-};
 
 enum CpuInterrupt : u16
 {
@@ -73,37 +41,18 @@ enum CpuAddr : u8
   CPU_ADDR_ZPY,
 };
 
-static const size_t ROM_PAGE_SIZE = 0x4000;
-static const size_t VROM_PAGE_SIZE = 0x2000;
-
-static u8 ram[0x0800];
-static u8 vram[0x0800];
-static u8 wram[0x0800];
-static u8 sram[0x2000];
-static u8 eram[0x1000];
-
-static u8 rom[0x400000]; // 256 * ROM_PAGE_SIZE
-static u8 vrom[0x200000]; // 256 * VROM_PAGE_SIZE
 
 static struct Cpu
 {
   int cycle;
   int skip;
-  int rom_pages;
-  int vrom_pages;
-  u8* ptr;
-  u8 flags;
-  u8 mapper;
-  u8 op;
-  u8 b;
-  u8 a;
   u16 pc;
   u8 s;
   u8 p;
+  u8 a;
   u8 x;
   u8 y;
 } cpu;
-
 
 static struct Bus
 {
@@ -125,20 +74,10 @@ static struct Bus
   u8 pad[8];
 } bus;
 
-typedef struct
-{
-  u8 magic[4];
-  u8 rom_pages;
-  u8 vrom_pages;
-  u8 flags;
-  u8 mapper;
-  u8 pad[8];
-} NESHeader;
-
-static u8* cpu_map(u16 addr, bool readonly)
+static u8* cpu_map_write(u16 addr)
 {
   if (addr < 0x2000) {
-    return ram + (addr & 0x07FF);
+    return device.ram + (addr & 0x07FF);
   }
   if (addr < 0x4000) {
     return &bus.ppu_ctrl + (addr & 0x7);
@@ -147,24 +86,36 @@ static u8* cpu_map(u16 addr, bool readonly)
     return bus.apu + (addr & 0x1F);
   }
   if (addr < 0x5000) {
+    return 0;
+  }
+  if (addr < 0x6000) {
+    return 0;
+  }
+  if (addr < 0x8000) {
+    return device.sram + (addr & 0x1FFF);
+  }
+  return 0;
+}
+
+static const u8* cpu_map_read(u16 addr)
+{
+  u8* p = cpu_map_write(addr);
+  if (p) {
+    return p;
+  }
+  if (addr < 0x5000) {
     // todo: eram too?
     errorf("cpu_map failed 0x4018 < %04X < 0x5000\n", addr);
     exit(1);
     return 0;
   }
   if (addr < 0x6000) {
-    return readonly ? eram + (addr & 0xFFF) : 0;
+    return device.eram + (addr & 0xFFF);
   }
-  if (addr < 0x8000) {
-    return sram + (addr & 0x1FFF);
+  if (device.rom_pages == 1) {
+    return device.rom + (addr & 0x3FFF);
   }
-  if (!readonly) {
-    return 0;
-  }
-  if (cpu.rom_pages == 1) {
-    return rom + (addr & 0x3FFF);
-  }
-  return rom + (addr & 0x7FFF);
+  return device.rom + (addr & 0x7FFF);
 }
 
 static void* ppu_map(u16)
@@ -184,11 +135,11 @@ static struct
 } trace;
 
 #define trace_addr0(code) trace.addr0 = code
-#define trace_addr(code) trace.addr = code, trace.val = *cpu_map(trace.addr, true), trace.addr
+#define trace_addr(code) trace.addr = code, trace.val = *cpu_map_read(trace.addr), trace.addr
 #define trace_tick(fmt)                                                                                           \
   _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")                    \
     tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",                  \
-           *cpu_map(trace.cpu.pc + 1, true), *cpu_map(trace.cpu.pc + 2, true), *cpu_map(trace.cpu.pc, true),      \
+           *cpu_map_read(trace.cpu.pc + 1), *cpu_map_read(trace.cpu.pc + 2), *cpu_map_read(trace.cpu.pc),         \
            trace.cpu.pc, trace.opname, trace.cpu.a, trace.cpu.x, trace.cpu.y, trace.cpu.p, trace.cpu.s, -10, -10, \
            trace.cpu.cycle, trace.addr0, trace.addr, trace.val) _Pragma("clang diagnostic pop")
 #define trace_tick0(fmt) trace_tick("%4$04X  %3$02X       %5$4s " fmt);
@@ -203,7 +154,7 @@ static void trace_tick_addr(u8 am)
     case CPU_ADDR_IMM: trace_tick1("#$%1$02X                      "); break;
     case CPU_ADDR_REL: trace_tick1("$%15$04X                     "); break;
     case CPU_ADDR_ABS: {
-      u8 op = *cpu_map(trace.cpu.pc, true);
+      u8 op = *cpu_map_read(trace.cpu.pc);
       if (op == 0x20 || op == 0x4C) {
         trace_tick2("$%15$04X                     ");
       } else {
@@ -270,14 +221,14 @@ static void cpu_flag_overflow(u8 a, u8 b, u8 res)
 static u8 cpu_read_addr(u16 addr)
 {
   ++cpu.cycle;
-  u8* p = cpu_map(addr, true);
+  u8* p = cpu_map_read(addr);
   return p ? *p : 0;
 }
 
 static void cpu_write_addr(u16 addr, u8 val)
 {
   ++cpu.cycle;
-  u8* p = cpu_map(addr, false);
+  u8* p = cpu_map_write(addr);
   if (p) {
     *p = val;
   }
@@ -556,7 +507,7 @@ static void cpu_op_XAA(u8 am) { cpu_op_KIL(am) /*, cpu.a = cpu_flag_zn(cpu_read(
 static void cpu_op_AXA(u8 am) { cpu_op_KIL(am) /*, cpu_write(cpu.a & cpu.x & ((cpu.addr >> 8) + 1))*/; }
 static void cpu_op_XAS(u8 am) { cpu_op_KIL(am) /*, cpu.s = cpu.a & cpu.x, cpu_write(cpu.s & ((cpu.addr >> 8) + 1))*/; }
 
-void mn_reset()
+void cpu_reset()
 {
   cpu.cycle = 5;
 
@@ -569,7 +520,7 @@ void mn_reset()
   cpu.y = 0;
 }
 
-void mn_tick()
+void cpu_tick()
 {
 #ifdef MN_TRACE
   trace.cpu = cpu;
@@ -580,9 +531,7 @@ void mn_tick()
     return;
   }
 
-  cpu.op = cpu_op();
-
-  switch (cpu.op) {
+  switch (cpu_op()) {
     // clang-format off
 #define L(cc, aaa, o0, o1, o2, o3, o4, o5, o6, o7) \
   case (aaa << 5) | (0 << 2) | cc: o0; break; \
@@ -633,53 +582,4 @@ L(3, 7, X(ISB, NDX), X(SBC, IMM), X(ISB, NDY), X(ISB, ABY), X(ISB, ZPG), X(ISB, 
 #undef X
     // clang-format on
   }
-}
-
-bool mn_load(const char* path)
-{
-  FILE* f = fopen(path, "rb");
-  if (!f) {
-    errorf("can not open file %s: %s\n", path, strerror(errno));
-    return false;
-  }
-
-  NESHeader h;
-  if (!fread(&h, sizeof(h), 1, f)) {
-    errorf("can not read file %s: %s\n", path, strerror(errno));
-    fclose(f);
-    return false;
-  }
-  if (h.magic[0] != 'N' || h.magic[1] != 'E' || h.magic[2] != 'S' || h.magic[3] != 0x1A) {
-    errorf("not NES file %s\n", path);
-    fclose(f);
-    return false;
-  }
-
-  cpu.rom_pages = h.rom_pages;
-  cpu.vrom_pages = h.vrom_pages;
-  cpu.flags = h.flags & 0xF;
-  cpu.mapper = h.mapper | (h.flags >> 4);
-
-  if (h.rom_pages == 0 || h.rom_pages * ROM_PAGE_SIZE > sizeof(rom) || h.vrom_pages * VROM_PAGE_SIZE > sizeof(vrom)) {
-    errorf("invalid size prg=%d chr=%d in %s\n", h.rom_pages, h.vrom_pages, path);
-    fclose(f);
-    return false;
-  }
-
-  if (fread(rom, ROM_PAGE_SIZE, h.rom_pages, f) != h.rom_pages) {
-    errorf("can not read prg from %s: %s\n", path, strerror(errno));
-    fclose(f);
-    return false;
-  }
-
-  if (h.vrom_pages > 0) {
-    if (fread(vrom, VROM_PAGE_SIZE, h.vrom_pages, f) != h.vrom_pages) {
-      errorf("can not read chr from %s: %s\n", path, strerror(errno));
-      fclose(f);
-      return false;
-    }
-  }
-
-  fclose(f);
-  return true;
 }

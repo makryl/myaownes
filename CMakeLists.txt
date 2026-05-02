@@ -9,7 +9,10 @@ add_compile_options(-Wall -Wextra)
 
 include_directories(include)
 
-add_library(myanes src/myanes.c)
+add_library(myanes
+  src/device.c
+  src/cpu.c
+)
 
 add_executable(myanestest src/myanestest.c)
 target_link_libraries(myanestest myanes)
