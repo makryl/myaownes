@@ -58,21 +58,19 @@ enum CpuFlag : u8
 
 enum CpuAddr : u8
 {
-  CPU_ADDR_NDX = 0,
-  CPU_ADDR_ZPG,
+  CPU_ADDR_IMP = 0,
   CPU_ADDR_IMM,
+  CPU_ADDR_ACC,
+  CPU_ADDR_REL,
+  CPU_ADDR_IND,
   CPU_ADDR_ABS,
-  CPU_ADDR_NDY,
-  CPU_ADDR_ZPX,
   CPU_ADDR_ABY,
   CPU_ADDR_ABX,
-
-  CPU_ADDR_ACC,
-  CPU_ADDR_IMA,
-  CPU_ADDR_STA,
+  CPU_ADDR_NDX,
+  CPU_ADDR_NDY,
+  CPU_ADDR_ZPG,
+  CPU_ADDR_ZPX,
   CPU_ADDR_ZPY,
-  CPU_ADDR_XXX,
-  CPU_ADDR_YYY,
 };
 
 static const size_t ROM_PAGE_SIZE = 0x4000;
@@ -87,46 +85,45 @@ static u8 eram[0x1000];
 static u8 rom[0x400000]; // 256 * ROM_PAGE_SIZE
 static u8 vrom[0x200000]; // 256 * VROM_PAGE_SIZE
 
-static struct
+static struct Cpu
 {
   int cycle;
   int skip;
   int rom_pages;
   int vrom_pages;
+  u8* ptr;
   u8 flags;
   u8 mapper;
-} ctx;
-
-static struct CpuReg
-{
+  u8 op;
+  u8 b;
   u8 a;
   u16 pc;
-  u8 sp;
+  u8 s;
   u8 p;
   u8 x;
   u8 y;
-} cpu_reg;
+} cpu;
 
-static struct
+
+static struct Bus
 {
-  u8 ctrl;
-  u8 mask;
-  u8 status;
+  u8 ppu_ctrl;
+  u8 ppu_mask;
+  u8 ppu_status;
   u8 oam_addr;
   u8 oam_data;
-  u8 scroll;
-  u8 addr;
-  u8 data;
-} ppu_reg;
+  u8 ppu_scroll;
+  u8 ppu_addr;
+  u8 ppu_data;
 
-static struct
-{
   u8 apu[0x14];
   u8 oam_dma;
   u8 apu_ctrl_status;
   u8 joy1;
   u8 joy2_frame;
-} apu_reg;
+
+  u8 pad[8];
+} bus;
 
 typedef struct
 {
@@ -138,37 +135,36 @@ typedef struct
   u8 pad[8];
 } NESHeader;
 
-static u8* cpu_map_(u16 ptr)
+static u8* cpu_map(u16 addr, bool readonly)
 {
-  if (ptr < 0x2000) {
-    return ram + (ptr & 0x07FF);
+  if (addr < 0x2000) {
+    return ram + (addr & 0x07FF);
   }
-  if (ptr < 0x4000) {
-    return &ppu_reg.ctrl + (ptr & 0x7);
+  if (addr < 0x4000) {
+    return &bus.ppu_ctrl + (addr & 0x7);
   }
-  if (ptr < 0x4018) {
-    return apu_reg.apu + (ptr & 0x1F);
+  if (addr < 0x4020) {
+    return bus.apu + (addr & 0x1F);
   }
-  if (ptr < 0x5000) {
-    errorf("cpu_map failed 0x4018 < %04X < 0x5000\n", ptr);
-    return 0; // todo
+  if (addr < 0x5000) {
+    // todo: eram too?
+    errorf("cpu_map failed 0x4018 < %04X < 0x5000\n", addr);
+    exit(1);
+    return 0;
   }
-  if (ptr < 0x6000) {
-    return eram + (ptr & 0xFFF);
+  if (addr < 0x6000) {
+    return readonly ? eram + (addr & 0xFFF) : 0;
   }
-  if (ptr < 0x8000) {
-    return sram + (ptr & 0x1FFF);
+  if (addr < 0x8000) {
+    return sram + (addr & 0x1FFF);
   }
-  if (ctx.rom_pages == 1) {
-    return rom + (ptr & 0x3FFF);
+  if (!readonly) {
+    return 0;
   }
-  return rom + (ptr & 0x7FFF);
-}
-
-static u8* cpu_map(u16 ptr)
-{
-  ++ctx.cycle;
-  return cpu_map_(ptr);
+  if (cpu.rom_pages == 1) {
+    return rom + (addr & 0x3FFF);
+  }
+  return rom + (addr & 0x7FFF);
 }
 
 static void* ppu_map(u16)
@@ -177,60 +173,78 @@ static void* ppu_map(u16)
   return 0;
 }
 
-
 #ifdef MN_TRACE
-static int start_cycle = 0;
-static struct CpuReg start_cpu_reg;
-static const char* trace_opname = "";
+static struct
+{
+  struct Cpu cpu;
+  const char* opname;
+  u16 addr0;
+  u16 addr;
+  u8 val;
+} trace;
 
-#define trace_op(val) trace_opname = val
-#define trace_opcode(val, code) \
-  trace_opname = val;           \
-  code
-#define trace_tick(fmt, ...)                                                                                   \
-  _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")                 \
-    tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",               \
-           *cpu_map_(start_cpu_reg.pc + 1), *cpu_map_(start_cpu_reg.pc + 2), *cpu_map_(start_cpu_reg.pc),      \
-           start_cpu_reg.pc, trace_opname, start_cpu_reg.a, start_cpu_reg.x, start_cpu_reg.y, start_cpu_reg.p, \
-           start_cpu_reg.sp, -10, -10, start_cycle, __VA_ARGS__) _Pragma("clang diagnostic pop")
+#define trace_addr0(code) trace.addr0 = code
+#define trace_addr(code) trace.addr = code, trace.val = *cpu_map(trace.addr, true), trace.addr
+#define trace_tick(fmt)                                                                                           \
+  _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")                    \
+    tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",                  \
+           *cpu_map(trace.cpu.pc + 1, true), *cpu_map(trace.cpu.pc + 2, true), *cpu_map(trace.cpu.pc, true),      \
+           trace.cpu.pc, trace.opname, trace.cpu.a, trace.cpu.x, trace.cpu.y, trace.cpu.p, trace.cpu.s, -10, -10, \
+           trace.cpu.cycle, trace.addr0, trace.addr, trace.val) _Pragma("clang diagnostic pop")
+#define trace_tick0(fmt) trace_tick("%4$04X  %3$02X       %5$4s " fmt);
+#define trace_tick1(fmt) trace_tick("%4$04X  %3$02X %1$02X    %5$4s " fmt);
+#define trace_tick2(fmt) trace_tick("%4$04X  %3$02X %1$02X %2$02X %5$4s " fmt);
 
+static void trace_tick_addr(u8 am)
+{
+  switch (am) {
+    case CPU_ADDR_IMP: trace_tick0("                          "); break;
+    case CPU_ADDR_ACC: trace_tick0("A                         "); break;
+    case CPU_ADDR_IMM: trace_tick1("#$%1$02X                      "); break;
+    case CPU_ADDR_REL: trace_tick1("$%15$04X                     "); break;
+    case CPU_ADDR_ABS: {
+      u8 op = *cpu_map(trace.cpu.pc, true);
+      if (op == 0x20 || op == 0x4C) {
+        trace_tick2("$%15$04X                     ");
+      } else {
+        trace_tick2("$%15$04X = %16$02X                ");
+      }
+      break;
+    }
+    case CPU_ADDR_ABX: trace_tick2("$%2$02X%1$02X,X @ %15$04X = %16$02X       "); break;
+    case CPU_ADDR_ABY: trace_tick2("$%2$02X%1$02X,Y @ %15$04X = %16$02X       "); break;
+    case CPU_ADDR_IND: trace_tick2("($%2$02X%1$02X) = %15$04X               "); break;
+    case CPU_ADDR_NDX: trace_tick1("($%1$02X,X) @ %14$02X = %15$04X = %16$02X  "); break;
+    case CPU_ADDR_NDY: trace_tick1("($%1$02X),Y = %14$04X @ %15$04X = %16$02X"); break;
+    case CPU_ADDR_ZPG: trace_tick1("$%1$02X = %16$02X                  "); break;
+    case CPU_ADDR_ZPX: trace_tick1("$%1$02X,X @ %15$02X = %16$02X           "); break;
+    case CPU_ADDR_ZPY: trace_tick1("$%1$02X,Y @ %15$02X = %16$02X           "); break;
+  }
+}
+
+#define trace_opcode(val, op, am) \
+  trace.opname = val;             \
+  op(am);                         \
+  trace_tick_addr(am)
 #else
-#define trace_op(val) (void)0
-#define trace_opcode(val, code) code
-#define trace_tick(args, fmt, ...) (void)0
+#define trace_addr0(code) code
+#define trace_addr(code) code
+#define trace_opcode(val, op, am) op(am)
 #endif
 
-#define trace_tick0(fmt, ...) trace_tick("%4$04X  %3$02X       %5$4s " fmt, __VA_ARGS__);
-#define trace_tick1(fmt, ...) trace_tick("%4$04X  %3$02X %1$02X    %5$4s " fmt, __VA_ARGS__);
-#define trace_tick2(fmt, ...) trace_tick("%4$04X  %3$02X %1$02X %2$02X %5$4s " fmt, __VA_ARGS__);
-
-#define trace_abs(ptr) trace_tick2("$%14$04X = %15$02X                ", ptr, *cpu_map_(ptr))
-#define trace_abx(ptr) trace_tick2("$%2$02X%1$02X,X @ %14$04X = %15$02X       ", ptr, *cpu_map_(ptr))
-#define trace_aby(ptr) trace_tick2("$%2$02X%1$02X,Y @ %14$04X = %15$02X       ", ptr, *cpu_map_(ptr))
-#define trace_acc() trace_tick0("A                         ", 0)
-#define trace_imm() trace_tick1("#$%1$02X                      ", 0)
-#define trace_imp() trace_tick0("                          ", 0)
-#define trace_ind(ptr0, ptr1) trace_tick2("($%14$04X) = %15$04X               ", ptr0, ptr1)
-#define trace_jmp(ptr) trace_tick2("$%14$04X                     ", ptr)
-#define trace_ndx(ptr0, ptr1) trace_tick1("($%1$02X,X) @ %14$02X = %15$04X = %16$02X  ", ptr0, ptr1, *cpu_map_(ptr1))
-#define trace_ndy(ptr0, ptr1) trace_tick1("($%1$02X),Y = %14$04X @ %15$04X = %16$02X", ptr0, ptr1, *cpu_map_(ptr1))
-#define trace_rel(ptr) trace_tick1("$%14$04X                     ", ptr, *cpu_map_(ptr))
-#define trace_zpg(ptr) trace_tick1("$%1$02X = %15$02X                  ", ptr, *cpu_map_(ptr))
-#define trace_zpx(ptr) trace_tick1("$%1$02X,X @ %14$02X = %15$02X           ", ptr, *cpu_map_(ptr))
-#define trace_zpy(ptr) trace_tick1("$%1$02X,Y @ %14$02X = %15$02X           ", ptr, *cpu_map_(ptr))
 
 static u8 cpu_flag_zn(u8 val)
 {
   if (val == 0) {
-    cpu_reg.p |= CPU_FLAG_ZERO;
+    cpu.p |= CPU_FLAG_ZERO;
   } else {
-    cpu_reg.p &= ~CPU_FLAG_ZERO;
+    cpu.p &= ~CPU_FLAG_ZERO;
   }
 
   if (val & 0x80) {
-    cpu_reg.p |= CPU_FLAG_NEGATIVE;
+    cpu.p |= CPU_FLAG_NEGATIVE;
   } else {
-    cpu_reg.p &= ~CPU_FLAG_NEGATIVE;
+    cpu.p &= ~CPU_FLAG_NEGATIVE;
   }
   return val;
 }
@@ -238,238 +252,150 @@ static u8 cpu_flag_zn(u8 val)
 static void cpu_flag_carry(bool cond)
 {
   if (cond) {
-    cpu_reg.p |= CPU_FLAG_CARRY;
+    cpu.p |= CPU_FLAG_CARRY;
   } else {
-    cpu_reg.p &= ~CPU_FLAG_CARRY;
+    cpu.p &= ~CPU_FLAG_CARRY;
   }
 }
 
 static void cpu_flag_overflow(u8 a, u8 b, u8 res)
 {
   if ((~(a ^ b) & (a ^ res)) & 0x80) {
-    cpu_reg.p |= CPU_FLAG_OVERFLOW;
+    cpu.p |= CPU_FLAG_OVERFLOW;
   } else {
-    cpu_reg.p &= ~CPU_FLAG_OVERFLOW;
+    cpu.p &= ~CPU_FLAG_OVERFLOW;
   }
 }
 
-static u8 cpu_read_ptr(u16 ptr) { return *cpu_map(ptr); }
-static u16 cpu_read16_ptr(u16 ptr) { return (u16)cpu_read_ptr(ptr) | ((u16)cpu_read_ptr(ptr + 1) << 8); }
-static u16 cpu_read16_zptr(u8 zptr) { return (u16)cpu_read_ptr(zptr) | ((u16)cpu_read_ptr((u8)(zptr + 1)) << 8); }
-static void cpu_write_ptr(u16 ptr, u8 val) { *cpu_map(ptr) = val; }
+static u8 cpu_read_addr(u16 addr)
+{
+  ++cpu.cycle;
+  u8* p = cpu_map(addr, true);
+  return p ? *p : 0;
+}
 
-static u8 cpu_op() { return cpu_read_ptr(cpu_reg.pc++); }
+static void cpu_write_addr(u16 addr, u8 val)
+{
+  ++cpu.cycle;
+  u8* p = cpu_map(addr, false);
+  if (p) {
+    *p = val;
+  }
+}
+
+static u16 cpu_read16_addr(u16 addr) { return (u16)cpu_read_addr(addr) | ((u16)cpu_read_addr(addr + 1) << 8); }
+static u16 cpu_read16_zptr(u8 zptr) { return (u16)cpu_read_addr(zptr) | ((u16)cpu_read_addr((u8)(zptr + 1)) << 8); }
+static u8 cpu_op() { return cpu_read_addr(cpu.pc++); }
 static u16 cpu_op16() { return (u16)cpu_op() | ((u16)cpu_op() << 8); }
 
-static u16 cpu_addr_abs()
-{
-  u16 ptr = cpu_op16();
-  trace_abs(ptr);
-  return ptr;
-}
-
-static u16 cpu_addr_abx(bool write)
-{
-  u16 val = cpu_op16();
-  if (write || (((u16)(u8)val + cpu_reg.x) & 0xFF00)) {
-    ++ctx.cycle;
-  }
-  u16 ptr = val + cpu_reg.x;
-  trace_abx(ptr);
-  return ptr;
-}
-
-static u16 cpu_addr_aby(bool write)
-{
-  u16 val = cpu_op16();
-  if (write || (((u16)(u8)val + cpu_reg.y) & 0xFF00)) {
-    ++ctx.cycle;
-  }
-  u16 ptr = val + cpu_reg.y;
-  trace_aby(ptr);
-  return ptr;
-}
-
-static u8 cpu_read_acc()
-{
-  ++ctx.cycle;
-  trace_acc();
-  return cpu_reg.a;
-}
-
-static u8 cpu_read_imm()
-{
-  trace_imm();
-  return cpu_op();
-}
-
-static u8 cpu_read_imp(u8 val)
-{
-  ++ctx.cycle;
-  trace_imp();
-  return val;
-}
-
-static u16 cpu_addr_ind()
-{
-  u16 ptr0 = cpu_op16();
-  u8 lo = cpu_read_ptr(ptr0);
-  u16 hi_ptr = (ptr0 & 0xFF00) | ((ptr0 + 1) & 0x00FF); // NES bug: incrementing only low byte
-  u8 hi = cpu_read_ptr(hi_ptr);
-  u16 ptr1 = (u16)lo | ((u16)hi << 8);
-  trace_ind(ptr0, ptr1);
-  return ptr1;
-}
-
-static u16 cpu_addr_jmp()
-{
-  u16 ptr = cpu_op16();
-  trace_jmp(ptr);
-  return ptr;
-}
-
-static u16 cpu_addr_ndx()
-{
-  ++ctx.cycle;
-  u16 zptr = (u8)(cpu_op() + cpu_reg.x);
-  u16 ptr = cpu_read16_zptr(zptr);
-  trace_ndx(zptr, ptr);
-  return ptr;
-}
-
-static u16 cpu_addr_ndy(bool write)
-{
-  u16 ptr0 = cpu_read16_zptr(cpu_op());
-  if (write || (((u16)(u8)ptr0 + cpu_reg.y) & 0xFF00)) {
-    ++ctx.cycle;
-  }
-  u16 ptr1 = ptr0 + cpu_reg.y;
-  trace_ndy(ptr0, ptr1);
-  return ptr1;
-}
-
-static u16 cpu_addr_rel()
-{
-  i8 val = (i8)cpu_op();
-  u16 ptr = cpu_reg.pc + val;
-  trace_rel(ptr);
-  return ptr;
-}
-
-static u16 cpu_addr_zpg()
-{
-  u16 ptr = cpu_op();
-  trace_zpg(ptr);
-  return ptr;
-}
-
-static u16 cpu_addr_zpx()
-{
-  ++ctx.cycle;
-  u16 ptr = (u8)(cpu_op() + cpu_reg.x);
-  trace_zpx(ptr);
-  return ptr;
-}
-
-static u16 cpu_addr_zpy()
-{
-  ++ctx.cycle;
-  u16 ptr = (u8)(cpu_op() + cpu_reg.y);
-  trace_zpy(ptr);
-  return ptr;
-}
-
-static void cpu_stack_push(u8 val) { cpu_write_ptr(0x100 | cpu_reg.sp--, val); }
-
-static u8 cpu_stack_pop()
-{
-  ++ctx.cycle;
-  return cpu_read_ptr(++cpu_reg.sp | 0x100);
-}
-
-static void cpu_stack_push16(u16 val)
-{
-  cpu_stack_push((u8)(val >> 8));
-  cpu_stack_push((u8)(val & 0xFF));
-}
-
+static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
+static u8 cpu_stack_pop() { return ++cpu.cycle, cpu_read_addr(++cpu.s | 0x0100); }
+static void cpu_stack_push16(u16 val) { cpu_stack_push((u8)(val >> 8)), cpu_stack_push((u8)(val & 0xFF)); }
 static u16 cpu_stack_pop16() { return (u16)cpu_stack_pop() | ((u16)cpu_stack_pop() << 8); }
 
-
-static u16 cpu_addr(u8 addr, bool write)
+static u16 cpu_addr_offset(u16 addr, int offset, bool readonly)
 {
-  switch (addr) {
-    case CPU_ADDR_NDX: return cpu_addr_ndx();
-    case CPU_ADDR_ZPG: return cpu_addr_zpg();
-    case CPU_ADDR_ABS: return cpu_addr_abs();
-    case CPU_ADDR_NDY: return cpu_addr_ndy(write);
-    case CPU_ADDR_ZPX: return cpu_addr_zpx();
-    case CPU_ADDR_ABY: return cpu_addr_aby(write);
-    case CPU_ADDR_ABX: return cpu_addr_abx(write);
-
-    case CPU_ADDR_ZPY: return cpu_addr_zpy();
+  if (!readonly || (((u16)(u8)addr + offset) & 0xFF00)) {
+    ++cpu.cycle;
   }
-  errorf("wrong address method %d\n", addr);
-  exit(1);
+  return addr + offset;
+}
+
+static u16 cpu_addr(u8 am, bool readonly)
+{
+  switch (am) {
+    case CPU_ADDR_IMM: return cpu.pc++;
+    case CPU_ADDR_IND: {
+      u16 addr0 = trace_addr0(cpu_op16());
+      u8 lo = cpu_read_addr(addr0);
+      u16 hi_ptr = (addr0 & 0xFF00) | ((addr0 + 1) & 0x00FF); // NES bug: incrementing only low byte
+      u8 hi = cpu_read_addr(hi_ptr);
+      return trace_addr((u16)lo | ((u16)hi << 8));
+    }
+    case CPU_ADDR_REL: i8 off = (i8)cpu_op(); return trace_addr(cpu_addr_offset(cpu.pc, off, readonly));
+    case CPU_ADDR_ABS: return trace_addr(cpu_op16());
+    case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_op16()), cpu.x, readonly));
+    case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_op16()), cpu.y, readonly));
+    case CPU_ADDR_NDX: ++cpu.cycle; return trace_addr(cpu_read16_zptr(trace_addr0((u8)(cpu_op() + cpu.x))));
+    case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_op())), cpu.y, readonly));
+    case CPU_ADDR_ZPG: return trace_addr(cpu_op());
+    case CPU_ADDR_ZPX: ++cpu.cycle; return trace_addr((u8)(cpu_op() + cpu.x));
+    case CPU_ADDR_ZPY: ++cpu.cycle; return trace_addr((u8)(cpu_op() + cpu.y));
+  }
   return 0;
 }
 
-static u8 cpu_read(u8 addr)
+static u8 cpu_read(u8 am)
 {
-  switch (addr) {
-    case CPU_ADDR_IMM: return cpu_read_imm();
-    case CPU_ADDR_ACC: return cpu_read_acc();
-    case CPU_ADDR_IMA: return cpu_read_imp(cpu_reg.a);
-    case CPU_ADDR_STA: return cpu_read_imp(cpu_reg.sp);
-    case CPU_ADDR_XXX: return cpu_read_imp(cpu_reg.x);
-    case CPU_ADDR_YYY: return cpu_read_imp(cpu_reg.y);
+  switch (am) {
+    case CPU_ADDR_ACC: return cpu.a;
   }
-  return cpu_read_ptr(cpu_addr(addr, false));
+  return cpu_read_addr(cpu_addr(am, true));
 }
 
-static void cpu_write(u8 addr, u8 val)
+static void cpu_write(u8 am, u8 val)
 {
-  switch (addr) {
-    case CPU_ADDR_IMM: trace_opcode("*NOP", cpu_read_imm()); return;
-    case CPU_ADDR_ACC:
-    case CPU_ADDR_IMA: cpu_reg.a = cpu_flag_zn(cpu_read_imp(val)); return;
-    case CPU_ADDR_STA: cpu_reg.sp = cpu_read_imp(val); return;
-    case CPU_ADDR_XXX: cpu_reg.x = cpu_flag_zn(cpu_read_imp(val)); return;
-    case CPU_ADDR_YYY: cpu_reg.y = cpu_flag_zn(cpu_read_imp(val)); return;
+  switch (am) {
+    case CPU_ADDR_ACC: cpu.a = cpu_flag_zn(val); return;
   }
-  cpu_write_ptr(cpu_addr(addr, true), val);
+  cpu_write_addr(cpu_addr(am, false), val);
 }
 
-static void cpu_read_write(u8 addr, u8 (*cb)(u8))
+static void cpu_read_write(u8 am, u8 (*cb)(u8))
 {
-  switch (addr) {
-    case CPU_ADDR_NDY: trace_opcode("*KIL", exit(cpu_read_imp(1))); return;
-    case CPU_ADDR_ABY: trace_opcode("*NOP", cpu_read_imp(0)); return;
-    case CPU_ADDR_IMM: trace_opcode("*NOP", cpu_read_imm()); return;
-    case CPU_ADDR_ACC:
-    case CPU_ADDR_IMA: cpu_reg.a = cpu_flag_zn(cb(cpu_read(addr))); return;
-    case CPU_ADDR_STA: cpu_reg.sp = cb(cpu_read(addr)); return;
-    case CPU_ADDR_XXX: cpu_reg.x = cpu_flag_zn(cb(cpu_read(addr))); return;
-    case CPU_ADDR_YYY: cpu_reg.y = cpu_flag_zn(cb(cpu_read(addr))); return;
+  ++cpu.cycle;
+  switch (am) {
+    case CPU_ADDR_ACC: cpu.a = cpu_flag_zn(cb(cpu.a)); return;
   }
-  u16 ptr = cpu_addr(addr, true);
-  cpu_write_ptr(ptr, cb(cpu_read_ptr(ptr)));
-  ++ctx.cycle;
+  u16 addr = cpu_addr(am, false);
+  cpu_write_addr(addr, cb(cpu_read_addr(addr)));
 }
+
+static void cpu_op_LDA(u8 am) { cpu.a = cpu_flag_zn(cpu_read(am)); }
+static void cpu_op_LDX(u8 am) { cpu.x = cpu_flag_zn(cpu_read(am)); }
+static void cpu_op_LDY(u8 am) { cpu.y = cpu_flag_zn(cpu_read(am)); }
+
+static void cpu_op_STA(u8 am) { cpu_write(am, cpu.a); }
+static void cpu_op_STX(u8 am) { cpu_write(am, cpu.x); }
+static void cpu_op_STY(u8 am) { cpu_write(am, cpu.y); }
+
+static void cpu_op_TAX(u8 am) { cpu_read(am), cpu.x = cpu_flag_zn(cpu.a); }
+static void cpu_op_TAY(u8 am) { cpu_read(am), cpu.y = cpu_flag_zn(cpu.a); }
+static void cpu_op_TXA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu.x); }
+static void cpu_op_TYA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu.y); }
+
+static void cpu_op_TSX(u8 am) { cpu_read(am), cpu.x = cpu_flag_zn(cpu.s); }
+static void cpu_op_TXS(u8 am) { cpu_read(am), cpu.s = cpu.x; }
+
+static void cpu_op_PHA(u8 am) { cpu_read(am), cpu_stack_push(cpu.a); }
+static void cpu_op_PHP(u8 am) { cpu_read(am), cpu_stack_push(cpu.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE); }
+static void cpu_op_PLA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu_stack_pop()); }
+static void cpu_op_PLP(u8 am) { cpu_read(am), cpu.p = (cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE; }
+
+static void cpu_op_AND(u8 am) { cpu.a = cpu_flag_zn(cpu.a & cpu_read(am)); }
+static void cpu_op_ORA(u8 am) { cpu.a = cpu_flag_zn(cpu.a | cpu_read(am)); }
+static void cpu_op_EOR(u8 am) { cpu.a = cpu_flag_zn(cpu.a ^ cpu_read(am)); }
 
 static void cpu_adc(u8 val)
 {
-  u16 res = (u16)cpu_reg.a + (u16)val + (u16)(cpu_reg.p & CPU_FLAG_CARRY);
+  u16 res = (u16)cpu.a + (u16)val + (u16)(cpu.p & CPU_FLAG_CARRY);
   cpu_flag_carry(res > 0xFF);
-  cpu_flag_overflow(cpu_reg.a, val, (u8)res);
-  cpu_reg.a = cpu_flag_zn((u8)res);
+  cpu_flag_overflow(cpu.a, val, (u8)res);
+  cpu.a = cpu_flag_zn((u8)res);
 }
 
-static void cpu_cmp(u8 reg, u8 val)
-{
-  cpu_flag_carry(reg >= val);
-  cpu_flag_zn(reg - val);
-}
+static void cpu_op_ADC(u8 am) { cpu_adc(cpu_read(am)); }
+static void cpu_op_SBC(u8 am) { cpu_adc(~cpu_read(am)); }
+
+static u8 cpu_inc(u8 val) { return cpu_flag_zn(val + 1); }
+static void cpu_op_INC(u8 am) { cpu_read_write(am, cpu_inc); }
+static void cpu_op_INX(u8 am) { cpu_read(am), cpu_flag_zn(++cpu.x); }
+static void cpu_op_INY(u8 am) { cpu_read(am), cpu_flag_zn(++cpu.y); }
+
+static u8 cpu_dec(u8 val) { return cpu_flag_zn(val - 1); }
+static void cpu_op_DEC(u8 am) { cpu_read_write(am, cpu_dec); }
+static void cpu_op_DEX(u8 am) { cpu_read(am), cpu_flag_zn(--cpu.x); }
+static void cpu_op_DEY(u8 am) { cpu_read(am), cpu_flag_zn(--cpu.y); }
 
 static u8 cpu_asl(u8 val)
 {
@@ -485,280 +411,227 @@ static u8 cpu_lsr(u8 val)
 
 static u8 cpu_rol(u8 val)
 {
-  u8 carry = (cpu_reg.p & CPU_FLAG_CARRY);
+  u8 carry = (cpu.p & CPU_FLAG_CARRY);
   cpu_flag_carry(val & 0x80);
   return cpu_flag_zn((val << 1) | carry);
 }
 
 static u8 cpu_ror(u8 val)
 {
-  u8 carry = (cpu_reg.p & CPU_FLAG_CARRY) ? 0x80 : 0;
+  u8 carry = (cpu.p & CPU_FLAG_CARRY) ? 0x80 : 0;
   cpu_flag_carry(val & 1);
   return cpu_flag_zn((val >> 1) | carry);
 }
 
-static u8 cpu_dec(u8 val) { return cpu_flag_zn(--val); }
+static void cpu_op_ASL(u8 am) { cpu_read_write(am, cpu_asl); }
+static void cpu_op_LSR(u8 am) { cpu_read_write(am, cpu_lsr); }
+static void cpu_op_ROL(u8 am) { cpu_read_write(am, cpu_rol); }
+static void cpu_op_ROR(u8 am) { cpu_read_write(am, cpu_ror); }
 
-static u8 cpu_inc(u8 val) { return cpu_flag_zn(++val); }
+static void cpu_op_CLC(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_CARRY; }
+static void cpu_op_CLD(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_DECIMAL; }
+static void cpu_op_CLI(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_INTERRUPT_DISABLED; }
+static void cpu_op_CLV(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_OVERFLOW; }
+static void cpu_op_SEC(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_CARRY; }
+static void cpu_op_SED(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_DECIMAL; }
+static void cpu_op_SEI(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_INTERRUPT_DISABLED; }
 
-static void cpu_brk()
+static void cpu_cmp(u8 am, u8 reg)
 {
-  cpu_read_imm();
-  cpu_stack_push16(cpu_reg.pc);
-  cpu_stack_push(cpu_reg.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE);
-  cpu_reg.p |= CPU_FLAG_INTERRUPT_DISABLED;
-  cpu_reg.pc = cpu_read16_ptr(CPU_INT_IRQBRK);
+  u8 val = cpu_read(am);
+  cpu_flag_carry(reg >= val);
+  cpu_flag_zn(reg - val);
 }
 
-static void cpu_rti()
-{
-  cpu_read_imp(0);
-  cpu_reg.p = (cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
-  cpu_reg.pc = cpu_stack_pop16();
-  ctx.cycle -= 2; // sequential stack
-}
+static void cpu_op_CMP(u8 am) { cpu_cmp(am, cpu.a); }
+static void cpu_op_CPX(u8 am) { cpu_cmp(am, cpu.x); }
+static void cpu_op_CPY(u8 am) { cpu_cmp(am, cpu.y); }
 
-static void cpu_jsr()
+static void cpu_op_BIT(u8 am)
 {
-  ++ctx.cycle;
-  u16 ptr = cpu_addr_jmp();
-  cpu_stack_push16(cpu_reg.pc - 1);
-  cpu_reg.pc = ptr;
-}
-
-static void cpu_rts()
-{
-  cpu_read_imp(0);
-  cpu_reg.pc = cpu_stack_pop16() + 1;
-}
-
-static void cpu_branch(u8 flag, bool cond)
-{
-  u16 ptr = cpu_addr_rel();
-  if (((cpu_reg.p & flag) != 0) == cond) {
-    ++ctx.cycle;
-    cpu_reg.pc = ptr;
-  }
-}
-
-static void cpu_bit(u8 addr)
-{
-  u8 val = cpu_read(addr);
-  if ((cpu_reg.a & val) == 0) {
-    cpu_reg.p |= CPU_FLAG_ZERO;
+  u8 val = cpu_read(am);
+  if ((cpu.a & val) == 0) {
+    cpu.p |= CPU_FLAG_ZERO;
   } else {
-    cpu_reg.p &= ~CPU_FLAG_ZERO;
+    cpu.p &= ~CPU_FLAG_ZERO;
   }
-  cpu_reg.p &= ~(CPU_FLAG_NEGATIVE | CPU_FLAG_OVERFLOW);
-  cpu_reg.p |= (val & 0xC0);
+  cpu.p &= ~(CPU_FLAG_NEGATIVE | CPU_FLAG_OVERFLOW);
+  cpu.p |= (val & 0xC0);
 }
 
-static void cpu_reset()
+static void cpu_branch(u8 am, u8 flag, bool cond)
 {
-  ctx.cycle = 5;
-
-  cpu_reg.a = 0;
-  cpu_reg.pc = cpu_read16_ptr(CPU_INT_RESET);
-  cpu_reg.pc = 0xC000;
-  cpu_reg.sp = 0xFD;
-  cpu_reg.p = CPU_FLAG_ALWAYS_ONE | CPU_FLAG_INTERRUPT_DISABLED;
-  cpu_reg.x = 0;
-  cpu_reg.y = 0;
+  if (((cpu.p & flag) != 0) == cond) {
+    ++cpu.cycle;
+    cpu.pc = cpu_addr(am, true);
+  } else {
+    --cpu.cycle;
+    cpu_addr(am, false);
+  }
 }
 
+static void cpu_op_BPL(u8 am) { cpu_branch(am, CPU_FLAG_NEGATIVE, 0); }
+static void cpu_op_BMI(u8 am) { cpu_branch(am, CPU_FLAG_NEGATIVE, 1); }
+static void cpu_op_BVC(u8 am) { cpu_branch(am, CPU_FLAG_OVERFLOW, 0); }
+static void cpu_op_BVS(u8 am) { cpu_branch(am, CPU_FLAG_OVERFLOW, 1); }
+static void cpu_op_BCC(u8 am) { cpu_branch(am, CPU_FLAG_CARRY, 0); }
+static void cpu_op_BCS(u8 am) { cpu_branch(am, CPU_FLAG_CARRY, 1); }
+static void cpu_op_BNE(u8 am) { cpu_branch(am, CPU_FLAG_ZERO, 0); }
+static void cpu_op_BEQ(u8 am) { cpu_branch(am, CPU_FLAG_ZERO, 1); }
+
+static void cpu_op_JMP(u8 am) { cpu.pc = cpu_addr(am, true); }
+
+static void cpu_op_JSR(u8 am)
+{
+  ++cpu.cycle;
+  u16 addr = cpu_addr(am, true);
+  cpu_stack_push16(cpu.pc - 1);
+  cpu.pc = addr;
+}
+
+static void cpu_op_RTS(u8 am) { cpu_read(am), cpu.pc = cpu_stack_pop16() + 1; }
+
+static void cpu_op_BRK(u8 am)
+{
+  cpu_read(am);
+  cpu_stack_push16(cpu.pc);
+  cpu_stack_push(cpu.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE);
+  cpu.p |= CPU_FLAG_INTERRUPT_DISABLED;
+  cpu.pc = cpu_read16_addr(CPU_INT_IRQBRK);
+}
+
+static void cpu_op_RTI(u8 am)
+{
+  cpu_read(am);
+  cpu.p = (cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
+  cpu.pc = cpu_stack_pop16();
+  cpu.cycle -= 2; // sequential stack
+}
+
+static void cpu_op_NOP(u8 am) { cpu_read(am); }
+
+static void cpu_op_KIL(u8)
+{
+  errorf("KIL\n");
+  exit(1);
+}
+
+static void cpu_parallel(u8 am, void (*op0)(u8), void (*op1)(u8))
+{
+  u16 pc = cpu.pc;
+  op0(am);
+  int cycle = cpu.cycle;
+#ifdef MN_TRACE
+  u8 val = trace.val;
+#endif
+  cpu.pc = pc;
+  op1(am);
+  cpu.cycle = cycle;
+#ifdef MN_TRACE
+  trace.val = val;
+#endif
+}
+
+static void cpu_op_SLO(u8 am) { cpu_parallel(am, cpu_op_ASL, cpu_op_ORA); }
+static void cpu_op_RLA(u8 am) { cpu_parallel(am, cpu_op_ROL, cpu_op_AND); }
+static void cpu_op_SRE(u8 am) { cpu_parallel(am, cpu_op_LSR, cpu_op_EOR); }
+static void cpu_op_RRA(u8 am) { cpu_parallel(am, cpu_op_ROR, cpu_op_ADC); }
+static void cpu_op_SAX(u8 am) { cpu_write(am, cpu.a & cpu.x); }
+static void cpu_op_LAX(u8 am) { cpu_parallel(am, cpu_op_LDA, cpu_op_LDX); }
+static void cpu_op_DCP(u8 am) { cpu_parallel(am, cpu_op_DEC, cpu_op_CMP); }
+static void cpu_op_ISB(u8 am) { cpu_parallel(am, cpu_op_INC, cpu_op_SBC); }
+
+static void cpu_op_AAC(u8 am) { cpu_op_KIL(am) /*, cpu_op_AND(am), cpu_op_ASL(am)*/; }
+static void cpu_op_ASR(u8 am) { cpu_op_KIL(am) /*, cpu_op_AND(am), cpu_op_LSR(am)*/; }
+static void cpu_op_ARR(u8 am) { cpu_op_KIL(am) /*, cpu_op_AND(am), cpu_op_ROR(am)*/; }
+static void cpu_op_ATX(u8 am) { cpu_op_KIL(am) /*, cpu_op_AND(am), cpu_op_TAX(am)*/; }
+static void cpu_op_AXS(u8 am) { cpu_op_KIL(am) /*, cpu_op_CMP(am), cpu_op_DEX(am)*/; }
+
+static void cpu_op_LAR(u8 am) { cpu_op_KIL(am) /*, cpu.a = cpu.x = cpu.s = cpu_flag_zn(cpu_read(am) & cpu.s)*/; }
+
+static void cpu_op_SXA(u8 am) { cpu_op_KIL(am) /*, cpu_write(cpu.x & ((cpu.addr >> 8) + 1))*/; }
+static void cpu_op_SYA(u8 am) { cpu_op_KIL(am) /*, cpu_write(cpu.y & ((cpu.addr >> 8) + 1))*/; }
+
+static void cpu_op_XAA(u8 am) { cpu_op_KIL(am) /*, cpu.a = cpu_flag_zn(cpu_read() & cpu.x)*/; }
+static void cpu_op_AXA(u8 am) { cpu_op_KIL(am) /*, cpu_write(cpu.a & cpu.x & ((cpu.addr >> 8) + 1))*/; }
+static void cpu_op_XAS(u8 am) { cpu_op_KIL(am) /*, cpu.s = cpu.a & cpu.x, cpu_write(cpu.s & ((cpu.addr >> 8) + 1))*/; }
+
+void mn_reset()
+{
+  cpu.cycle = 5;
+
+  cpu.a = 0;
+  cpu.pc = cpu_read16_addr(CPU_INT_RESET);
+  cpu.pc = 0xC000;
+  cpu.s = 0xFD;
+  cpu.p = CPU_FLAG_ALWAYS_ONE | CPU_FLAG_INTERRUPT_DISABLED;
+  cpu.x = 0;
+  cpu.y = 0;
+}
 
 void mn_tick()
 {
 #ifdef MN_TRACE
-  start_cycle = ctx.cycle;
-  start_cpu_reg = cpu_reg;
+  trace.cpu = cpu;
 #endif
 
-  if (ctx.skip > 0) {
-    --ctx.skip;
+  if (cpu.skip > 0) {
+    --cpu.skip;
     return;
   }
 
-  u8 op = cpu_op();
-  u8 aaacc = (op & 0b11100000) | (op & 0b00000011);
-  u8 addr = (op & 0b00011100) >> 2;
+  cpu.op = cpu_op();
 
-  switch (aaacc) {
-    case 0b00000000: {
-      switch (addr) {
-        case 0: trace_opcode("BRK", cpu_brk()); break;
-        case 2:
-          trace_opcode("PHP", cpu_stack_push(cpu_read_imp(cpu_reg.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE)));
-          break;
-        case 4: trace_opcode("BPL", cpu_branch(CPU_FLAG_NEGATIVE, 0)); break;
-        case 6: trace_opcode("CLC", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_CARRY)); break;
-        default: trace_opcode("*NOP", cpu_read(addr)); break;
-      }
-    } break;
-    case 0b00100000: {
-      switch (addr) {
-        case 0: trace_opcode("JSR", cpu_jsr()); break;
-        case 2:
-          trace_opcode("PLP", cpu_reg.p = cpu_read_imp((cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE));
-          break;
-        case 4: trace_opcode("BMI", cpu_branch(CPU_FLAG_NEGATIVE, 1)); break;
-        case 6: trace_opcode("SEC", cpu_reg.p = cpu_read_imp(cpu_reg.p | CPU_FLAG_CARRY)); break;
-        case 1:
-        case 3: trace_opcode("BIT", cpu_bit(addr)); break;
-        default: trace_opcode("*NOP", cpu_read(addr)); break;
-      }
-    } break;
-    case 0b01000000: {
-      switch (addr) {
-        case 0: trace_opcode("RTI", cpu_rti()); break;
-        case 2: trace_opcode("PHA", cpu_stack_push(cpu_read_imp(cpu_reg.a))); break;
-        case 4: trace_opcode("BVC", cpu_branch(CPU_FLAG_OVERFLOW, 0)); break;
-        case 6: trace_opcode("CLI", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_INTERRUPT_DISABLED)); break;
-        case 3: trace_opcode("JMP", cpu_reg.pc = cpu_addr_jmp()); break;
-        default: trace_opcode("*NOP", cpu_read(addr)); break;
-      }
-    } break;
-    case 0b01100000: {
-      switch (addr) {
-        case 0: trace_opcode("RTS", cpu_rts()); break;
-        case 2: trace_opcode("PLA", cpu_reg.a = cpu_flag_zn(cpu_read_imp(cpu_stack_pop()))); break;
-        case 4: trace_opcode("BVS", cpu_branch(CPU_FLAG_OVERFLOW, 1)); break;
-        case 6: trace_opcode("SEI", cpu_reg.p = cpu_read_imp(cpu_reg.p | CPU_FLAG_INTERRUPT_DISABLED)); break;
-        case 3: trace_opcode("JMP", cpu_reg.pc = cpu_addr_ind()); break;
-        default: trace_opcode("*NOP", cpu_read(addr)); break;
-      }
-    } break;
-    case 0b10000000: {
-      switch (addr) {
-        case 2: trace_opcode("DEY", cpu_read_write(CPU_ADDR_YYY, cpu_dec)); break;
-        case 4: trace_opcode("BCC", cpu_branch(CPU_FLAG_CARRY, 0)); break;
-        default:
-          trace_op("STY");
-          switch (addr) {
-            case 0: addr = CPU_ADDR_IMM; break;
-            case 6: trace_opcode("TYA", addr = CPU_ADDR_IMA); break;
-          }
-          cpu_write(addr, cpu_reg.y);
-          break;
-      }
-    } break;
-    case 0b10100000: {
-      switch (addr) {
-        case 4: trace_opcode("BCS", cpu_branch(CPU_FLAG_CARRY, 1)); break;
-        case 6: trace_opcode("CLV", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_OVERFLOW)); break;
-        default:
-          trace_op("LDY");
-          switch (addr) {
-            case 0: addr = CPU_ADDR_IMM; break;
-            case 2: trace_opcode("TAY", addr = CPU_ADDR_IMA); break;
-          }
-          cpu_reg.y = cpu_flag_zn(cpu_read(addr));
-          break;
-      }
-    } break;
-    case 0b11000000: {
-      switch (addr) {
-        case 2: trace_opcode("INY", cpu_read_write(CPU_ADDR_YYY, cpu_inc)); break;
-        case 4: trace_opcode("BNE", cpu_branch(CPU_FLAG_ZERO, 0)); break;
-        case 6: trace_opcode("CLD", cpu_reg.p = cpu_read_imp(cpu_reg.p & ~CPU_FLAG_DECIMAL)); break;
-        case 5:
-        case 7: trace_opcode("*NOP", cpu_read(addr)); break;
-        case 0: addr = CPU_ADDR_IMM;
-        default: trace_opcode("CPY", cpu_cmp(cpu_reg.y, cpu_read(addr))); break;
-      }
-    } break;
-    case 0b11100000: {
-      switch (addr) {
-        case 2: trace_opcode("INX", cpu_read_write(CPU_ADDR_XXX, cpu_inc)); break;
-        case 4: trace_opcode("BEQ", cpu_branch(CPU_FLAG_ZERO, 1)); break;
-        case 6: trace_opcode("SED", cpu_reg.p = cpu_read_imp(cpu_reg.p | CPU_FLAG_DECIMAL)); break;
-        case 5:
-        case 7: trace_opcode("*NOP", cpu_read(addr)); break;
-        case 0: addr = CPU_ADDR_IMM;
-        default: trace_opcode("CPX", cpu_cmp(cpu_reg.x, cpu_read(addr))); break;
-      }
-    } break;
-    case 0b00000001: trace_opcode("ORA", cpu_reg.a = cpu_flag_zn(cpu_reg.a | cpu_read(addr))); break;
-    case 0b00100001: trace_opcode("AND", cpu_reg.a = cpu_flag_zn(cpu_reg.a & cpu_read(addr))); break;
-    case 0b01000001: trace_opcode("EOR", cpu_reg.a = cpu_flag_zn(cpu_reg.a ^ cpu_read(addr))); break;
-    case 0b01100001: trace_opcode("ADC", cpu_adc(cpu_read(addr))); break;
-    case 0b10000001: trace_opcode("STA", cpu_write(addr, cpu_reg.a)); break;
-    case 0b10100001: trace_opcode("LDA", cpu_reg.a = cpu_flag_zn(cpu_read(addr))); break;
-    case 0b11000001: trace_opcode("CMP", cpu_cmp(cpu_reg.a, cpu_read(addr))); break;
-    case 0b11100001: trace_opcode("SBC", cpu_adc(~cpu_read(addr))); break;
-    case 0b00000010: {
-      switch (addr) {
-        case 2: addr = CPU_ADDR_ACC;
-        default: trace_opcode("ASL", cpu_read_write(addr, cpu_asl)); break;
-      }
-    } break;
-    case 0b00100010: {
-      switch (addr) {
-        case 2: addr = CPU_ADDR_ACC;
-        default: trace_opcode("ROL", cpu_read_write(addr, cpu_rol)); break;
-      }
-    } break;
-    case 0b01000010: {
-      switch (addr) {
-        case 2: addr = CPU_ADDR_ACC;
-        default: trace_opcode("LSR", cpu_read_write(addr, cpu_lsr)); break;
-      }
-    } break;
-    case 0b01100010: {
-      switch (addr) {
-        case 2: addr = CPU_ADDR_ACC;
-        default: trace_opcode("ROR", cpu_read_write(addr, cpu_ror)); break;
-      }
-    } break;
-    case 0b10000010: {
-      trace_op("STX");
-      switch (addr) {
-        case 0: addr = CPU_ADDR_IMM; break;
-        case 2: trace_opcode("TXA", addr = CPU_ADDR_IMA); break;
-        case 6: trace_opcode("TXS", addr = CPU_ADDR_STA); break;
-        case 5: addr = CPU_ADDR_ZPY; break;
-        case 7: addr = CPU_ADDR_ABY; break;
-      }
-      cpu_write(addr, cpu_reg.x);
-    } break;
-    case 0b10100010: {
-      trace_op("LDX");
-      switch (addr) {
-        case 0: addr = CPU_ADDR_IMM; break;
-        case 2: trace_opcode("TAX", addr = CPU_ADDR_IMA); break;
-        case 6: trace_opcode("TSX", addr = CPU_ADDR_STA); break;
-        case 5: addr = CPU_ADDR_ZPY; break;
-        case 7: addr = CPU_ADDR_ABY; break;
-      }
-      cpu_reg.x = cpu_flag_zn(cpu_read(addr));
-    } break;
-    case 0b11000010: {
-      trace_op("DEC");
-      switch (addr) {
-        case 0: addr = CPU_ADDR_IMM; break;
-        case 2: trace_opcode("DEX", addr = CPU_ADDR_XXX); break;
-      }
-      cpu_read_write(addr, cpu_dec);
-    } break;
-    case 0b11100010: {
-      switch (addr) {
-        case 2: trace_opcode("NOP", cpu_read_imp(0)); break;
-        case 0: addr = CPU_ADDR_IMM;
-        default: trace_opcode("INC", cpu_read_write(addr, cpu_inc)); break;
-      }
-    } break;
-    // case 0b00000011: break;
-    // case 0b00100011: break;
-    // case 0b01000011: break;
-    // case 0b01100011: break;
-    // case 0b10000011: break;
-    // case 0b10100011: break;
-    // case 0b11000011: break;
-    // case 0b11100011: break;
-    default:
-      errorf("unknown opcode %02X\n", op);
-      exit(cpu_read_imp(1));
-      break;
+  switch (cpu.op) {
+    // clang-format off
+#define L(cc, aaa, o0, o1, o2, o3, o4, o5, o6, o7) \
+  case (aaa << 5) | (0 << 2) | cc: o0; break; \
+  case (aaa << 5) | (2 << 2) | cc: o1; break; \
+  case (aaa << 5) | (4 << 2) | cc: o2; break; \
+  case (aaa << 5) | (6 << 2) | cc: o3; break; \
+  case (aaa << 5) | (1 << 2) | cc: o4; break; \
+  case (aaa << 5) | (3 << 2) | cc: o5; break; \
+  case (aaa << 5) | (5 << 2) | cc: o6; break; \
+  case (aaa << 5) | (7 << 2) | cc: o7; break;
+#define O(op, addr) trace_opcode(#op, cpu_op_##op, CPU_ADDR_##addr)
+#define X(op, addr) trace_opcode("*" #op, cpu_op_##op, CPU_ADDR_##addr)
+/*        xxx000xx     xxx010xx     xxx100xx     xxx110xx     xxx001xx     xxx011xx     xxx101xx     xxx111xx */
+L(0, 0, O(BRK, IMM), O(PHP, IMP), O(BPL, REL), O(CLC, IMP), X(NOP, ZPG), X(NOP, ABS), X(NOP, ZPX), X(NOP, ABX))
+L(0, 1, O(JSR, ABS), O(PLP, IMP), O(BMI, REL), O(SEC, IMP), O(BIT, ZPG), O(BIT, ABS), X(NOP, ZPX), X(NOP, ABX))
+L(0, 2, O(RTI, IMP), O(PHA, IMP), O(BVC, REL), O(CLI, IMP), X(NOP, ZPG), O(JMP, ABS), X(NOP, ZPX), X(NOP, ABX))
+L(0, 3, O(RTS, IMP), O(PLA, IMP), O(BVS, REL), O(SEI, IMP), X(NOP, ZPG), O(JMP, IND), X(NOP, ZPX), X(NOP, ABX))
+L(0, 4, X(NOP, IMM), O(DEY, IMP), O(BCC, REL), O(TYA, IMP), O(STY, ZPG), O(STY, ABS), O(STY, ZPX), X(SYA, ABX))
+L(0, 5, O(LDY, IMM), O(TAY, IMP), O(BCS, REL), O(CLV, IMP), O(LDY, ZPG), O(LDY, ABS), O(LDY, ZPX), O(LDY, ABX))
+L(0, 6, O(CPY, IMM), O(INY, IMP), O(BNE, REL), O(CLD, IMP), O(CPY, ZPG), O(CPY, ABS), X(NOP, ZPX), X(NOP, ABX))
+L(0, 7, O(CPX, IMM), O(INX, IMP), O(BEQ, REL), O(SED, IMP), O(CPX, ZPG), O(CPX, ABS), X(NOP, ZPX), X(NOP, ABX))
+L(1, 0, O(ORA, NDX), O(ORA, IMM), O(ORA, NDY), O(ORA, ABY), O(ORA, ZPG), O(ORA, ABS), O(ORA, ZPX), O(ORA, ABX))
+L(1, 1, O(AND, NDX), O(AND, IMM), O(AND, NDY), O(AND, ABY), O(AND, ZPG), O(AND, ABS), O(AND, ZPX), O(AND, ABX))
+L(1, 2, O(EOR, NDX), O(EOR, IMM), O(EOR, NDY), O(EOR, ABY), O(EOR, ZPG), O(EOR, ABS), O(EOR, ZPX), O(EOR, ABX))
+L(1, 3, O(ADC, NDX), O(ADC, IMM), O(ADC, NDY), O(ADC, ABY), O(ADC, ZPG), O(ADC, ABS), O(ADC, ZPX), O(ADC, ABX))
+L(1, 4, O(STA, NDX), X(NOP, IMM), O(STA, NDY), O(STA, ABY), O(STA, ZPG), O(STA, ABS), O(STA, ZPX), O(STA, ABX))
+L(1, 5, O(LDA, NDX), O(LDA, IMM), O(LDA, NDY), O(LDA, ABY), O(LDA, ZPG), O(LDA, ABS), O(LDA, ZPX), O(LDA, ABX))
+L(1, 6, O(CMP, NDX), O(CMP, IMM), O(CMP, NDY), O(CMP, ABY), O(CMP, ZPG), O(CMP, ABS), O(CMP, ZPX), O(CMP, ABX))
+L(1, 7, O(SBC, NDX), O(SBC, IMM), O(SBC, NDY), O(SBC, ABY), O(SBC, ZPG), O(SBC, ABS), O(SBC, ZPX), O(SBC, ABX))
+L(2, 0, X(KIL, IMP), O(ASL, ACC), X(KIL, IMP), X(NOP, IMP), O(ASL, ZPG), O(ASL, ABS), O(ASL, ZPX), O(ASL, ABX))
+L(2, 1, X(KIL, IMP), O(ROL, ACC), X(KIL, IMP), X(NOP, IMP), O(ROL, ZPG), O(ROL, ABS), O(ROL, ZPX), O(ROL, ABX))
+L(2, 2, X(KIL, IMP), O(LSR, ACC), X(KIL, IMP), X(NOP, IMP), O(LSR, ZPG), O(LSR, ABS), O(LSR, ZPX), O(LSR, ABX))
+L(2, 3, X(KIL, IMP), O(ROR, ACC), X(KIL, IMP), X(NOP, IMP), O(ROR, ZPG), O(ROR, ABS), O(ROR, ZPX), O(ROR, ABX))
+L(2, 4, X(NOP, IMM), O(TXA, IMP), X(KIL, IMP), O(TXS, IMP), O(STX, ZPG), O(STX, ABS), O(STX, ZPY), X(SXA, ABY))
+L(2, 5, O(LDX, IMM), O(TAX, IMP), X(KIL, IMP), O(TSX, IMP), O(LDX, ZPG), O(LDX, ABS), O(LDX, ZPY), O(LDX, ABY))
+L(2, 6, X(NOP, IMM), O(DEX, IMP), X(KIL, IMP), X(NOP, IMP), O(DEC, ZPG), O(DEC, ABS), O(DEC, ZPX), O(DEC, ABX))
+L(2, 7, X(NOP, IMM), O(NOP, IMP), X(KIL, IMP), X(NOP, IMP), O(INC, ZPG), O(INC, ABS), O(INC, ZPX), O(INC, ABX))
+L(3, 0, X(SLO, NDX), X(AAC, IMM), X(SLO, NDY), X(SLO, ABY), X(SLO, ZPG), X(SLO, ABS), X(SLO, ZPX), X(SLO, ABX))
+L(3, 1, X(RLA, NDX), X(AAC, IMM), X(RLA, NDY), X(RLA, ABY), X(RLA, ZPG), X(RLA, ABS), X(RLA, ZPX), X(RLA, ABX))
+L(3, 2, X(SRE, NDX), X(ASR, IMM), X(SRE, NDY), X(SRE, ABY), X(SRE, ZPG), X(SRE, ABS), X(SRE, ZPX), X(SRE, ABX))
+L(3, 3, X(RRA, NDX), X(ARR, IMM), X(RRA, NDY), X(RRA, ABY), X(RRA, ZPG), X(RRA, ABS), X(RRA, ZPX), X(RRA, ABX))
+L(3, 4, X(SAX, NDX), X(XAA, IMM), X(AXA, NDY), X(XAS, ABY), X(SAX, ZPG), X(SAX, ABS), X(SAX, ZPY), X(AXA, ABY))
+L(3, 5, X(LAX, NDX), X(ATX, IMM), X(LAX, NDY), X(LAR, ABY), X(LAX, ZPG), X(LAX, ABS), X(LAX, ZPY), X(LAX, ABY))
+L(3, 6, X(DCP, NDX), X(AXS, IMM), X(DCP, NDY), X(DCP, ABY), X(DCP, ZPG), X(DCP, ABS), X(DCP, ZPX), X(DCP, ABX))
+L(3, 7, X(ISB, NDX), X(SBC, IMM), X(ISB, NDY), X(ISB, ABY), X(ISB, ZPG), X(ISB, ABS), X(ISB, ZPX), X(ISB, ABX))
+#undef L
+#undef O
+#undef X
+    // clang-format on
   }
 }
 
@@ -782,10 +655,10 @@ bool mn_load(const char* path)
     return false;
   }
 
-  ctx.rom_pages = h.rom_pages;
-  ctx.vrom_pages = h.vrom_pages;
-  ctx.flags = h.flags & 0xF;
-  ctx.mapper = h.mapper | (h.flags >> 4);
+  cpu.rom_pages = h.rom_pages;
+  cpu.vrom_pages = h.vrom_pages;
+  cpu.flags = h.flags & 0xF;
+  cpu.mapper = h.mapper | (h.flags >> 4);
 
   if (h.rom_pages == 0 || h.rom_pages * ROM_PAGE_SIZE > sizeof(rom) || h.vrom_pages * VROM_PAGE_SIZE > sizeof(vrom)) {
     errorf("invalid size prg=%d chr=%d in %s\n", h.rom_pages, h.vrom_pages, path);
@@ -808,6 +681,5 @@ bool mn_load(const char* path)
   }
 
   fclose(f);
-  cpu_reset();
   return true;
 }
