@@ -1,0 +1,73 @@
+#include "nes.h"
+#include "common.h"
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct NESHeader
+{
+  u8 magic[4];
+  u8 rom_pages;
+  u8 vrom_pages;
+  u8 flags;
+  u8 mapper;
+  u8 pad[8];
+};
+
+static const size_t ROM_PAGE_SIZE = 0x4000;
+static const size_t VROM_PAGE_SIZE = 0x2000;
+
+NES mn_nes_file(const char* path)
+{
+  FILE* f = fopen(path, "rb");
+  if (!f) {
+    errorf("can not open %s: %s\n", path, strerror(errno));
+    return 0;
+  }
+
+  struct NESHeader h;
+  if (!fread(&h, sizeof(h), 1, f)) {
+    errorf("can not read header from %s: %s\n", path, strerror(errno));
+    fclose(f);
+    return 0;
+  }
+  if (h.magic[0] != 'N' || h.magic[1] != 'E' || h.magic[2] != 'S' || h.magic[3] != 0x1A) {
+    errorf("not NES file %s\n", path);
+    fclose(f);
+    return 0;
+  }
+
+  if (h.rom_pages == 0) {
+    errorf("no rom_pages in %s\n", path);
+    fclose(f);
+    return 0;
+  }
+
+  size_t size = h.rom_pages * ROM_PAGE_SIZE + h.vrom_pages * VROM_PAGE_SIZE;
+  void* mem = malloc(sizeof(struct NES) + size);
+  if (!mem) {
+    errorf("no memory (%d) for %s", (int)size, path);
+    fclose(f);
+    return 0;
+  }
+
+  if (fread(mem + sizeof(struct NES), 1, size, f) != size) {
+    errorf("can not read data from %s: %s\n", path, strerror(errno));
+    fclose(f);
+    free(mem);
+    return 0;
+  }
+
+  fclose(f);
+
+  NES nes = mem;
+  nes->rom = mem + sizeof(struct NES);
+  nes->vrom = h.vrom_pages > 0 ? nes->rom + h.rom_pages * ROM_PAGE_SIZE : 0;
+  nes->rom_pages = h.rom_pages;
+  nes->vrom_pages = h.vrom_pages;
+  nes->flags = h.flags & 0xF;
+  nes->mapper = h.mapper | (h.flags >> 4);
+  return nes;
+}
+
+void mn_nes_release(NES nes) { free(nes); }

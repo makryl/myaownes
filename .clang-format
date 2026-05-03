@@ -65,22 +65,6 @@ EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: LogicalBlock
 ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: true
-IncludeBlocks: Preserve
-IncludeCategories:
-  - Regex: '^<ext/.*\.h>'
-    Priority: 2
-    SortPriority: 0
-  - Regex: '^<.*\.h>'
-    Priority: 1
-    SortPriority: 0
-  - Regex: "^<.*"
-    Priority: 2
-    SortPriority: 0
-  - Regex: ".*"
-    Priority: 3
-    SortPriority: 0
-IncludeIsMainRegex: "([-_](test|unittest))?$"
-IncludeIsMainSourceRegex: ""
 IndentCaseBlocks: false
 IndentCaseLabels: true
 IndentExternBlock: NoIndent
@@ -118,8 +102,8 @@ QualifierAlignment: Left
 ReferenceAlignment: Left
 ReflowComments: true
 SeparateDefinitionBlocks: Leave
-SortIncludes: CaseInsensitive
-SortUsingDeclarations: true
+SortIncludes: Never
+SortUsingDeclarations: Never
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
 SpaceAfterTemplateKeyword: true

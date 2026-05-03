@@ -21,7 +21,3 @@
 #else
 #define errorf(...) ((void)0)
 #endif
-
-typedef unsigned short u16;
-typedef unsigned char u8;
-typedef signed char i8;

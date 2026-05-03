@@ -1,8 +1,7 @@
 #include "cpu.h"
-
+#include "dev.h"
+#include "nes.h"
 #include "common.h"
-#include "device.h"
-
 #include <stdlib.h>
 
 enum CpuInterrupt : u16
@@ -77,7 +76,7 @@ static struct Bus
 static u8* cpu_map_write(u16 addr)
 {
   if (addr < 0x2000) {
-    return device.ram + (addr & 0x07FF);
+    return dev.ram + (addr & 0x07FF);
   }
   if (addr < 0x4000) {
     return &bus.ppu_ctrl + (addr & 0x7);
@@ -92,7 +91,7 @@ static u8* cpu_map_write(u16 addr)
     return 0;
   }
   if (addr < 0x8000) {
-    return device.sram + (addr & 0x1FFF);
+    return dev.sram + (addr & 0x1FFF);
   }
   return 0;
 }
@@ -110,18 +109,12 @@ static const u8* cpu_map_read(u16 addr)
     return 0;
   }
   if (addr < 0x6000) {
-    return device.eram + (addr & 0xFFF);
+    return dev.nes->eram + (addr & 0xFFF);
   }
-  if (device.rom_pages == 1) {
-    return device.rom + (addr & 0x3FFF);
+  if (dev.nes->rom_pages == 1) {
+    return dev.nes->rom + (addr & 0x3FFF);
   }
-  return device.rom + (addr & 0x7FFF);
-}
-
-static void* ppu_map(u16)
-{
-  //
-  return 0;
+  return dev.nes->rom + (addr & 0x7FFF);
 }
 
 #ifdef MN_TRACE
