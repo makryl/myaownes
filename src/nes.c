@@ -14,6 +14,14 @@ struct NESHeader
   u8 pad[8];
 };
 
+enum NESFlag : u8
+{
+  NES_FLAG_VERT_MIRROR = (1 << 0),
+  NES_FLAG_SRAM = (1 << 1),
+  NES_FLAG_TRAINER = (1 << 2),
+  NES_FLAG_VRAM = (1 << 3),
+};
+
 static const size_t ROM_PAGE_SIZE = 0x4000;
 static const size_t VROM_PAGE_SIZE = 0x2000;
 
@@ -51,6 +59,10 @@ NES mn_nes_file(const char* path)
     return 0;
   }
 
+  if (h.flags & NES_FLAG_TRAINER) { // todo
+    fseek(f, 512, SEEK_CUR);
+  }
+
   if (fread(mem + sizeof(struct NES), 1, size, f) != size) {
     errorf("can not read data from %s: %s\n", path, strerror(errno));
     fclose(f);
@@ -65,8 +77,11 @@ NES mn_nes_file(const char* path)
   nes->vrom = h.vrom_pages > 0 ? nes->rom + h.rom_pages * ROM_PAGE_SIZE : 0;
   nes->rom_pages = h.rom_pages;
   nes->vrom_pages = h.vrom_pages;
-  nes->flags = h.flags & 0xF;
   nes->mapper = h.mapper | (h.flags >> 4);
+  nes->vert_mirror = (h.flags & NES_FLAG_VERT_MIRROR);
+  nes->has_sram = (h.flags & NES_FLAG_SRAM);
+  nes->has_trainer = (h.flags & NES_FLAG_TRAINER);
+  nes->has_vram = (h.flags & NES_FLAG_VRAM);
   return nes;
 }
 

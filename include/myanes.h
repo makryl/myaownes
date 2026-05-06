@@ -9,4 +9,5 @@ NES mn_nes_file(const char* path);
 void mn_nes_release(NES nes);
 void mn_load(NES nes);
 void mn_reset();
-void mn_tick();
+void mn_quit();
+void mn_run();

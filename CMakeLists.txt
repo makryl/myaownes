@@ -14,6 +14,7 @@ add_library(myanes
   src/dev.c
   src/cpu.c
   src/ppu.c
+  src/apu.c
 )
 
 add_executable(myanestest src/myanestest.c)
