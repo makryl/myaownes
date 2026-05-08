@@ -17,3 +17,5 @@ typedef struct
 } Dev;
 
 extern Dev dev;
+
+void dev_tick();

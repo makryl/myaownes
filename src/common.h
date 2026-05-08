@@ -2,6 +2,11 @@
 
 #include <stdio.h>
 
+#define MN_TRACE_CPU 0
+#define MN_TRACE_PPU 0
+#define MN_TRACE_NESTEST 0
+#define MN_TRACE_BLARGG 0
+
 #ifndef MN_TRACE
 #define MN_TRACE 1
 #endif

@@ -1,6 +1,6 @@
 #include "apu.h"
 
-u8 apu_bus_read(u16 addr)
+u8 apu_bus_read(u16 addr, bool trace)
 {
   addr = addr & 0x1F;
   return 0;

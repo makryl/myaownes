@@ -6,7 +6,7 @@ struct NES
 {
   const u8* rom;
   const u8* vrom;
-  const u8* erom;
+  const u8* eram;
   u8 rom_pages;
   u8 vrom_pages;
   u8 mapper;

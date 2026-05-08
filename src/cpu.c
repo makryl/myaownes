@@ -6,11 +6,18 @@
 #include "common.h"
 #include <string.h>
 
-enum CpuInterrupt : u16
+enum CpuInt : u8
 {
-  CPU_INT_RESET = 0xFFFC,
-  CPU_INT_NMI = 0xFFFA,
-  CPU_INT_IRQBRK = 0xFFFE,
+  CPU_INT_RESET = 1,
+  CPU_INT_NMI,
+  CPU_INT_IRQ,
+};
+
+enum CpuIntAddr : u16
+{
+  CPU_INT_ADDR_RESET = 0xFFFC,
+  CPU_INT_ADDR_NMI = 0xFFFA,
+  CPU_INT_ADDR_IRQBRK = 0xFFFE,
 };
 
 enum CpuFlag : u8
@@ -44,34 +51,33 @@ enum CpuAddr : u8
 
 static struct Cpu
 {
-  u16 dma;
   u16 pc;
   u8 s;
   u8 p;
   u8 a;
   u8 x;
   u8 y;
-  bool reset;
+  u8 interrupt;
   bool nmi;
   bool irq;
 } cpu;
 
-static u8 cpu_read_addr_(u16 addr)
+static u8 cpu_read_addr_(u16 addr, bool trace)
 {
   if (addr < 0x2000) {
     return dev.ram[addr & 0x07FF];
   } else if (addr < 0x4000) {
-    return ppu_bus_read(addr);
+    return ppu_bus_read(addr, trace);
   } else if (addr < 0x4020) {
     if (addr == 0x4014) {
       return 0; // openbus?
     } else {
-      return apu_bus_read(addr);
+      return apu_bus_read(addr, trace);
     }
   } else if (addr < 0x5000) {
-    return 0; // erom
+    return 0; // eram
   } else if (addr < 0x6000) {
-    return dev.nes->erom[addr & 0xFFF];
+    return dev.nes->eram[addr & 0xFFF];
   } else if (addr < 0x8000) {
     return dev.sram[addr & 0x1FFF];
   } else {
@@ -84,64 +90,64 @@ static u8 cpu_read_addr_(u16 addr)
 
 static u8 cpu_read_addr(u16 addr)
 {
-  ++dev.cpu_cyc;
-  return cpu_read_addr_(addr);
+  dev_tick();
+  return cpu_read_addr_(addr, false);
 }
 
-static void cpu_dma_write()
+static void cpu_dma(u8 val)
 {
-  ++dev.cpu_cyc;
-  ppu_bus_write(0x2004, cpu_read_addr(cpu.dma++));
-}
-
-static void cpu_dma_init(u8 val)
-{
-  if (dev.cpu_cyc) {
-    ++dev.cpu_cyc;
+  if (dev.cpu_cyc & 1) {
+    dev_tick();
   }
-  cpu.dma = (u16)val << 8;
-  cpu_dma_write();
+  u16 addr = (u16)val << 8;
+  for (int i = 0; i < 256; ++i) {
+    ppu_bus_write(0x2004, cpu_read_addr(addr++));
+    dev_tick();
+  }
 }
 
 static void cpu_write_addr(u16 addr, u8 val)
 {
-  ++dev.cpu_cyc;
+  dev_tick();
   if (addr < 0x2000) {
     dev.ram[addr & 0x07FF] = val;
   } else if (addr < 0x4000) {
     ppu_bus_write(addr, val);
   } else if (addr < 0x4020) {
     if (addr == 0x4014) {
-      cpu_dma_init(val);
+      cpu_dma(val);
     } else {
       apu_bus_write(addr, val);
     }
   } else if (addr < 0x6000) {
-    // erom
+    // eram
   } else if (addr < 0x8000) {
     dev.sram[addr & 0x1FFF] = val;
   }
 }
 
-#if MN_TRACE
+#if MN_TRACE_CPU
 static struct
 {
   struct Cpu cpu;
   const char* opname;
   int cpu_cyc;
+  int ppu_cyc;
+  int ppu_sl;
   u16 addr0;
   u16 addr;
   u8 val;
 } trace;
 
 #define trace_addr0(code) trace.addr0 = code
-#define trace_addr(code) trace.addr = code, trace.val = cpu_read_addr_(trace.addr), trace.addr
-#define trace_tick(fmt)                                                                                             \
-  _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")                      \
-    tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",                    \
-           cpu_read_addr_(trace.cpu.pc + 1), cpu_read_addr_(trace.cpu.pc + 2), cpu_read_addr_(trace.cpu.pc),        \
-           trace.cpu.pc, trace.opname, trace.cpu.a, trace.cpu.x, trace.cpu.y, trace.cpu.p, trace.cpu.s, dev.ppu_sl, \
-           dev.ppu_cyc, trace.cpu_cyc, trace.addr0, trace.addr, trace.val) _Pragma("clang diagnostic pop")
+#define trace_addr(code) trace.addr = code, trace.val = cpu_read_addr_(trace.addr, true), trace.addr
+#define trace_tick(fmt)                                                                                              \
+  _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")                       \
+    tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",                     \
+           cpu_read_addr_(trace.cpu.pc + 1, true), cpu_read_addr_(trace.cpu.pc + 2, true),                           \
+           cpu_read_addr_(trace.cpu.pc, true), trace.cpu.pc, trace.opname, trace.cpu.a, trace.cpu.x, trace.cpu.y,    \
+           trace.cpu.p, trace.cpu.s, trace.ppu_sl, trace.ppu_cyc, trace.cpu_cyc, trace.addr0, trace.addr, trace.val) \
+      _Pragma("clang diagnostic pop")
 #define trace_tick0(fmt) trace_tick("%4$04X  %3$02X       %5$4s " fmt);
 #define trace_tick1(fmt) trace_tick("%4$04X  %3$02X %1$02X    %5$4s " fmt);
 #define trace_tick2(fmt) trace_tick("%4$04X  %3$02X %1$02X %2$02X %5$4s " fmt);
@@ -154,7 +160,7 @@ static void trace_tick_addr(u8 am)
     case CPU_ADDR_IMM: trace_tick1("#$%1$02X                      "); break;
     case CPU_ADDR_REL: trace_tick1("$%15$04X                     "); break;
     case CPU_ADDR_ABS: {
-      u8 op = cpu_read_addr_(trace.cpu.pc);
+      u8 op = cpu_read_addr_(trace.cpu.pc, true);
       if (op == 0x20 || op == 0x4C) {
         trace_tick2("$%15$04X                     ");
       } else {
@@ -224,14 +230,61 @@ static u8 cpu_op() { return cpu_read_addr(cpu.pc++); }
 static u16 cpu_op16() { return (u16)cpu_op() | ((u16)cpu_op() << 8); }
 
 static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
-static u8 cpu_stack_pop() { return ++dev.cpu_cyc, cpu_read_addr(++cpu.s | 0x0100); }
+static u8 cpu_stack_pop(bool seq)
+{
+  if (!seq) {
+    dev_tick();
+  }
+  return cpu_read_addr(++cpu.s | 0x0100);
+}
 static void cpu_stack_push16(u16 val) { cpu_stack_push((u8)(val >> 8)), cpu_stack_push((u8)(val & 0xFF)); }
-static u16 cpu_stack_pop16() { return (u16)cpu_stack_pop() | ((u16)cpu_stack_pop() << 8); }
+static u16 cpu_stack_pop16(bool seq) { return (u16)cpu_stack_pop(seq) | ((u16)cpu_stack_pop(seq) << 8); }
+
+static void cpu_int_poll()
+{
+  if (cpu.interrupt) {
+    return;
+  }
+  if (cpu.nmi) {
+    cpu.nmi = false;
+    cpu.interrupt = CPU_INT_NMI;
+  } else if (cpu.irq && (cpu.p & CPU_FLAG_INTERRUPT_DISABLED) == 0) {
+    cpu.irq = false;
+    cpu.interrupt = CPU_INT_IRQ;
+  }
+}
+
+static void cpu_int_exec()
+{
+  switch (cpu.interrupt) {
+    case CPU_INT_RESET:
+#if MN_TRACE_NESTEST
+      cpu.pc = 0xC000;
+#else
+      cpu.pc = cpu_read16_addr(CPU_INT_ADDR_RESET);
+#endif
+      cpu.p = CPU_FLAG_ALWAYS_ONE | CPU_FLAG_INTERRUPT_DISABLED;
+      cpu.s -= 3;
+      break;
+    case CPU_INT_NMI:
+      cpu_stack_push16(cpu.pc);
+      cpu_stack_push(cpu.p | CPU_FLAG_ALWAYS_ONE);
+      cpu.pc = cpu_read16_addr(CPU_INT_ADDR_NMI);
+      break;
+    case CPU_INT_IRQ:
+      cpu_stack_push16(cpu.pc);
+      cpu_stack_push(cpu.p | CPU_FLAG_ALWAYS_ONE);
+      cpu.pc = cpu_read16_addr(CPU_INT_ADDR_IRQBRK);
+      cpu.p |= CPU_FLAG_INTERRUPT_DISABLED;
+      break;
+  }
+  cpu.interrupt = 0;
+}
 
 static u16 cpu_addr_offset(u16 addr, int offset, bool readonly)
 {
   if (!readonly || (((u16)(u8)addr + offset) & 0xFF00)) {
-    ++dev.cpu_cyc;
+    dev_tick();
   }
   return addr + offset;
 }
@@ -251,11 +304,11 @@ static u16 cpu_addr(u8 am, bool readonly)
     case CPU_ADDR_ABS: return trace_addr(cpu_op16());
     case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_op16()), cpu.x, readonly));
     case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_op16()), cpu.y, readonly));
-    case CPU_ADDR_NDX: ++dev.cpu_cyc; return trace_addr(cpu_read16_zptr(trace_addr0((u8)(cpu_op() + cpu.x))));
+    case CPU_ADDR_NDX: dev_tick(); return trace_addr(cpu_read16_zptr(trace_addr0((u8)(cpu_op() + cpu.x))));
     case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_op())), cpu.y, readonly));
     case CPU_ADDR_ZPG: return trace_addr(cpu_op());
-    case CPU_ADDR_ZPX: ++dev.cpu_cyc; return trace_addr((u8)(cpu_op() + cpu.x));
-    case CPU_ADDR_ZPY: ++dev.cpu_cyc; return trace_addr((u8)(cpu_op() + cpu.y));
+    case CPU_ADDR_ZPX: dev_tick(); return trace_addr((u8)(cpu_op() + cpu.x));
+    case CPU_ADDR_ZPY: dev_tick(); return trace_addr((u8)(cpu_op() + cpu.y));
   }
   return 0;
 }
@@ -276,14 +329,16 @@ static void cpu_write(u8 am, u8 val)
   cpu_write_addr(cpu_addr(am, false), val);
 }
 
-static void cpu_read_write(u8 am, u8 (*cb)(u8))
+static u8 cpu_read_write(u8 am, u8 (*cb)(u8))
 {
-  ++dev.cpu_cyc;
+  dev_tick();
   switch (am) {
-    case CPU_ADDR_ACC: cpu.a = cpu_flag_zn(cb(cpu.a)); return;
+    case CPU_ADDR_ACC: cpu.a = cpu_flag_zn(cb(cpu.a)); return cpu.a;
   }
   u16 addr = cpu_addr(am, false);
-  cpu_write_addr(addr, cb(cpu_read_addr(addr)));
+  u8 val = cb(cpu_read_addr(addr));
+  cpu_write_addr(addr, val);
+  return val;
 }
 
 static void cpu_op_LDA(u8 am) { cpu.a = cpu_flag_zn(cpu_read(am)); }
@@ -304,12 +359,16 @@ static void cpu_op_TXS(u8 am) { cpu_read(am), cpu.s = cpu.x; }
 
 static void cpu_op_PHA(u8 am) { cpu_read(am), cpu_stack_push(cpu.a); }
 static void cpu_op_PHP(u8 am) { cpu_read(am), cpu_stack_push(cpu.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE); }
-static void cpu_op_PLA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu_stack_pop()); }
-static void cpu_op_PLP(u8 am) { cpu_read(am), cpu.p = (cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE; }
+static void cpu_op_PLA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu_stack_pop(false)); }
+static void cpu_op_PLP(u8 am) { cpu_read(am), cpu.p = (cpu_stack_pop(false) & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE; }
 
-static void cpu_op_AND(u8 am) { cpu.a = cpu_flag_zn(cpu.a & cpu_read(am)); }
-static void cpu_op_ORA(u8 am) { cpu.a = cpu_flag_zn(cpu.a | cpu_read(am)); }
-static void cpu_op_EOR(u8 am) { cpu.a = cpu_flag_zn(cpu.a ^ cpu_read(am)); }
+static void cpu_and(u8 val) { cpu.a = cpu_flag_zn(cpu.a & val); }
+static void cpu_ora(u8 val) { cpu.a = cpu_flag_zn(cpu.a | val); }
+static void cpu_eor(u8 val) { cpu.a = cpu_flag_zn(cpu.a ^ val); }
+
+static void cpu_op_AND(u8 am) { cpu_and(cpu_read(am)); }
+static void cpu_op_ORA(u8 am) { cpu_ora(cpu_read(am)); }
+static void cpu_op_EOR(u8 am) { cpu_eor(cpu_read(am)); }
 
 static void cpu_adc(u8 val)
 {
@@ -319,8 +378,10 @@ static void cpu_adc(u8 val)
   cpu.a = cpu_flag_zn((u8)res);
 }
 
+static void cpu_sbc(u8 val) { cpu_adc(~val); }
+
 static void cpu_op_ADC(u8 am) { cpu_adc(cpu_read(am)); }
-static void cpu_op_SBC(u8 am) { cpu_adc(~cpu_read(am)); }
+static void cpu_op_SBC(u8 am) { cpu_sbc(cpu_read(am)); }
 
 static u8 cpu_inc(u8 val) { return cpu_flag_zn(val + 1); }
 static void cpu_op_INC(u8 am) { cpu_read_write(am, cpu_inc); }
@@ -371,16 +432,15 @@ static void cpu_op_SEC(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_CARRY; }
 static void cpu_op_SED(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_DECIMAL; }
 static void cpu_op_SEI(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_INTERRUPT_DISABLED; }
 
-static void cpu_cmp(u8 am, u8 reg)
+static void cpu_cmp(u8 val, u8 reg)
 {
-  u8 val = cpu_read(am);
   cpu_flag_carry(reg >= val);
   cpu_flag_zn(reg - val);
 }
 
-static void cpu_op_CMP(u8 am) { cpu_cmp(am, cpu.a); }
-static void cpu_op_CPX(u8 am) { cpu_cmp(am, cpu.x); }
-static void cpu_op_CPY(u8 am) { cpu_cmp(am, cpu.y); }
+static void cpu_op_CMP(u8 am) { cpu_cmp(cpu_read(am), cpu.a); }
+static void cpu_op_CPX(u8 am) { cpu_cmp(cpu_read(am), cpu.x); }
+static void cpu_op_CPY(u8 am) { cpu_cmp(cpu_read(am), cpu.y); }
 
 static void cpu_op_BIT(u8 am)
 {
@@ -397,11 +457,11 @@ static void cpu_op_BIT(u8 am)
 static void cpu_branch(u8 am, u8 flag, bool cond)
 {
   if (((cpu.p & flag) != 0) == cond) {
-    ++dev.cpu_cyc;
+    dev_tick();
     cpu.pc = cpu_addr(am, true);
   } else {
-    --dev.cpu_cyc;
-    cpu_addr(am, false);
+    i8 off = (i8)cpu_op();
+    (void)(trace_addr(cpu.pc + off));
   }
 }
 
@@ -418,13 +478,13 @@ static void cpu_op_JMP(u8 am) { cpu.pc = cpu_addr(am, true); }
 
 static void cpu_op_JSR(u8 am)
 {
-  ++dev.cpu_cyc;
+  dev_tick();
   u16 addr = cpu_addr(am, true);
   cpu_stack_push16(cpu.pc - 1);
   cpu.pc = addr;
 }
 
-static void cpu_op_RTS(u8 am) { cpu_read(am), cpu.pc = cpu_stack_pop16() + 1; }
+static void cpu_op_RTS(u8 am) { cpu_read(am), cpu.pc = cpu_stack_pop16(false) + 1; }
 
 static void cpu_op_BRK(u8 am)
 {
@@ -432,15 +492,15 @@ static void cpu_op_BRK(u8 am)
   cpu_stack_push16(cpu.pc);
   cpu_stack_push(cpu.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE);
   cpu.p |= CPU_FLAG_INTERRUPT_DISABLED;
-  cpu.pc = cpu_read16_addr(CPU_INT_IRQBRK);
+  cpu.pc = cpu_read16_addr(CPU_INT_ADDR_IRQBRK);
 }
 
 static void cpu_op_RTI(u8 am)
 {
   cpu_read(am);
-  cpu.p = (cpu_stack_pop() & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
-  cpu.pc = cpu_stack_pop16();
-  dev.cpu_cyc -= 2; // sequential stack
+  cpu.p = (cpu_stack_pop(false) & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
+  cpu_int_poll();
+  cpu.pc = cpu_stack_pop16(true);
 }
 
 static void cpu_op_NOP(u8 am) { cpu_read(am); }
@@ -451,30 +511,14 @@ static void cpu_op_KIL(u8)
   mn_quit();
 }
 
-static void cpu_parallel(u8 am, void (*op0)(u8), void (*op1)(u8))
-{
-  u16 pc = cpu.pc;
-  op0(am);
-  int cycle = dev.cpu_cyc;
-#if MN_TRACE
-  u8 val = trace.val;
-#endif
-  cpu.pc = pc;
-  op1(am);
-  dev.cpu_cyc = cycle;
-#if MN_TRACE
-  trace.val = val;
-#endif
-}
-
-static void cpu_op_SLO(u8 am) { cpu_parallel(am, cpu_op_ASL, cpu_op_ORA); }
-static void cpu_op_RLA(u8 am) { cpu_parallel(am, cpu_op_ROL, cpu_op_AND); }
-static void cpu_op_SRE(u8 am) { cpu_parallel(am, cpu_op_LSR, cpu_op_EOR); }
-static void cpu_op_RRA(u8 am) { cpu_parallel(am, cpu_op_ROR, cpu_op_ADC); }
+static void cpu_op_SLO(u8 am) { cpu_ora(cpu_read_write(am, cpu_asl)); }
+static void cpu_op_RLA(u8 am) { cpu_and(cpu_read_write(am, cpu_rol)); }
+static void cpu_op_SRE(u8 am) { cpu_eor(cpu_read_write(am, cpu_lsr)); }
+static void cpu_op_RRA(u8 am) { cpu_adc(cpu_read_write(am, cpu_ror)); }
 static void cpu_op_SAX(u8 am) { cpu_write(am, cpu.a & cpu.x); }
-static void cpu_op_LAX(u8 am) { cpu_parallel(am, cpu_op_LDA, cpu_op_LDX); }
-static void cpu_op_DCP(u8 am) { cpu_parallel(am, cpu_op_DEC, cpu_op_CMP); }
-static void cpu_op_ISB(u8 am) { cpu_parallel(am, cpu_op_INC, cpu_op_SBC); }
+static void cpu_op_LAX(u8 am) { cpu.a = cpu.x = cpu_flag_zn(cpu_read(am)); }
+static void cpu_op_DCP(u8 am) { cpu_cmp(cpu_read_write(am, cpu_dec), cpu.a); }
+static void cpu_op_ISB(u8 am) { cpu_sbc(cpu_read_write(am, cpu_inc)); }
 
 static void cpu_op_AAC(u8 am) { cpu_op_KIL(am) /*, cpu_op_AND(am), cpu_op_ASL(am)*/; }
 static void cpu_op_ASR(u8 am) { cpu_op_KIL(am) /*, cpu_op_AND(am), cpu_op_LSR(am)*/; }
@@ -497,37 +541,24 @@ void cpu_init()
   cpu_reset();
 }
 
-void cpu_reset() { cpu.reset = true; }
+void cpu_reset() { cpu.interrupt = CPU_INT_RESET; }
 void cpu_nmi() { cpu.nmi = true; }
 void cpu_irq() { cpu.irq = true; }
 
 void cpu_tick()
 {
-#if MN_TRACE
+  cpu_int_poll();
+  cpu_int_exec();
+
+#if MN_TRACE_CPU
   trace.cpu = cpu;
   trace.cpu_cyc = dev.cpu_cyc;
+  trace.ppu_cyc = dev.ppu_cyc;
+  trace.ppu_sl = dev.ppu_sl;
 #endif
 
-  if (cpu.dma & 0xFF) {
-    cpu_dma_write();
-  } else if (cpu.reset) {
-    cpu.reset = false;
-    cpu.p = CPU_FLAG_ALWAYS_ONE | CPU_FLAG_INTERRUPT_DISABLED;
-    cpu.pc = cpu_read16_addr(CPU_INT_RESET);
-  } else if (cpu.nmi) {
-    cpu.nmi = false;
-    cpu_stack_push16(cpu.pc);
-    cpu_stack_push(cpu.p | CPU_FLAG_ALWAYS_ONE);
-    cpu.pc = cpu_read16_addr(CPU_INT_NMI);
-  } else if (cpu.irq) {
-    cpu.irq = false;
-    cpu_stack_push16(cpu.pc);
-    cpu_stack_push(cpu.p | CPU_FLAG_ALWAYS_ONE);
-    cpu.p |= CPU_FLAG_INTERRUPT_DISABLED;
-    cpu.pc = cpu_read16_addr(CPU_INT_IRQBRK);
-  } else {
-    switch (cpu_op()) {
-      // clang-format off
+  switch (cpu_op()) {
+    // clang-format off
 #define L(cc, aaa, o0, o1, o2, o3, o4, o5, o6, o7) \
   case (aaa << 5) | (0 << 2) | cc: o0; break; \
   case (aaa << 5) | (2 << 2) | cc: o1; break; \
@@ -575,7 +606,6 @@ L(3, 7, X(ISB, NDX), X(SBC, IMM), X(ISB, NDY), X(ISB, ABY), X(ISB, ZPG), X(ISB, 
 #undef L
 #undef O
 #undef X
-      // clang-format on
-    }
+    // clang-format on
   }
 }
