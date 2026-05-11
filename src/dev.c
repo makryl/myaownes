@@ -2,7 +2,6 @@
 #include "myanes.h"
 #include "cpu.h"
 #include "ppu.h"
-#include "common.h"
 #include <string.h>
 
 Dev dev;
@@ -21,7 +20,6 @@ void mn_run()
 {
   memset(dev.ram, 0, sizeof(dev.ram));
   memset(dev.vram, 0, sizeof(dev.vram));
-  memset(dev.pram, 0, sizeof(dev.pram));
   memset(dev.sram, 0, sizeof(dev.sram));
   dev.cpu_cyc = 5;
   dev.ppu_cyc = 15;

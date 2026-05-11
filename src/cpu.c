@@ -62,6 +62,16 @@ static struct Cpu
   bool irq;
 } cpu;
 
+void cpu_init()
+{
+  memset(&cpu, 0, sizeof(cpu));
+  cpu_reset();
+}
+
+void cpu_reset() { cpu.interrupt = CPU_INT_RESET; }
+void cpu_nmi() { cpu.nmi = true; }
+void cpu_irq() { cpu.irq = true; }
+
 static u8 cpu_read_addr_(u16 addr, bool trace)
 {
   if (addr < 0x2000) {
@@ -226,8 +236,8 @@ static void cpu_flag_overflow(u8 a, u8 b, u8 res)
 
 static u16 cpu_read16_addr(u16 addr) { return (u16)cpu_read_addr(addr) | ((u16)cpu_read_addr(addr + 1) << 8); }
 static u16 cpu_read16_zptr(u8 zptr) { return (u16)cpu_read_addr(zptr) | ((u16)cpu_read_addr((u8)(zptr + 1)) << 8); }
-static u8 cpu_op() { return cpu_read_addr(cpu.pc++); }
-static u16 cpu_op16() { return (u16)cpu_op() | ((u16)cpu_op() << 8); }
+static u8 cpu_read_op() { return cpu_read_addr(cpu.pc++); }
+static u16 cpu_read16_op() { return (u16)cpu_read_op() | ((u16)cpu_read_op() << 8); }
 
 static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
 static u8 cpu_stack_pop(bool seq)
@@ -291,40 +301,27 @@ static u16 cpu_addr(u8 am, bool readonly)
   switch (am) {
     case CPU_ADDR_IMM: return cpu.pc++;
     case CPU_ADDR_IND: {
-      u16 addr0 = trace_addr0(cpu_op16());
+      u16 addr0 = trace_addr0(cpu_read16_op());
       u8 lo = cpu_read_addr(addr0);
       u16 hi_ptr = (addr0 & 0xFF00) | ((addr0 + 1) & 0x00FF); // NES bug: incrementing only low byte
       u8 hi = cpu_read_addr(hi_ptr);
       return trace_addr((u16)lo | ((u16)hi << 8));
     }
-    case CPU_ADDR_REL: i8 off = (i8)cpu_op(); return trace_addr(cpu_addr_offset(cpu.pc, off, readonly));
-    case CPU_ADDR_ABS: return trace_addr(cpu_op16());
-    case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_op16()), cpu.x, readonly));
-    case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_op16()), cpu.y, readonly));
-    case CPU_ADDR_NDX: dev_tick(); return trace_addr(cpu_read16_zptr(trace_addr0((u8)(cpu_op() + cpu.x))));
-    case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_op())), cpu.y, readonly));
-    case CPU_ADDR_ZPG: return trace_addr(cpu_op());
-    case CPU_ADDR_ZPX: dev_tick(); return trace_addr((u8)(cpu_op() + cpu.x));
-    case CPU_ADDR_ZPY: dev_tick(); return trace_addr((u8)(cpu_op() + cpu.y));
+    case CPU_ADDR_REL: i8 off = (i8)cpu_read_op(); return trace_addr(cpu_addr_offset(cpu.pc, off, readonly));
+    case CPU_ADDR_ABS: return trace_addr(cpu_read16_op());
+    case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_op()), cpu.x, readonly));
+    case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_op()), cpu.y, readonly));
+    case CPU_ADDR_NDX: dev_tick(); return trace_addr(cpu_read16_zptr(trace_addr0((u8)(cpu_read_op() + cpu.x))));
+    case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_read_op())), cpu.y, readonly));
+    case CPU_ADDR_ZPG: return trace_addr(cpu_read_op());
+    case CPU_ADDR_ZPX: dev_tick(); return trace_addr((u8)(cpu_read_op() + cpu.x));
+    case CPU_ADDR_ZPY: dev_tick(); return trace_addr((u8)(cpu_read_op() + cpu.y));
   }
   return 0;
 }
 
-static u8 cpu_read(u8 am)
-{
-  switch (am) {
-    case CPU_ADDR_ACC: return cpu.a;
-  }
-  return cpu_read_addr(cpu_addr(am, true));
-}
-
-static void cpu_write(u8 am, u8 val)
-{
-  switch (am) {
-    case CPU_ADDR_ACC: cpu.a = cpu_flag_zn(val); return;
-  }
-  cpu_write_addr(cpu_addr(am, false), val);
-}
+static u8 cpu_read(u8 am) { return cpu_read_addr(cpu_addr(am, true)); }
+static void cpu_write(u8 am, u8 val) { cpu_write_addr(cpu_addr(am, false), val); }
 
 static u8 cpu_read_write(u8 am, u8 (*cb)(u8))
 {
@@ -457,7 +454,7 @@ static void cpu_branch(u8 am, u8 flag, bool cond)
     dev_tick();
     cpu.pc = cpu_addr(am, true);
   } else {
-    i8 off = (i8)cpu_op();
+    i8 off = (i8)cpu_read_op();
     (void)(trace_addr(cpu.pc + off));
   }
 }
@@ -531,16 +528,6 @@ static void cpu_op_XAA(u8 am) { cpu_op_KIL(am) /*, cpu.a = cpu_flag_zn(cpu_read(
 static void cpu_op_AXA(u8 am) { cpu_op_KIL(am) /*, cpu_write(cpu.a & cpu.x & ((cpu.addr >> 8) + 1))*/; }
 static void cpu_op_XAS(u8 am) { cpu_op_KIL(am) /*, cpu.s = cpu.a & cpu.x, cpu_write(cpu.s & ((cpu.addr >> 8) + 1))*/; }
 
-void cpu_init()
-{
-  memset(&cpu, 0, sizeof(cpu));
-  cpu_reset();
-}
-
-void cpu_reset() { cpu.interrupt = CPU_INT_RESET; }
-void cpu_nmi() { cpu.nmi = true; }
-void cpu_irq() { cpu.irq = true; }
-
 void cpu_tick()
 {
   cpu_int_poll();
@@ -553,7 +540,7 @@ void cpu_tick()
   trace.ppu_sl = dev.ppu_sl;
 #endif
 
-  switch (cpu_op()) {
+  switch (cpu_read_op()) {
     // clang-format off
 #define L(cc, aaa, o0, o1, o2, o3, o4, o5, o6, o7) \
   case (aaa << 5) | (0 << 2) | cc: o0; break; \

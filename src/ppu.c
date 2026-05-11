@@ -5,7 +5,7 @@
 #include "common.h"
 #include <string.h>
 
-enum PpuCoords : u16
+enum PpuSlCyc : u16
 {
   PPU_SL_END = 239,
   PPU_SL_POST_RENDER = 240,
@@ -18,7 +18,7 @@ enum PpuCoords : u16
   PPU_CYC_SWAP_X = 257,
   PPU_CYC_SWAP_Y_BEGIN = 280,
   PPU_CYC_SWAP_Y_END = 304,
-  PPU_CYC_PREFETCH = 321,
+  PPU_CYC_PRE_FETCH = 321,
   PPU_CYC_LAST = 340,
 };
 
@@ -63,12 +63,23 @@ enum PpuSpriteAttr : u8
   PPU_SPRITE_FLIP_VERT = (1 << 7),
 };
 
+struct PpuSprite
+{
+  u8 y;
+  u8 idx;
+  u8 attr;
+  u8 x;
+};
+
 static struct Ppu
 {
+  u8 oam[0x100];
+  u8 pam[0x20];
+
   u8 ctrl;
   u8 mask;
   u8 status;
-  u8 sprite_addr;
+  u8 oam_addr;
 
   u16 t;
   u16 v;
@@ -81,13 +92,7 @@ static struct Ppu
   bool increment_xy;
 } ppu;
 
-static struct PpuSprite
-{
-  u8 y;
-  u8 idx;
-  u8 attr;
-  u8 x;
-} sprite[64];
+void ppu_init() { memset(&ppu, 0, sizeof(ppu)); }
 
 void ppu_reset()
 {
@@ -122,7 +127,7 @@ static u8 ppu_read_addr(u16 addr)
     if (addr >= 0x10 && (addr & 0x03) == 0) {
       addr -= 0x10;
     }
-    return dev.pram[addr];
+    return ppu.pam[addr];
   }
 }
 
@@ -138,18 +143,18 @@ static void ppu_write_addr(u16 addr, u8 val)
     if (addr >= 0x10 && (addr & 0x03) == 0) {
       addr -= 0x10;
     }
-    dev.pram[addr] = val;
+    ppu.pam[addr] = val;
   }
 }
 
-bool ppu_rendering_enabled() { return (ppu.mask & PPU_MASK_BACK) || (ppu.mask & PPU_MASK_SPRITE); }
+static bool ppu_rendering_enabled() { return (ppu.mask & PPU_MASK_BACK) || (ppu.mask & PPU_MASK_SPRITE); }
 
-bool ppu_is_rendering()
+static bool ppu_is_rendering()
 {
   return ppu_rendering_enabled() && (dev.ppu_sl < PPU_SL_END || dev.ppu_sl == PPU_SL_PRE_RENDER);
 }
 
-void ppu_inc_x()
+static void ppu_inc_x()
 {
   if ((ppu.v & 0x001F) == 31) { // if coarse X == 31
     ppu.v &= ~0x001F; // coarse X = 0
@@ -159,7 +164,7 @@ void ppu_inc_x()
   }
 }
 
-void ppu_inc_y()
+static void ppu_inc_y()
 {
   if ((ppu.v & 0x7000) != 0x7000) { // if fine Y < 7
     ppu.v += 0x1000; // increment fine Y
@@ -178,7 +183,7 @@ void ppu_inc_y()
   }
 }
 
-void ppu_inc()
+static void ppu_inc()
 {
   if (ppu_is_rendering()) {
     ppu.increment_xy = true;
@@ -199,7 +204,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
       }
       return status;
     }
-    case 4: return ((u8*)sprite)[ppu.sprite_addr]; // ++?
+    case 4: return ppu.oam[ppu.oam_addr]; // ++?
     case 7: {
       u8 val;
       if ((ppu.v & 0x3FFF) < 0x3F00) {
@@ -229,8 +234,8 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.ctrl = val;
       break;
     case 1: ppu.mask = val; break;
-    case 3: ppu.sprite_addr = val; break;
-    case 4: ((u8*)sprite)[ppu.sprite_addr++] = val; break;
+    case 3: ppu.oam_addr = val; break;
+    case 4: ppu.oam[ppu.oam_addr++] = val; break;
     case 5:
       if (++ppu.write_latch) {
         ppu.t = (ppu.t & 0x7FE0) | (((u16)val & 0xF8) >> 3);
@@ -254,13 +259,11 @@ void ppu_bus_write(u16 addr, u8 val)
   }
 }
 
-void ppu_init() { memset(&ppu, 0, sizeof(ppu)); }
-
 static void ppu_render()
 {
-  if (dev.ppu_sl == sprite[0].y) { // todo: opaque pixel check
-    // ppu.status |= PPU_STATUS_HIT; // todo: if rendering enabled in 2001
-  }
+  // if (dev.ppu_sl == sprite[0].y) { // todo: opaque pixel check
+  // ppu.status |= PPU_STATUS_HIT; // todo: if rendering enabled in 2001
+  // }
 
   // u16 tile_addr = 0x2000 | (ppu.v & 0x0FFF);
   // u16 attr_addr = 0x23C0 | (ppu.v & 0x0C00) | (ppu.v & 0x0380) | (ppu.v & 0x1C); // NN 1111 YYY XXX
@@ -291,15 +294,20 @@ void ppu_tick()
       }
     }
 
-    if (ppu.increment_xy
-        || (((dev.ppu_cyc >= PPU_CYC_BEGIN && dev.ppu_cyc <= PPU_CYC_END) || dev.ppu_cyc >= PPU_CYC_PREFETCH)
-            && (dev.ppu_cyc & 7) == 0))
-    {
-      ppu_inc_x();
+    if ((dev.ppu_cyc >= PPU_CYC_BEGIN && dev.ppu_cyc <= PPU_CYC_END) || dev.ppu_cyc >= PPU_CYC_PRE_FETCH) {
+      bool dot8 = (dev.ppu_cyc & 7) == 0;
+      if (dot8) {
+        //
+      }
+      if (ppu.increment_xy || dot8) {
+        ppu_inc_x();
+      }
     }
+
     if (ppu.increment_xy || dev.ppu_cyc == PPU_CYC_END) {
       ppu_inc_y();
     }
+
     if (dev.ppu_cyc == PPU_CYC_SWAP_X) {
       ppu.v = (ppu.v & 0x7BE0) | (ppu.t & 0x041F);
     }
