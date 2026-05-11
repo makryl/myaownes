@@ -258,11 +258,8 @@ static void cpu_int_exec()
 {
   switch (cpu.interrupt) {
     case CPU_INT_RESET:
-#if MN_TRACE_NESTEST
-      cpu.pc = 0xC000;
-#else
       cpu.pc = cpu_read16_addr(CPU_INT_ADDR_RESET);
-#endif
+      // cpu.pc = 0xC000;
       cpu.p = CPU_FLAG_ALWAYS_ONE | CPU_FLAG_INTERRUPT_DISABLED;
       cpu.s -= 3;
       break;
@@ -499,7 +496,6 @@ static void cpu_op_RTI(u8 am)
 {
   cpu_read(am);
   cpu.p = (cpu_stack_pop(false) & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
-  cpu_int_poll();
   cpu.pc = cpu_stack_pop16(true);
 }
 

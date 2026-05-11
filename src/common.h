@@ -4,7 +4,6 @@
 
 #define MN_TRACE_CPU 0
 #define MN_TRACE_PPU 0
-#define MN_TRACE_NESTEST 0
 #define MN_TRACE_BLARGG 0
 
 #ifndef MN_TRACE
