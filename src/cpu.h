@@ -1,6 +1,6 @@
 #pragma once
 
-void cpu_init();
+void cpu_power();
 void cpu_reset();
 void cpu_nmi();
 void cpu_irq();

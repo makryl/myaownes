@@ -8,7 +8,10 @@ int main(int, const char**)
     return 1;
   }
   mn_load(nes);
-  mn_run();
+  mn_power();
+  for (int i = 0; i < 1000; i++) {
+    mn_frame();
+  }
   mn_nes_release(nes);
   return 0;
 }

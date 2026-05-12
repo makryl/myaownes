@@ -8,15 +8,7 @@ Dev dev;
 
 void mn_load(NES nes) { dev.nes = nes; }
 
-void mn_quit() { dev.quit = true; }
-
-void mn_reset()
-{
-  cpu_reset();
-  ppu_reset();
-}
-
-void mn_run()
+void mn_power()
 {
   memset(dev.ram, 0, sizeof(dev.ram));
   memset(dev.vram, 0, sizeof(dev.vram));
@@ -24,17 +16,27 @@ void mn_run()
   dev.cpu_cyc = 5;
   dev.ppu_cyc = 15;
   dev.ppu_sl = 0;
-  dev.quit = false;
-  cpu_init();
-  ppu_init();
+  dev.vblank = false;
+  cpu_power();
+  ppu_power();
+}
 
-  while (!dev.quit) {
+void mn_reset()
+{
+  cpu_reset();
+  ppu_reset();
+}
+
+void mn_frame()
+{
+  // todo: impl input
+
+  dev.vblank = false;
+  while (!dev.vblank) {
     cpu_tick();
-
-    if (dev.cpu_cyc > 100000000) {
-      break;
-    }
   }
+
+  // todo: impl render
 }
 
 void dev_tick()

@@ -11,7 +11,7 @@ typedef struct
   int cpu_cyc;
   int ppu_cyc;
   int ppu_sl;
-  bool quit;
+  bool vblank;
 } Dev;
 
 extern Dev dev;

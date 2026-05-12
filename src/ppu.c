@@ -92,7 +92,7 @@ static struct Ppu
   bool increment_xy;
 } ppu;
 
-void ppu_init() { memset(&ppu, 0, sizeof(ppu)); }
+void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
 
 void ppu_reset()
 {
@@ -278,6 +278,7 @@ void ppu_tick()
   if (dev.ppu_sl == PPU_SL_VBLANK && dev.ppu_cyc == PPU_CYC_BEGIN) {
     if (!ppu.suppress_vblank) {
       ppu.status |= PPU_STATUS_VBLANK;
+      dev.vblank = true;
       if (ppu.ctrl & PPU_CTRL_NMI) {
         cpu_nmi();
       }
@@ -322,12 +323,6 @@ void ppu_tick()
       dev.ppu_sl = 0;
       ppu.odd_frame = !ppu.odd_frame;
 #if MN_TRACE_BLARGG
-      static bool running = false;
-      if (dev.sram[0] == 0x80) {
-        running = true;
-      } else if (running) {
-        mn_quit();
-      }
       tracef("\e[1;1HBLARGG status=%02X\n%s\n", dev.sram[0], (const char*)&dev.sram[4]);
 #endif
     }
