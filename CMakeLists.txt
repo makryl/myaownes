@@ -7,6 +7,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 add_compile_options(-Wall -Wextra)
 
+set(SDL_STATIC ON)
+set(SDL_SHARED OFF)
+set(SDL_TEST_LIBRARY OFF)
+set(SDL_TESTS OFF)
+add_subdirectory(external/SDL3-3.4.8 EXCLUDE_FROM_ALL)
+
 include_directories(include)
 
 add_library(myanes
@@ -15,8 +21,8 @@ add_library(myanes
   src/cpu.c
   src/ppu.c
   src/apu.c
-  src/imp_gl.c
 )
+target_link_libraries(myanes PUBLIC GLESv2 SDL3-static)
 
 add_executable(myanestest src/myanestest.c)
 target_link_libraries(myanestest myanes)

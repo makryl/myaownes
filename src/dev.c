@@ -2,7 +2,6 @@
 #include "myanes.h"
 #include "cpu.h"
 #include "ppu.h"
-#include "imp.h"
 #include <string.h>
 
 Rom rom;
@@ -18,26 +17,21 @@ void mn_power()
 
   cpu_power();
   ppu_power();
-  imp_power();
 }
 
 void mn_reset()
 {
   cpu_reset();
   ppu_reset();
-  imp_reset();
 }
 
-void mn_frame()
+bool mn_frame()
 {
-  imp_input();
-
   dev.vblank = false;
   while (!dev.vblank) {
     cpu_tick();
   }
-
-  imp_render();
+  return !dev.quit;
 }
 
 void dev_tick()

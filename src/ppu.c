@@ -323,6 +323,12 @@ void ppu_tick()
       dev.ppu_sl = 0;
       ppu.odd_frame = !ppu.odd_frame;
 #if MN_TRACE_BLARGG
+      static bool running = false;
+      if (dev.sram[0] == 0x80) {
+        running = true;
+      } else if (running) {
+        dev.quit = true;
+      }
       tracef("\e[1;1HBLARGG status=%02X\n%s\n", dev.sram[0], (const char*)&dev.sram[4]);
 #endif
     }

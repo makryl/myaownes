@@ -12,6 +12,7 @@ typedef struct
   int ppu_cyc;
   int ppu_sl;
   bool vblank;
+  bool quit;
 } Dev;
 
 extern Rom rom;

@@ -1,17 +1,14 @@
 #include "myanes.h"
+#include "imp_sdl.h"
 
-int main(int, const char**)
+Rom test_rom;
+
+void mn_init()
 {
-  // Rom rom = mn_nes_file("../../data/nestest.nes");
-  Rom rom = mn_nes_file("../../data/ppu_vbl_nmi.nes");
-  if (!rom) {
-    return 1;
-  }
-  mn_load(rom);
+  // test_rom = mn_nes_file("../../data/nestest.nes");
+  test_rom = mn_nes_file("../../data/ppu_vbl_nmi.nes");
+  mn_load(test_rom);
   mn_power();
-  for (int i = 0; i < 1000; i++) {
-    mn_frame();
-  }
-  mn_nes_release(rom);
-  return 0;
 }
+
+void mn_quit() { mn_nes_release(test_rom); }

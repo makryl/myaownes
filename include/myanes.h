@@ -10,4 +10,4 @@ void mn_nes_release(Rom rom);
 void mn_load(Rom rom);
 void mn_power();
 void mn_reset();
-void mn_frame();
+bool mn_frame();

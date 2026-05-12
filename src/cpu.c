@@ -499,7 +499,7 @@ static void cpu_op_NOP(u8 am) { cpu_read(am); }
 static void cpu_op_KIL(u8)
 {
   errorf("KIL\n");
-  // mn_quit();
+  dev.quit = true;
 }
 
 static void cpu_op_SLO(u8 am) { cpu_ora(cpu_read_write(am, cpu_asl)); }
