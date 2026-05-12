@@ -1,4 +1,4 @@
-#include "nes.h"
+#include "rom.h"
 #include "common.h"
 #include <errno.h>
 #include <stdlib.h>
@@ -25,7 +25,7 @@ enum NESFlag : u8
 static const size_t ROM_PAGE_SIZE = 0x4000;
 static const size_t VROM_PAGE_SIZE = 0x2000;
 
-NES mn_nes_file(const char* path)
+Rom mn_nes_file(const char* path)
 {
   FILE* f = fopen(path, "rb");
   if (!f) {
@@ -52,7 +52,7 @@ NES mn_nes_file(const char* path)
   }
 
   size_t size = h.rom_pages * ROM_PAGE_SIZE + h.vrom_pages * VROM_PAGE_SIZE;
-  void* mem = malloc(sizeof(struct NES) + size);
+  void* mem = malloc(sizeof(struct Rom) + size);
   if (!mem) {
     errorf("no memory (%d) for %s", (int)size, path);
     fclose(f);
@@ -63,7 +63,7 @@ NES mn_nes_file(const char* path)
     fseek(f, 512, SEEK_CUR);
   }
 
-  if (fread(mem + sizeof(struct NES), 1, size, f) != size) {
+  if (fread(mem + sizeof(struct Rom), 1, size, f) != size) {
     errorf("can not read data from %s: %s\n", path, strerror(errno));
     fclose(f);
     free(mem);
@@ -72,11 +72,11 @@ NES mn_nes_file(const char* path)
 
   fclose(f);
 
-  NES nes = mem;
-  nes->rom = mem + sizeof(struct NES);
-  nes->vrom = h.vrom_pages > 0 ? nes->rom + h.rom_pages * ROM_PAGE_SIZE : 0;
-  nes->rom_pages = h.rom_pages;
-  nes->vrom_pages = h.vrom_pages;
+  Rom nes = mem;
+  nes->prg = mem + sizeof(struct Rom);
+  nes->chr = h.vrom_pages > 0 ? nes->prg + h.rom_pages * ROM_PAGE_SIZE : 0;
+  nes->prg_pages = h.rom_pages;
+  nes->chr_pages = h.vrom_pages;
   nes->mapper = h.mapper | (h.flags >> 4);
   nes->vert_mirror = (h.flags & NES_FLAG_VERT_MIRROR);
   nes->has_sram = (h.flags & NES_FLAG_SRAM);
@@ -85,4 +85,4 @@ NES mn_nes_file(const char* path)
   return nes;
 }
 
-void mn_nes_release(NES nes) { free(nes); }
+void mn_nes_release(Rom rom) { free(rom); }

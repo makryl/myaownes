@@ -2,13 +2,12 @@
 
 #include "myanes.h"
 
-struct NES
+struct Rom
 {
-  const u8* rom;
-  const u8* vrom;
-  const u8* eram;
-  u8 rom_pages;
-  u8 vrom_pages;
+  const u8* prg;
+  const u8* chr;
+  u8 prg_pages;
+  u8 chr_pages;
   u8 mapper;
   bool vert_mirror;
   bool has_sram;

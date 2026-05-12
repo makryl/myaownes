@@ -2,7 +2,7 @@
 #include "ppu.h"
 #include "apu.h"
 #include "dev.h"
-#include "nes.h"
+#include "rom.h"
 #include "common.h"
 #include <string.h>
 
@@ -84,17 +84,15 @@ static u8 cpu_read_addr_(u16 addr, bool trace)
     } else {
       return apu_bus_read(addr, trace);
     }
-  } else if (addr < 0x5000) {
-    return 0; // eram
   } else if (addr < 0x6000) {
-    return dev.nes->eram[addr & 0xFFF];
+    return dev.eram[addr & 0x1FFF];
   } else if (addr < 0x8000) {
     return dev.sram[addr & 0x1FFF];
   } else {
-    if (dev.nes->rom_pages == 1) {
-      return dev.nes->rom[addr & 0x3FFF];
+    if (rom->prg_pages == 1) {
+      return rom->prg[addr & 0x3FFF];
     }
-    return dev.nes->rom[addr & 0x7FFF];
+    return rom->prg[addr & 0x7FFF];
   }
 }
 
@@ -130,7 +128,7 @@ static void cpu_write_addr(u16 addr, u8 val)
       apu_bus_write(addr, val);
     }
   } else if (addr < 0x6000) {
-    // eram
+    dev.eram[addr & 0x1FFF] = val;
   } else if (addr < 0x8000) {
     dev.sram[addr & 0x1FFF] = val;
   }

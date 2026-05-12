@@ -1,7 +1,7 @@
 #include "ppu.h"
 #include "cpu.h"
 #include "dev.h"
-#include "nes.h"
+#include "rom.h"
 #include "common.h"
 #include <string.h>
 
@@ -119,7 +119,7 @@ static u8 ppu_read_addr(u16 addr)
 {
   addr &= 0x3FFF;
   if (addr < 0x2000) {
-    return dev.nes->vrom[addr];
+    return rom->chr[addr];
   } else if (addr < 0x3F00) {
     return dev.vram[addr & 0xFFF];
   } else {
