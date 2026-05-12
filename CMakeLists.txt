@@ -10,11 +10,12 @@ add_compile_options(-Wall -Wextra)
 include_directories(include)
 
 add_library(myanes
-  src/nes.c
+  src/rom.c
   src/dev.c
   src/cpu.c
   src/ppu.c
   src/apu.c
+  src/imp_gl.c
 )
 
 add_executable(myanestest src/myanestest.c)
