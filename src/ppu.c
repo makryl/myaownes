@@ -5,6 +5,22 @@
 #include "common.h"
 #include <string.h>
 
+// clang-format off
+static const u32 palette[0x40] = {
+  // 0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E, 0x6E0040, 0x6C0600, 0x561D00, 0x333500, 0x0B4800, 0x005200, 0x004F08, 0x00404D, 0x000000, 0x000000, 0x000000, //
+  // 0xADADAD, 0x155FD9, 0x4240FF, 0x7527FE, 0xA01ADF, 0xB71E8B, 0xB33100, 0x964D00, 0x706600, 0x387F00, 0x108B00, 0x00831E, 0x007474, 0x000000, 0x000000, 0x000000, //
+  // 0xFFFEFF, 0x64B0FF, 0x9290FF, 0xC676FF, 0xF36AFF, 0xFE6ECC, 0xFE8170, 0xEA9E22, 0xBCBE00, 0x88D800, 0x5CE430, 0x45E082, 0x48CDDE, 0x4F4F4F, 0x000000, 0x000000, //
+  // 0xFFFEFF, 0xC0DFFF, 0xD3D2FF, 0xE8C8FF, 0xFBC2FF, 0xFEC4EA, 0xFECCC5, 0xF7D8A5, 0xE4E594, 0xCFEF96, 0xBDF4AB, 0xB3F3CC, 0xB5EBF2, 0xB8B8B8, 0x000000, 0x000000, //
+
+  0x7C7C7C, 0x0000FC, 0x0000BC, 0x4428BC, 0x940084, 0xA80020, 0xA81000, 0x881400, 0x503000, 0x007800, 0x006800, 0x005800, 0x004058, 0x000000, 0x000000, 0x000000, //
+  0xBCBCBC, 0x0078F8, 0x0058F8, 0x6844FC, 0xD800CC, 0xE40058, 0xF83800, 0xE45C10, 0xAC7C00, 0x00B800, 0x00A800, 0x00A844, 0x008888, 0x000000, 0x000000, 0x000000, //
+  0xF8F8F8, 0x3CBCFC, 0x6888FC, 0x9878F8, 0xF878F8, 0xF85898, 0xF87858, 0xFCA044, 0xF8B800, 0xB8F818, 0x58D854, 0x58F898, 0x00E8D8, 0x787878, 0x000000, 0x000000, //
+  0xFFFFFF, 0xA4E4FC, 0xB8B8F8, 0xD8B8F8, 0xF8B8F8, 0xF8A4C0, 0xF0D0B0, 0xFCE0A8, 0xF8D878, 0xD8F878, 0xB8F8B8, 0xB8F8D8, 0x00FCFC, 0xD8D8D8, 0x000000, 0x000000, //
+};
+// clang-format on
+
+static const float ppu_tint_accent = 0.75f;
+
 enum PpuSlCyc : u16
 {
   PPU_SL_END = 239,
@@ -18,7 +34,8 @@ enum PpuSlCyc : u16
   PPU_CYC_SWAP_X = 257,
   PPU_CYC_SWAP_Y_BEGIN = 280,
   PPU_CYC_SWAP_Y_END = 304,
-  PPU_CYC_PRE_FETCH = 321,
+  PPU_CYC_PREFETCH_BEGIN = 321,
+  PPU_CYC_PREFETCH_END = 336,
   PPU_CYC_LAST = 340,
 };
 
@@ -85,6 +102,16 @@ static struct Ppu
   u16 v;
   u8 x;
 
+  u8 nt;
+  u8 at;
+  u8 lo;
+  u8 hi;
+
+  u16 shift_tile_lo;
+  u16 shift_tile_hi;
+  u16 shift_attr_lo;
+  u16 shift_attr_hi;
+
   u8 read_buf;
   bool write_latch;
   bool odd_frame;
@@ -115,19 +142,17 @@ void ppu_reset()
 #define trace_ppu(fmt, ...) (void)0
 #endif
 
+static u8 ppu_pam_addr(u16 addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
+
 static u8 ppu_read_addr(u16 addr)
 {
   addr &= 0x3FFF;
   if (addr < 0x2000) {
-    return rom->chr[addr];
+    return rom->chr ? rom->chr[addr] : dev.wram[addr];
   } else if (addr < 0x3F00) {
     return dev.vram[addr & 0xFFF];
   } else {
-    addr &= 0x1F;
-    if (addr >= 0x10 && (addr & 0x03) == 0) {
-      addr -= 0x10;
-    }
-    return ppu.pam[addr];
+    return ppu.pam[ppu_pam_addr(addr)];
   }
 }
 
@@ -135,15 +160,13 @@ static void ppu_write_addr(u16 addr, u8 val)
 {
   addr &= 0x3FFF;
   if (addr < 0x2000) {
-    // vrom
+    if (!rom->chr) {
+      dev.wram[addr] = val;
+    }
   } else if (addr < 0x3F00) {
     dev.vram[addr & 0xFFF] = val;
   } else {
-    addr &= 0x1F;
-    if (addr >= 0x10 && (addr & 0x03) == 0) {
-      addr -= 0x10;
-    }
-    ppu.pam[addr] = val;
+    ppu.pam[ppu_pam_addr(addr)] = val;
   }
 }
 
@@ -151,7 +174,7 @@ static bool ppu_rendering_enabled() { return (ppu.mask & PPU_MASK_BACK) || (ppu.
 
 static bool ppu_is_rendering()
 {
-  return ppu_rendering_enabled() && (dev.ppu_sl < PPU_SL_END || dev.ppu_sl == PPU_SL_PRE_RENDER);
+  return ppu_rendering_enabled() && (dev.ppu_sl <= PPU_SL_END || dev.ppu_sl == PPU_SL_PRE_RENDER);
 }
 
 static void ppu_inc_x()
@@ -212,7 +235,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
         ppu.read_buf = ppu_read_addr(ppu.v);
       } else {
         val = ppu_read_addr(ppu.v);
-        ppu.read_buf = ppu_read_addr(ppu.v - 0x1000);
+        ppu.read_buf = ppu_read_addr(ppu.v & 0x2FFF);
       }
       if (trace) {
         return val;
@@ -237,20 +260,22 @@ void ppu_bus_write(u16 addr, u8 val)
     case 3: ppu.oam_addr = val; break;
     case 4: ppu.oam[ppu.oam_addr++] = val; break;
     case 5:
-      if (++ppu.write_latch) {
+      if (!ppu.write_latch) {
         ppu.t = (ppu.t & 0x7FE0) | (((u16)val & 0xF8) >> 3);
         ppu.x = (val & 7);
       } else {
         ppu.t = (ppu.t & 0x0C1F) | (((u16)val & 0xF8) << 2) | (((u16)val & 7) << 12);
       }
+      ppu.write_latch = !ppu.write_latch;
       break;
     case 6:
-      if (++ppu.write_latch) {
+      if (!ppu.write_latch) {
         ppu.t = (ppu.t & 0x00FF) | (((u16)val & 0x3F) << 8);
       } else {
         ppu.t = (ppu.t & 0xFF00) | val;
+        ppu.v = ppu.t;
       }
-      ppu.v = ppu.t; // todo: delay
+      ppu.write_latch = !ppu.write_latch;
       break;
     case 7:
       ppu_write_addr(ppu.v, val);
@@ -259,18 +284,145 @@ void ppu_bus_write(u16 addr, u8 val)
   }
 }
 
-static void ppu_render()
-{
-  // if (dev.ppu_sl == sprite[0].y) { // todo: opaque pixel check
-  // ppu.status |= PPU_STATUS_HIT; // todo: if rendering enabled in 2001
-  // }
+static void ppu_swap_x() { ppu.v = (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
+static void ppu_swap_y() { ppu.v = (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
 
-  // u16 tile_addr = 0x2000 | (ppu.v & 0x0FFF);
-  // u16 attr_addr = 0x23C0 | (ppu.v & 0x0C00) | (ppu.v & 0x0380) | (ppu.v & 0x1C); // NN 1111 YYY XXX
+static void ppu_fetch_back()
+{
+  ppu.shift_tile_lo <<= 1;
+  ppu.shift_tile_hi <<= 1;
+  ppu.shift_attr_lo <<= 1;
+  ppu.shift_attr_hi <<= 1;
+
+  switch (dev.ppu_cyc % 8) {
+    case 1: { // nametable
+      ppu.nt = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF));
+      break;
+    }
+    case 3: { // attribute
+      u8 attr = ppu_read_addr(0x23C0 | (ppu.v & 0x0C00) | ((ppu.v & 0x0380) >> 4) | ((ppu.v & 0x001C) >> 2));
+      u8 coarse_x = ppu.v & 0x001F;
+      u8 coarse_y = (ppu.v & 0x03E0) >> 5;
+      u8 shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
+      ppu.at = (attr >> shift) & 0x03;
+      break;
+    }
+    case 5: { // chr lo
+      u16 fine_y = (ppu.v & 0x7000) >> 12;
+      u16 table = (ppu.ctrl & PPU_CTRL_BACK_NAMETABLE) ? 0x1000 : 0x0000;
+      ppu.lo = ppu_read_addr(table + ((u16)ppu.nt << 4) + fine_y);
+      break;
+    }
+    case 7: { // chr hi
+      u16 fine_y = (ppu.v & 0x7000) >> 12;
+      u16 table = (ppu.ctrl & PPU_CTRL_BACK_NAMETABLE) ? 0x1000 : 0x0000;
+      ppu.hi = ppu_read_addr(table + ((u16)ppu.nt << 4) + fine_y + 8);
+      break;
+    }
+    case 0: { // shift
+      ppu.shift_tile_lo = (ppu.shift_tile_lo & 0xFF00) | ppu.lo;
+      ppu.shift_tile_hi = (ppu.shift_tile_hi & 0xFF00) | ppu.hi;
+      ppu.shift_attr_lo = (ppu.shift_attr_lo & 0xFF00) | ((ppu.at & 1) ? 0xFF : 0x00);
+      ppu.shift_attr_hi = (ppu.shift_attr_hi & 0xFF00) | ((ppu.at & 2) ? 0xFF : 0x00);
+      break;
+    }
+  }
+}
+
+static void ppu_fetch_unused()
+{
+  switch (dev.ppu_cyc % 8) {
+    case 1: ppu.nt = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); break; // unused
+    case 3: ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); break; // ignored
+  }
+}
+
+static void ppu_pixel()
+{
+  u8 pixel = (!ppu_rendering_enabled() && ppu.v >= 0x3F00) ? ppu.v : 0;
+
+  if ((ppu.mask & PPU_MASK_BACK) && (dev.ppu_cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_BACK))) {
+    u16 bit_mask = 0x8000 >> ppu.x;
+    u8 p0 = (ppu.shift_tile_lo & bit_mask) ? 1 : 0;
+    u8 p1 = (ppu.shift_tile_hi & bit_mask) ? 1 : 0;
+    u8 a0 = (ppu.shift_attr_lo & bit_mask) ? 1 : 0;
+    u8 a1 = (ppu.shift_attr_hi & bit_mask) ? 1 : 0;
+    pixel = p0 | (p1 << 1) | (a0 << 2) | (a1 << 3);
+  }
+
+  if ((ppu.mask & PPU_MASK_SPRITE) && (dev.ppu_cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
+    // todo: sprites
+    // pixel = 0x10;
+  }
+
+  u8 color_idx = ppu.pam[ppu_pam_addr(pixel)] & 0x3F;
+  u32 color = palette[color_idx];
+
+  if ((ppu.mask & PPU_MASK_RED) || (ppu.mask & PPU_MASK_GREEN) || (ppu.mask & PPU_MASK_BLUE)) {
+    float rf = 1.0f;
+    float gf = 1.0f;
+    float bf = 1.0f;
+    if (ppu.mask & PPU_MASK_RED) {
+      gf *= ppu_tint_accent;
+      bf *= ppu_tint_accent;
+    }
+    if (ppu.mask & PPU_MASK_GREEN) {
+      rf *= ppu_tint_accent;
+      bf *= ppu_tint_accent;
+    }
+    if (ppu.mask & PPU_MASK_BLUE) {
+      rf *= ppu_tint_accent;
+      gf *= ppu_tint_accent;
+    }
+    u8 r = (color & 0xFF0000) >> 16;
+    u8 g = (color & 0x00FF00) >> 8;
+    u8 b = (color & 0x0000FF);
+    r *= rf;
+    g *= gf;
+    b *= bf;
+    color = (r << 16) | (g << 8) | b;
+  }
+
+  u16 screen_idx = (dev.ppu_sl << 8) | (dev.ppu_cyc - 1);
+  dev.screen[screen_idx] = color;
 }
 
 void ppu_tick()
 {
+  if (dev.ppu_sl <= PPU_SL_END && dev.ppu_cyc >= PPU_CYC_BEGIN && dev.ppu_cyc <= PPU_CYC_END) {
+    ppu_pixel();
+  }
+
+  if (ppu_is_rendering()) {
+    if (dev.ppu_sl == PPU_SL_PRE_RENDER) {
+      if (dev.ppu_cyc >= PPU_CYC_SWAP_Y_BEGIN && dev.ppu_cyc <= PPU_CYC_SWAP_Y_END) {
+        ppu_swap_y();
+      }
+      if (ppu.odd_frame && dev.ppu_cyc == PPU_CYC_LAST - 1) {
+        ++dev.ppu_cyc;
+      }
+    }
+
+    if ((dev.ppu_cyc >= PPU_CYC_BEGIN && dev.ppu_cyc <= PPU_CYC_END)
+        || (dev.ppu_cyc >= PPU_CYC_PREFETCH_BEGIN && dev.ppu_cyc <= PPU_CYC_PREFETCH_END))
+    {
+      ppu_fetch_back();
+      if (ppu.increment_xy || (dev.ppu_cyc % 8) == 0) {
+        ppu_inc_x();
+      }
+    } else {
+      ppu_fetch_unused();
+    }
+
+    if (ppu.increment_xy || dev.ppu_cyc == PPU_CYC_END) {
+      ppu_inc_y();
+    }
+
+    if (dev.ppu_cyc == PPU_CYC_SWAP_X) {
+      ppu_swap_x();
+    }
+  }
+
   if (dev.ppu_sl == PPU_SL_PRE_RENDER && dev.ppu_cyc == PPU_CYC_BEGIN) {
     ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_HIT | PPU_STATUS_SPRITE_OVERFLOW);
   }
@@ -282,35 +434,6 @@ void ppu_tick()
       if (ppu.ctrl & PPU_CTRL_NMI) {
         cpu_nmi();
       }
-    }
-  }
-
-  if (ppu_is_rendering()) {
-    if (dev.ppu_sl == PPU_SL_PRE_RENDER) {
-      if (dev.ppu_cyc >= PPU_CYC_SWAP_Y_BEGIN && dev.ppu_cyc <= PPU_CYC_SWAP_Y_END) {
-        ppu.v = (ppu.v & 0x041F) | (ppu.t & 0x7BE0);
-      }
-      if (ppu.odd_frame && dev.ppu_cyc == PPU_CYC_LAST - 1) {
-        ++dev.ppu_cyc;
-      }
-    }
-
-    if ((dev.ppu_cyc >= PPU_CYC_BEGIN && dev.ppu_cyc <= PPU_CYC_END) || dev.ppu_cyc >= PPU_CYC_PRE_FETCH) {
-      bool dot8 = (dev.ppu_cyc & 7) == 0;
-      if (dot8) {
-        //
-      }
-      if (ppu.increment_xy || dot8) {
-        ppu_inc_x();
-      }
-    }
-
-    if (ppu.increment_xy || dev.ppu_cyc == PPU_CYC_END) {
-      ppu_inc_y();
-    }
-
-    if (dev.ppu_cyc == PPU_CYC_SWAP_X) {
-      ppu.v = (ppu.v & 0x7BE0) | (ppu.t & 0x041F);
     }
   }
 

@@ -1,5 +1,6 @@
 #pragma once
 
+typedef unsigned int u32;
 typedef unsigned short u16;
 typedef unsigned char u8;
 typedef signed char i8;
@@ -10,4 +11,4 @@ void mn_nes_release(Rom rom);
 void mn_load(Rom rom);
 void mn_power();
 void mn_reset();
-bool mn_frame();
+void* mn_frame();

@@ -25,13 +25,13 @@ void mn_reset()
   ppu_reset();
 }
 
-bool mn_frame()
+void* mn_frame()
 {
   dev.vblank = false;
   while (!dev.vblank) {
     cpu_tick();
   }
-  return !dev.quit;
+  return dev.quit ? 0 : dev.screen;
 }
 
 void dev_tick()
