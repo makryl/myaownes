@@ -2,19 +2,23 @@
 #include "myanes.h"
 #include "cpu.h"
 #include "ppu.h"
-#include <string.h>
 
-Rom rom;
-Dev dev;
+static struct
+{
+  u8* joy[2];
+  u32* out;
+} dev;
 
-void mn_load(Rom rom_) { rom = rom_; }
+void mn_input(u8* joy1, u8* joy2)
+{
+  dev.joy[0] = joy1;
+  dev.joy[1] = joy2;
+}
+
+void mn_output(u32* out) { dev.out = out; }
 
 void mn_power()
 {
-  memset(&dev, 0, sizeof(dev));
-  dev.cpu_cyc = 5;
-  dev.ppu_cyc = 15;
-
   cpu_power();
   ppu_power();
 }
@@ -25,19 +29,14 @@ void mn_reset()
   ppu_reset();
 }
 
-void* mn_frame()
+void mn_frame()
 {
-  dev.vblank = false;
-  while (!dev.vblank) {
+  bool vblank_before;
+  do {
+    vblank_before = ppu_is_vblank();
     cpu_tick();
-  }
-  return dev.quit ? 0 : dev.screen;
+  } while (vblank_before || !ppu_is_vblank());
 }
 
-void dev_tick()
-{
-  ++dev.cpu_cyc;
-  ppu_tick();
-  ppu_tick();
-  ppu_tick();
-}
+u8 dev_input(u8 idx) { return *dev.joy[idx]; }
+void dev_output(u16 idx, u32 color) { dev.out[idx] = color; }

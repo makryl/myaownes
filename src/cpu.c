@@ -2,7 +2,7 @@
 #include "ppu.h"
 #include "apu.h"
 #include "dev.h"
-#include "rom.h"
+#include "map.h"
 #include "common.h"
 #include <string.h>
 
@@ -51,6 +51,7 @@ enum CpuAddr : u8
 
 static struct Cpu
 {
+  u8 ram[0x0800];
   u16 pc;
   u8 s;
   u8 p;
@@ -58,13 +59,17 @@ static struct Cpu
   u8 x;
   u8 y;
   u8 interrupt;
+  u8 joy[2];
+  u32 cyc;
   bool nmi;
   bool irq;
+  bool joy_strobe;
 } cpu;
 
 void cpu_power()
 {
   memset(&cpu, 0, sizeof(cpu));
+  cpu.cyc = 5;
   cpu_reset();
 }
 
@@ -72,65 +77,90 @@ void cpu_reset() { cpu.interrupt = CPU_INT_RESET; }
 void cpu_nmi() { cpu.nmi = true; }
 void cpu_irq() { cpu.irq = true; }
 
+u32 cpu_cyc() { return cpu.cyc; }
+
+static void cpu_inc_cyc()
+{
+  ++cpu.cyc;
+  ppu_tick();
+  ppu_tick();
+  ppu_tick();
+}
+
+static u8 cpu_joy_poll(u16 addr)
+{
+  u8 idx = (addr & 1);
+  if (cpu.joy_strobe) {
+    return (dev_input(idx) & 1);
+  }
+  u8 val = (cpu.joy[idx] & 1);
+  cpu.joy[idx] = (cpu.joy[idx] >> 1) | 0x80;
+  return val;
+}
+
+static void cpu_joy_strobe(u8 val)
+{
+  cpu.joy_strobe = (val & 1);
+  if (cpu.joy_strobe) {
+    cpu.joy[0] = dev_input(0);
+    cpu.joy[1] = dev_input(1);
+  }
+}
+
 static u8 cpu_read_addr_(u16 addr, bool trace)
 {
   if (addr < 0x2000) {
-    return dev.ram[addr & 0x07FF];
+    return cpu.ram[addr & 0x07FF];
   } else if (addr < 0x4000) {
     return ppu_bus_read(addr, trace);
   } else if (addr < 0x4020) {
     if (addr == 0x4014) {
       return 0; // openbus?
+    } else if (addr == 0x4016 || addr == 0x4017) {
+      return cpu_joy_poll(addr);
     } else {
       return apu_bus_read(addr, trace);
     }
-  } else if (addr < 0x6000) {
-    return dev.eram[addr & 0x1FFF];
-  } else if (addr < 0x8000) {
-    return dev.sram[addr & 0x1FFF];
   } else {
-    if (rom->prg_pages == 1) {
-      return rom->prg[addr & 0x3FFF];
-    }
-    return rom->prg[addr & 0x7FFF];
+    return map_cpu_read(addr);
   }
 }
 
 static u8 cpu_read_addr(u16 addr)
 {
-  dev_tick();
+  cpu_inc_cyc();
   return cpu_read_addr_(addr, false);
 }
 
 static void cpu_dma(u8 val)
 {
-  if (dev.cpu_cyc & 1) {
-    dev_tick();
+  if (cpu.cyc & 1) {
+    cpu_inc_cyc();
   }
   u16 addr = (u16)val << 8;
   for (int i = 0; i < 256; ++i) {
+    cpu_inc_cyc();
     ppu_bus_write(0x2004, cpu_read_addr(addr++));
-    dev_tick();
   }
 }
 
 static void cpu_write_addr(u16 addr, u8 val)
 {
-  dev_tick();
+  cpu_inc_cyc();
   if (addr < 0x2000) {
-    dev.ram[addr & 0x07FF] = val;
+    cpu.ram[addr & 0x07FF] = val;
   } else if (addr < 0x4000) {
     ppu_bus_write(addr, val);
   } else if (addr < 0x4020) {
     if (addr == 0x4014) {
       cpu_dma(val);
+    } else if (addr == 0x4016) {
+      cpu_joy_strobe(val);
     } else {
       apu_bus_write(addr, val);
     }
-  } else if (addr < 0x6000) {
-    dev.eram[addr & 0x1FFF] = val;
-  } else if (addr < 0x8000) {
-    dev.sram[addr & 0x1FFF] = val;
+  } else {
+    map_cpu_write(addr, val);
   }
 }
 
@@ -241,7 +271,7 @@ static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
 static u8 cpu_stack_pop(bool seq)
 {
   if (!seq) {
-    dev_tick();
+    cpu_inc_cyc();
   }
   return cpu_read_addr(++cpu.s | 0x0100);
 }
@@ -289,7 +319,7 @@ static void cpu_int_exec()
 static u16 cpu_addr_offset(u16 addr, int offset, bool readonly)
 {
   if (!readonly || (((u16)(u8)addr + offset) & 0xFF00)) {
-    dev_tick();
+    cpu_inc_cyc();
   }
   return addr + offset;
 }
@@ -309,11 +339,11 @@ static u16 cpu_addr(u8 am, bool readonly)
     case CPU_ADDR_ABS: return trace_addr(cpu_read16_op());
     case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_op()), cpu.x, readonly));
     case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_op()), cpu.y, readonly));
-    case CPU_ADDR_NDX: dev_tick(); return trace_addr(cpu_read16_zptr(trace_addr0((u8)(cpu_read_op() + cpu.x))));
+    case CPU_ADDR_NDX: cpu_inc_cyc(); return trace_addr(cpu_read16_zptr(trace_addr0((u8)(cpu_read_op() + cpu.x))));
     case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_read_op())), cpu.y, readonly));
     case CPU_ADDR_ZPG: return trace_addr(cpu_read_op());
-    case CPU_ADDR_ZPX: dev_tick(); return trace_addr((u8)(cpu_read_op() + cpu.x));
-    case CPU_ADDR_ZPY: dev_tick(); return trace_addr((u8)(cpu_read_op() + cpu.y));
+    case CPU_ADDR_ZPX: cpu_inc_cyc(); return trace_addr((u8)(cpu_read_op() + cpu.x));
+    case CPU_ADDR_ZPY: cpu_inc_cyc(); return trace_addr((u8)(cpu_read_op() + cpu.y));
   }
   return 0;
 }
@@ -323,7 +353,7 @@ static void cpu_write(u8 am, u8 val) { cpu_write_addr(cpu_addr(am, false), val);
 
 static u8 cpu_read_write(u8 am, u8 (*cb)(u8))
 {
-  dev_tick();
+  cpu_inc_cyc();
   switch (am) {
     case CPU_ADDR_ACC: cpu.a = cpu_flag_zn(cb(cpu.a)); return cpu.a;
   }
@@ -449,7 +479,7 @@ static void cpu_op_BIT(u8 am)
 static void cpu_branch(u8 am, u8 flag, bool cond)
 {
   if (((cpu.p & flag) != 0) == cond) {
-    dev_tick();
+    cpu_inc_cyc();
     cpu.pc = cpu_addr(am, true);
   } else {
     i8 off = (i8)cpu_read_op();
@@ -470,7 +500,7 @@ static void cpu_op_JMP(u8 am) { cpu.pc = cpu_addr(am, true); }
 
 static void cpu_op_JSR(u8 am)
 {
-  dev_tick();
+  cpu_inc_cyc();
   u16 addr = cpu_addr(am, true);
   cpu_stack_push16(cpu.pc - 1);
   cpu.pc = addr;
@@ -499,7 +529,7 @@ static void cpu_op_NOP(u8 am) { cpu_read(am); }
 static void cpu_op_KIL(u8)
 {
   errorf("KIL\n");
-  dev.quit = true;
+  --cpu.pc;
 }
 
 static void cpu_op_SLO(u8 am) { cpu_ora(cpu_read_write(am, cpu_asl)); }

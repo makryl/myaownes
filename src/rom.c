@@ -25,7 +25,7 @@ enum NESFlag : u8
 static const size_t ROM_PAGE_SIZE = 0x4000;
 static const size_t VROM_PAGE_SIZE = 0x2000;
 
-Rom mn_nes_file(const char* path)
+Rom mn_rom_file(const char* path)
 {
   FILE* f = fopen(path, "rb");
   if (!f) {
@@ -85,4 +85,4 @@ Rom mn_nes_file(const char* path)
   return nes;
 }
 
-void mn_nes_release(Rom rom) { free(rom); }
+void mn_rom_release(Rom rom) { free(rom); }

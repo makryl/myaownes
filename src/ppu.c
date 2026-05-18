@@ -1,7 +1,7 @@
 #include "ppu.h"
 #include "cpu.h"
 #include "dev.h"
-#include "rom.h"
+#include "map.h"
 #include "common.h"
 #include <string.h>
 
@@ -34,6 +34,8 @@ enum PpuSlCyc : u16
   PPU_CYC_SWAP_X = 257,
   PPU_CYC_SWAP_Y_BEGIN = 280,
   PPU_CYC_SWAP_Y_END = 304,
+  PPU_CYC_SPRITE_BEGIN = 257,
+  PPU_CYC_SPRITE_END = 320,
   PPU_CYC_PREFETCH_BEGIN = 321,
   PPU_CYC_PREFETCH_END = 336,
   PPU_CYC_LAST = 340,
@@ -42,7 +44,7 @@ enum PpuSlCyc : u16
 enum PpuCtrl : u8
 {
   PPU_CTRL_NAMETABLE_X = (1 << 0),
-  PPU_CTRL_NAMETABLE_Y = (1 << 1), // 240
+  PPU_CTRL_NAMETABLE_Y = (1 << 1),
   PPU_CTRL_INC_Y = (1 << 2),
   PPU_CTRL_SPRITE_NAMETABLE = (1 << 3),
   PPU_CTRL_BACK_NAMETABLE = (1 << 4),
@@ -80,18 +82,21 @@ enum PpuSpriteAttr : u8
   PPU_SPRITE_FLIP_VERT = (1 << 7),
 };
 
-struct PpuSprite
+typedef struct
 {
   u8 y;
-  u8 idx;
+  u8 tile;
   u8 attr;
   u8 x;
-};
+} PpuSprite;
 
 static struct Ppu
 {
   u8 oam[0x100];
   u8 pam[0x20];
+
+  u16 cyc;
+  u16 sl;
 
   u8 ctrl;
   u8 mask;
@@ -112,14 +117,25 @@ static struct Ppu
   u16 shift_attr_lo;
   u16 shift_attr_hi;
 
+  PpuSprite* sprite[8];
+  u16 sprite_addr;
+  u8 sprite_count;
+  u8 sprite_shift_lo[8];
+  u8 sprite_shift_hi[8];
+
   u8 read_buf;
+
   bool write_latch;
   bool odd_frame;
   bool suppress_vblank;
   bool increment_xy;
 } ppu;
 
-void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
+void ppu_power()
+{
+  memset(&ppu, 0, sizeof(ppu));
+  ppu.cyc = 15;
+}
 
 void ppu_reset()
 {
@@ -133,11 +149,15 @@ void ppu_reset()
   ppu.odd_frame = false;
 }
 
+u16 ppu_cyc() { return ppu.cyc; }
+u16 ppu_sl() { return ppu.sl; }
+bool ppu_is_vblank() { return ppu.status & PPU_STATUS_VBLANK; }
+
 #if MN_TRACE_PPU
 #define trace_ppu(fmt, ...)                                                                                    \
   tracef("PPU  " fmt "  C:%02X M:%02X ST:%02X O:%02X SY:%02X SX:%02X A:%04X L:%d B:%02X PPU:%3d,%3d CYC:%d\n", \
          __VA_ARGS__, ppu.ctrl, ppu.mask, ppu.status, ppu.sprite_addr, ppu.scroll[0], ppu.scroll[1], ppu.addr, \
-         ppu.write_latch, ppu.read_buf, dev.ppu_sl, dev.ppu_cyc, dev.cpu_cyc);
+         ppu.write_latch, ppu.read_buf, ppu.sl, ppu.cyc, cpu_cyc());
 #else
 #define trace_ppu(fmt, ...) (void)0
 #endif
@@ -147,26 +167,20 @@ static u8 ppu_pam_addr(u16 addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (
 static u8 ppu_read_addr(u16 addr)
 {
   addr &= 0x3FFF;
-  if (addr < 0x2000) {
-    return rom->chr ? rom->chr[addr] : dev.wram[addr];
-  } else if (addr < 0x3F00) {
-    return dev.vram[addr & 0xFFF];
-  } else {
+  if (addr >= 0x3F00) {
     return ppu.pam[ppu_pam_addr(addr)];
+  } else {
+    return map_ppu_read(addr);
   }
 }
 
 static void ppu_write_addr(u16 addr, u8 val)
 {
   addr &= 0x3FFF;
-  if (addr < 0x2000) {
-    if (!rom->chr) {
-      dev.wram[addr] = val;
-    }
-  } else if (addr < 0x3F00) {
-    dev.vram[addr & 0xFFF] = val;
-  } else {
+  if (addr >= 0x3F00) {
     ppu.pam[ppu_pam_addr(addr)] = val;
+  } else {
+    map_ppu_write(addr, val);
   }
 }
 
@@ -174,8 +188,11 @@ static bool ppu_rendering_enabled() { return (ppu.mask & PPU_MASK_BACK) || (ppu.
 
 static bool ppu_is_rendering()
 {
-  return ppu_rendering_enabled() && (dev.ppu_sl <= PPU_SL_END || dev.ppu_sl == PPU_SL_PRE_RENDER);
+  return ppu_rendering_enabled() && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER);
 }
+
+static void ppu_swap_x() { ppu.v = (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
+static void ppu_swap_y() { ppu.v = (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
 
 static void ppu_inc_x()
 {
@@ -193,7 +210,7 @@ static void ppu_inc_y()
     ppu.v += 0x1000; // increment fine Y
   } else {
     ppu.v &= ~0x7000; // fine Y = 0
-    u8 y = (ppu.v & 0x03E0) >> 5; // y = coarse Y
+    u16 y = (ppu.v & 0x03E0) >> 5; // y = coarse Y
     if (y == 29) {
       y = 0;
       ppu.v ^= 0x0800; // switch vertical nametable
@@ -255,6 +272,7 @@ void ppu_bus_write(u16 addr, u8 val)
         cpu_nmi();
       }
       ppu.ctrl = val;
+      ppu.t = (ppu.t & 0xF3FF) | (((u16)val & 0x03) << 10);
       break;
     case 1: ppu.mask = val; break;
     case 3: ppu.oam_addr = val; break;
@@ -284,20 +302,17 @@ void ppu_bus_write(u16 addr, u8 val)
   }
 }
 
-static void ppu_swap_x() { ppu.v = (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
-static void ppu_swap_y() { ppu.v = (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
-
-static void ppu_fetch_back()
+static bool ppu_fetch_back()
 {
   ppu.shift_tile_lo <<= 1;
   ppu.shift_tile_hi <<= 1;
   ppu.shift_attr_lo <<= 1;
   ppu.shift_attr_hi <<= 1;
 
-  switch (dev.ppu_cyc % 8) {
+  switch (ppu.cyc % 8) {
     case 1: { // nametable
       ppu.nt = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF));
-      break;
+      return false;
     }
     case 3: { // attribute
       u8 attr = ppu_read_addr(0x23C0 | (ppu.v & 0x0C00) | ((ppu.v & 0x0380) >> 4) | ((ppu.v & 0x001C) >> 2));
@@ -305,54 +320,167 @@ static void ppu_fetch_back()
       u8 coarse_y = (ppu.v & 0x03E0) >> 5;
       u8 shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
       ppu.at = (attr >> shift) & 0x03;
-      break;
+      return false;
     }
     case 5: { // chr lo
       u16 fine_y = (ppu.v & 0x7000) >> 12;
       u16 table = (ppu.ctrl & PPU_CTRL_BACK_NAMETABLE) ? 0x1000 : 0x0000;
       ppu.lo = ppu_read_addr(table + ((u16)ppu.nt << 4) + fine_y);
-      break;
+      return false;
     }
     case 7: { // chr hi
       u16 fine_y = (ppu.v & 0x7000) >> 12;
       u16 table = (ppu.ctrl & PPU_CTRL_BACK_NAMETABLE) ? 0x1000 : 0x0000;
       ppu.hi = ppu_read_addr(table + ((u16)ppu.nt << 4) + fine_y + 8);
-      break;
+      return false;
     }
     case 0: { // shift
       ppu.shift_tile_lo = (ppu.shift_tile_lo & 0xFF00) | ppu.lo;
       ppu.shift_tile_hi = (ppu.shift_tile_hi & 0xFF00) | ppu.hi;
       ppu.shift_attr_lo = (ppu.shift_attr_lo & 0xFF00) | ((ppu.at & 1) ? 0xFF : 0x00);
       ppu.shift_attr_hi = (ppu.shift_attr_hi & 0xFF00) | ((ppu.at & 2) ? 0xFF : 0x00);
+      return true;
+    }
+    default: return false;
+  }
+}
+
+static void ppu_evaluate_sprites()
+{
+  u16 next_sl = ppu.sl == PPU_SL_PRE_RENDER ? 0 : (ppu.sl + 1);
+  u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
+
+  memset(ppu.sprite, 0, sizeof(ppu.sprite));
+  memset(ppu.sprite_shift_lo, 0, sizeof(ppu.sprite_shift_lo));
+  memset(ppu.sprite_shift_hi, 0, sizeof(ppu.sprite_shift_hi));
+  ppu.sprite_addr = 0;
+  ppu.sprite_count = 0;
+
+  for (u8 i = 0; i < 64; ++i) {
+    PpuSprite* sprite = (PpuSprite*)&ppu.oam[i * sizeof(PpuSprite)];
+    if (next_sl >= sprite->y && next_sl < (sprite->y + sprite_height)) {
+      ppu.sprite[ppu.sprite_count++] = sprite;
+      if (ppu.sprite_count >= 8) {
+        ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
+        break;
+      }
+    }
+  }
+}
+
+static void ppu_fetch_sprites()
+{
+  u8 i = (ppu.cyc - PPU_CYC_SPRITE_BEGIN) / 8;
+  PpuSprite* sprite = ppu.sprite[i];
+
+  switch (ppu.cyc % 8) {
+    case 1: {
+      ppu.nt = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); // unused NT
+      break;
+    }
+    case 3: {
+      ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); // ignored NT
+
+      if (sprite) {
+        u16 next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
+        u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
+
+        u16 row = next_sl - sprite->y;
+        if (sprite->attr & PPU_SPRITE_FLIP_VERT) {
+          row = (sprite_height - 1) - row;
+        }
+
+        if (!(ppu.ctrl & PPU_CTRL_SPRITE_SIZE)) { // 8x8
+          u16 table = (ppu.ctrl & PPU_CTRL_SPRITE_NAMETABLE) ? 0x1000 : 0x0000;
+          ppu.sprite_addr = table + (sprite->tile << 4) + row;
+        } else {
+          u16 table = (sprite->tile & 1) ? 0x1000 : 0x0000;
+          ppu.sprite_addr = table + ((sprite->tile & 0xFE) << 4) + (row >= 8 ? row + 8 : row);
+        }
+      } else {
+        u16 table = (ppu.ctrl & PPU_CTRL_SPRITE_NAMETABLE) ? 0x1000 : 0x0000;
+        ppu.sprite_addr = table + (0xFF << 4);
+      }
+      break;
+    }
+    case 5: {
+      ppu.lo = ppu_read_addr(ppu.sprite_addr);
+      break;
+    }
+    case 7: {
+      ppu.hi = ppu_read_addr(ppu.sprite_addr + 8);
+      break;
+    }
+    case 0: {
+      if (sprite) {
+        if (sprite->attr & PPU_SPRITE_FLIP_HORIZ) {
+          ppu.lo = ((ppu.lo & 0xF0) >> 4) | ((ppu.lo & 0x0F) << 4);
+          ppu.lo = ((ppu.lo & 0xCC) >> 2) | ((ppu.lo & 0x33) << 2);
+          ppu.lo = ((ppu.lo & 0xAA) >> 1) | ((ppu.lo & 0x55) << 1);
+          ppu.hi = ((ppu.hi & 0xF0) >> 4) | ((ppu.hi & 0x0F) << 4);
+          ppu.hi = ((ppu.hi & 0xCC) >> 2) | ((ppu.hi & 0x33) << 2);
+          ppu.hi = ((ppu.hi & 0xAA) >> 1) | ((ppu.hi & 0x55) << 1);
+        }
+        ppu.sprite_shift_lo[i] = ppu.lo;
+        ppu.sprite_shift_hi[i] = ppu.hi;
+      }
       break;
     }
   }
 }
 
-static void ppu_fetch_unused()
-{
-  switch (dev.ppu_cyc % 8) {
-    case 1: ppu.nt = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); break; // unused
-    case 3: ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); break; // ignored
-  }
-}
-
 static void ppu_pixel()
 {
-  u8 pixel = (!ppu_rendering_enabled() && ppu.v >= 0x3F00) ? ppu.v : 0;
-
-  if ((ppu.mask & PPU_MASK_BACK) && (dev.ppu_cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_BACK))) {
+  u8 pixel_back = 0;
+  if ((ppu.mask & PPU_MASK_BACK) && (ppu.cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_BACK))) {
     u16 bit_mask = 0x8000 >> ppu.x;
     u8 p0 = (ppu.shift_tile_lo & bit_mask) ? 1 : 0;
     u8 p1 = (ppu.shift_tile_hi & bit_mask) ? 1 : 0;
-    u8 a0 = (ppu.shift_attr_lo & bit_mask) ? 1 : 0;
-    u8 a1 = (ppu.shift_attr_hi & bit_mask) ? 1 : 0;
-    pixel = p0 | (p1 << 1) | (a0 << 2) | (a1 << 3);
+    pixel_back = p0 | (p1 << 1);
+    if (pixel_back) {
+      u8 a0 = (ppu.shift_attr_lo & bit_mask) ? 1 : 0;
+      u8 a1 = (ppu.shift_attr_hi & bit_mask) ? 1 : 0;
+      pixel_back |= (a0 << 2) | (a1 << 3);
+    }
   }
 
-  if ((ppu.mask & PPU_MASK_SPRITE) && (dev.ppu_cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
-    // todo: sprites
-    // pixel = 0x10;
+  u8 pixel_sprite = 0;
+  bool sprite_priority = false;
+  bool is_sprite0 = false;
+  if ((ppu.mask & PPU_MASK_SPRITE) && (ppu.cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
+    u8 screen_x = ppu.cyc - 1;
+    for (u8 i = 0; i < ppu.sprite_count; i++) {
+      PpuSprite* sprite = ppu.sprite[i];
+      if (screen_x >= sprite->x && screen_x < (sprite->x + 8)) {
+        u8 offset = screen_x - sprite->x;
+        u8 bit_mask = 0x80 >> offset;
+
+        u8 p0 = (ppu.sprite_shift_lo[i] & bit_mask) ? 1 : 0;
+        u8 p1 = (ppu.sprite_shift_hi[i] & bit_mask) ? 1 : 0;
+        pixel_sprite = p0 | (p1 << 1);
+
+        if (pixel_sprite) {
+          pixel_sprite |= 0x10 | ((sprite->attr & 0x03) << 2);
+          sprite_priority = (sprite->attr & PPU_SPRITE_PRIORITY) == 0;
+          is_sprite0 = (sprite == (PpuSprite*)ppu.oam);
+          break;
+        }
+      }
+    }
+  }
+
+  u8 pixel = 0;
+  if ((!ppu_rendering_enabled() && ppu.v >= 0x3F00)) {
+    pixel = ppu.v;
+  } else {
+    if (pixel_back && pixel_sprite && is_sprite0 && ppu.cyc < PPU_CYC_END) { // intended emulation bug (<)
+      ppu.status |= PPU_STATUS_HIT;
+    }
+    if (pixel_sprite && (pixel_back == 0 || sprite_priority)) {
+      pixel = pixel_sprite;
+    } else {
+      pixel = pixel_back;
+    }
   }
 
   u8 color_idx = ppu.pam[ppu_pam_addr(pixel)] & 0x3F;
@@ -383,54 +511,58 @@ static void ppu_pixel()
     color = (r << 16) | (g << 8) | b;
   }
 
-  u16 screen_idx = (dev.ppu_sl << 8) | (dev.ppu_cyc - 1);
-  dev.screen[screen_idx] = color;
+  u16 out_idx = (ppu.sl << 8) | (ppu.cyc - 1);
+  dev_output(out_idx, color);
 }
 
 void ppu_tick()
 {
-  if (dev.ppu_sl <= PPU_SL_END && dev.ppu_cyc >= PPU_CYC_BEGIN && dev.ppu_cyc <= PPU_CYC_END) {
+  if (ppu.sl <= PPU_SL_END && ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END) {
     ppu_pixel();
   }
 
   if (ppu_is_rendering()) {
-    if (dev.ppu_sl == PPU_SL_PRE_RENDER) {
-      if (dev.ppu_cyc >= PPU_CYC_SWAP_Y_BEGIN && dev.ppu_cyc <= PPU_CYC_SWAP_Y_END) {
+    if (ppu.sl == PPU_SL_PRE_RENDER) {
+      if (ppu.cyc >= PPU_CYC_SWAP_Y_BEGIN && ppu.cyc <= PPU_CYC_SWAP_Y_END) {
         ppu_swap_y();
       }
-      if (ppu.odd_frame && dev.ppu_cyc == PPU_CYC_LAST - 1) {
-        ++dev.ppu_cyc;
+      if (ppu.odd_frame && ppu.cyc == PPU_CYC_LAST - 1) {
+        ++ppu.cyc;
       }
     }
 
-    if ((dev.ppu_cyc >= PPU_CYC_BEGIN && dev.ppu_cyc <= PPU_CYC_END)
-        || (dev.ppu_cyc >= PPU_CYC_PREFETCH_BEGIN && dev.ppu_cyc <= PPU_CYC_PREFETCH_END))
+    bool inc_x = false;
+    if ((ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END)
+        || (ppu.cyc >= PPU_CYC_PREFETCH_BEGIN && ppu.cyc <= PPU_CYC_PREFETCH_END))
     {
-      ppu_fetch_back();
-      if (ppu.increment_xy || (dev.ppu_cyc % 8) == 0) {
-        ppu_inc_x();
+      inc_x = ppu_fetch_back();
+    } else if (ppu.cyc >= PPU_CYC_SPRITE_BEGIN && ppu.cyc <= PPU_CYC_SPRITE_END) {
+      if (ppu.cyc == PPU_CYC_SPRITE_BEGIN) {
+        ppu_evaluate_sprites();
       }
-    } else {
-      ppu_fetch_unused();
+      ppu_fetch_sprites();
     }
 
-    if (ppu.increment_xy || dev.ppu_cyc == PPU_CYC_END) {
+    if (ppu.increment_xy || inc_x) {
+      ppu_inc_x();
+    }
+
+    if (ppu.increment_xy || ppu.cyc == PPU_CYC_END) {
       ppu_inc_y();
     }
 
-    if (dev.ppu_cyc == PPU_CYC_SWAP_X) {
+    if (ppu.cyc == PPU_CYC_SWAP_X) {
       ppu_swap_x();
     }
   }
 
-  if (dev.ppu_sl == PPU_SL_PRE_RENDER && dev.ppu_cyc == PPU_CYC_BEGIN) {
+  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
     ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_HIT | PPU_STATUS_SPRITE_OVERFLOW);
   }
 
-  if (dev.ppu_sl == PPU_SL_VBLANK && dev.ppu_cyc == PPU_CYC_BEGIN) {
+  if (ppu.sl == PPU_SL_VBLANK && ppu.cyc == PPU_CYC_BEGIN) {
     if (!ppu.suppress_vblank) {
       ppu.status |= PPU_STATUS_VBLANK;
-      dev.vblank = true;
       if (ppu.ctrl & PPU_CTRL_NMI) {
         cpu_nmi();
       }
@@ -440,18 +572,12 @@ void ppu_tick()
   ppu.suppress_vblank = false;
   ppu.increment_xy = false;
 
-  if (++dev.ppu_cyc > PPU_CYC_LAST) {
-    dev.ppu_cyc = 0;
-    if (++dev.ppu_sl > PPU_SL_PRE_RENDER) {
-      dev.ppu_sl = 0;
+  if (++ppu.cyc > PPU_CYC_LAST) {
+    ppu.cyc = 0;
+    if (++ppu.sl > PPU_SL_PRE_RENDER) {
+      ppu.sl = 0;
       ppu.odd_frame = !ppu.odd_frame;
 #if MN_TRACE_BLARGG
-      static bool running = false;
-      if (dev.sram[0] == 0x80) {
-        running = true;
-      } else if (running) {
-        dev.quit = true;
-      }
       tracef("\e[1;1HBLARGG status=%02X\n%s\n", dev.sram[0], (const char*)&dev.sram[4]);
 #endif
     }

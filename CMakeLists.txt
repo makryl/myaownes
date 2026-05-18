@@ -21,6 +21,7 @@ add_library(myanes
   src/cpu.c
   src/ppu.c
   src/apu.c
+  src/map.c
 )
 target_link_libraries(myanes PUBLIC GLESv2 SDL3-static)
 
