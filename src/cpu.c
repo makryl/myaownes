@@ -115,7 +115,7 @@ static u8 cpu_read_addr_(u16 addr, bool trace)
     return ppu_bus_read(addr, trace);
   } else if (addr < 0x4020) {
     if (addr == 0x4014) {
-      return 0; // openbus?
+      return map_openbus();
     } else if (addr == 0x4016 || addr == 0x4017) {
       return cpu_joy_poll(addr);
     } else {

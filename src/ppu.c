@@ -261,7 +261,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
       return val;
     }
   }
-  return 0; // openbus?
+  return map_openbus();
 }
 
 void ppu_bus_write(u16 addr, u8 val)

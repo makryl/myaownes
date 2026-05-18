@@ -19,7 +19,7 @@ enum NESFlag : u8
   NES_FLAG_VERT_MIRROR = (1 << 0),
   NES_FLAG_SRAM = (1 << 1),
   NES_FLAG_TRAINER = (1 << 2),
-  NES_FLAG_VRAM = (1 << 3),
+  NES_FLAG_ALT_MIRROR = (1 << 3),
 };
 
 static const size_t ROM_PAGE_SIZE = 0x4000;
@@ -81,7 +81,7 @@ Rom mn_rom_file(const char* path)
   nes->vert_mirror = (h.flags & NES_FLAG_VERT_MIRROR);
   nes->has_sram = (h.flags & NES_FLAG_SRAM);
   nes->has_trainer = (h.flags & NES_FLAG_TRAINER);
-  nes->has_vram = (h.flags & NES_FLAG_VRAM);
+  nes->alt_mirror = (h.flags & NES_FLAG_ALT_MIRROR);
   return nes;
 }
 

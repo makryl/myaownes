@@ -12,5 +12,5 @@ struct Rom
   bool vert_mirror;
   bool has_sram;
   bool has_trainer;
-  bool has_vram;
+  bool alt_mirror;
 };
