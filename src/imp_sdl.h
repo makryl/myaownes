@@ -85,6 +85,13 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_F: joy1 &= ~MN_INPUT_SELECT; break;
         case SDLK_RETURN:
         case SDLK_H: joy1 &= ~MN_INPUT_START; break;
+
+        case SDLK_UP: joy2 &= ~MN_INPUT_UP; break;
+        case SDLK_LEFT: joy2 &= ~MN_INPUT_LEFT; break;
+        case SDLK_DOWN: joy2 &= ~MN_INPUT_DOWN; break;
+        case SDLK_RIGHT: joy2 &= ~MN_INPUT_RIGHT; break;
+        case SDLK_KP_1: joy2 &= ~MN_INPUT_A; break;
+        case SDLK_KP_2: joy2 &= ~MN_INPUT_B; break;
       }
       break;
   }
