@@ -7,8 +7,8 @@
 struct NESHeader
 {
   u8 magic[4];
-  u8 rom_pages;
-  u8 vrom_pages;
+  u8 prg_pages;
+  u8 chr_pages;
   u8 flags;
   u8 mapper;
   u8 pad[8];
@@ -22,8 +22,8 @@ enum NESFlag : u8
   NES_FLAG_ALT_MIRROR = (1 << 3),
 };
 
-static const size_t ROM_PAGE_SIZE = 0x4000;
-static const size_t VROM_PAGE_SIZE = 0x2000;
+static const size_t PRG_PAGE_SIZE = 0x4000;
+static const size_t CHR_PAGE_SIZE = 0x2000;
 
 Rom mn_rom_file(const char* path)
 {
@@ -45,13 +45,13 @@ Rom mn_rom_file(const char* path)
     return 0;
   }
 
-  if (h.rom_pages == 0) {
+  if (h.prg_pages == 0) {
     errorf("no rom_pages in %s\n", path);
     fclose(f);
     return 0;
   }
 
-  size_t size = h.rom_pages * ROM_PAGE_SIZE + h.vrom_pages * VROM_PAGE_SIZE;
+  size_t size = h.prg_pages * PRG_PAGE_SIZE + h.chr_pages * CHR_PAGE_SIZE;
   void* mem = malloc(sizeof(struct Rom) + size);
   if (!mem) {
     errorf("no memory (%d) for %s", (int)size, path);
@@ -72,17 +72,17 @@ Rom mn_rom_file(const char* path)
 
   fclose(f);
 
-  Rom nes = mem;
-  nes->prg = mem + sizeof(struct Rom);
-  nes->chr = h.vrom_pages > 0 ? nes->prg + h.rom_pages * ROM_PAGE_SIZE : 0;
-  nes->prg_pages = h.rom_pages;
-  nes->chr_pages = h.vrom_pages;
-  nes->mapper = h.mapper | (h.flags >> 4);
-  nes->vert_mirror = (h.flags & NES_FLAG_VERT_MIRROR);
-  nes->has_sram = (h.flags & NES_FLAG_SRAM);
-  nes->has_trainer = (h.flags & NES_FLAG_TRAINER);
-  nes->alt_mirror = (h.flags & NES_FLAG_ALT_MIRROR);
-  return nes;
+  Rom rom = mem;
+  rom->prg = mem + sizeof(struct Rom);
+  rom->chr = h.chr_pages > 0 ? rom->prg + h.prg_pages * PRG_PAGE_SIZE : 0;
+  rom->prg_pages = h.prg_pages;
+  rom->chr_pages = h.chr_pages;
+  rom->mapper = h.mapper | (h.flags >> 4);
+  rom->vert_mirror = (h.flags & NES_FLAG_VERT_MIRROR);
+  rom->has_sram = (h.flags & NES_FLAG_SRAM);
+  rom->has_trainer = (h.flags & NES_FLAG_TRAINER);
+  rom->alt_mirror = (h.flags & NES_FLAG_ALT_MIRROR);
+  return rom;
 }
 
 void mn_rom_release(Rom rom) { free(rom); }
