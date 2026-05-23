@@ -81,7 +81,9 @@ u32 cpu_cyc() { return cpu.cyc; }
 
 static void cpu_inc_cyc()
 {
-  ++cpu.cyc;
+  map_cpu_cyc();
+  cpu.cyc++;
+
   ppu_tick();
   ppu_tick();
   ppu_tick();

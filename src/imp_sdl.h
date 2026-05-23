@@ -20,12 +20,12 @@ SDL_AppResult SDL_AppInit(void**, int, char*[])
   SDL_SetAppMetadata("MyaNES", "1.0", "com.makryl.myanes");
 
   if (!SDL_Init(SDL_INIT_VIDEO)) {
-    SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
+    SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
 
   if (!SDL_CreateWindowAndRenderer("MyaNES", 1024, 960, 0, &window, &renderer)) {
-    SDL_Log("Couldn't create window/renderer: %s", SDL_GetError());
+    SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
   SDL_SetRenderLogicalPresentation(renderer, 256, 240, SDL_LOGICAL_PRESENTATION_LETTERBOX);
@@ -33,7 +33,7 @@ SDL_AppResult SDL_AppInit(void**, int, char*[])
 
   texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
   if (!texture) {
-    SDL_Log("Couldn't create texture: %s", SDL_GetError());
+    SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
   SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
