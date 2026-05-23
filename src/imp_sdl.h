@@ -54,6 +54,9 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
         case SDLK_Q: return SDL_APP_SUCCESS;
+        case SDLK_R: mn_reset(); break;
+        case SDLK_P: mn_power(); break;
+
         case SDLK_W: joy1 = (joy1 & ~MN_INPUT_DOWN) | MN_INPUT_UP; break;
         case SDLK_A: joy1 = (joy1 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT; break;
         case SDLK_S: joy1 = (joy1 & ~MN_INPUT_UP) | MN_INPUT_DOWN; break;

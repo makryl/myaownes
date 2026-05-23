@@ -360,45 +360,31 @@ static void map_mmc1_load()
   map_mmc1_update();
 }
 
-static void map_uxrom_update()
-{
-  map_prg_page_16k(mapper.eram[0], 2);
-  map_prg_page_16k(-1, 3);
-}
-
 static bool map_uxrom_cpu_write(u16 addr, u8 val)
 {
-  if (addr < 0x8000) {
-    return false;
+  if (addr >= 0x8000) {
+    map_prg_page_16k(val, 2);
+    return true;
   }
-  mapper.eram[0] = val;
-  map_uxrom_update();
-  return true;
+  return false;
 }
 
 static void map_uxrom_load()
 {
   mapper.cpu_write = map_uxrom_cpu_write;
-  map_uxrom_update();
+  map_prg_page_16k(-1, 3);
 }
-
-static void map_cxrom_update() { map_chr_page_8k(mapper.eram[0], 0); }
 
 static bool map_cxrom_cpu_write(u16 addr, u8 val)
 {
-  if (addr < 0x8000) {
-    return false;
+  if (addr >= 0x8000) {
+    map_chr_page_8k(val, 0);
+    return true;
   }
-  mapper.eram[0] = val;
-  map_cxrom_update();
-  return true;
+  return false;
 }
 
-static void map_cxrom_load()
-{
-  mapper.cpu_write = map_cxrom_cpu_write;
-  map_cxrom_update();
-}
+static void map_cxrom_load() { mapper.cpu_write = map_cxrom_cpu_write; }
 
 enum
 {
@@ -704,93 +690,65 @@ void map_mmc5_load()
 }
 */
 
-static void map_axrom_update()
-{
-  map_prg_page_32k(mapper.eram[0], 1);
-  if (mapper.eram[0] & 0x10) {
-    map_ppu_nt_single_high();
-  } else {
-    map_ppu_nt_single_low();
-  }
-}
-
 static bool map_axrom_cpu_write(u16 addr, u8 val)
 {
-  if (addr < 0x8000) {
-    return false;
+  if (addr >= 0x8000) {
+    map_prg_page_32k(val & 0x0F, 1);
+    if (val & 0x10) {
+      map_ppu_nt_single_high();
+    } else {
+      map_ppu_nt_single_low();
+    }
+    return true;
   }
-  mapper.eram[0] = val;
-  map_axrom_update();
-  return true;
+  return false;
 }
 
 static void map_axrom_load()
 {
   mapper.cpu_write = map_axrom_cpu_write;
-  map_axrom_update();
-}
-
-static void map_colordreams_update()
-{
-  map_prg_page_32k(mapper.eram[0] & 0x0F, 1);
-  map_chr_page_8k(mapper.eram[0] >> 4, 0);
+  map_ppu_nt_single_low();
 }
 
 static bool map_colordreams_cpu_write(u16 addr, u8 val)
 {
-  if (addr < 0x8000) {
-    return false;
+  if (addr >= 0x8000) {
+    map_prg_page_32k(val & 0x0F, 1);
+    map_chr_page_8k(val >> 4, 0);
+    return true;
   }
-  mapper.eram[0] = val;
-  map_colordreams_update();
-  return true;
+  return false;
 }
 
-static void map_colordreams_load()
-{
-  mapper.cpu_write = map_colordreams_cpu_write;
-  map_colordreams_update();
-}
-
-static void map_bnrom_update() { map_prg_page_32k(mapper.eram[0], 1); }
+static void map_colordreams_load() { mapper.cpu_write = map_colordreams_cpu_write; }
 
 static bool map_bnrom_cpu_write(u16 addr, u8 val)
 {
-  if (addr < 0x8000) {
+  if (addr < 0x7FFD) {
     return false;
   }
-  mapper.eram[0] = val;
-  map_bnrom_update();
+  switch (addr) {
+    default:
+    case 0x7FFD: map_prg_page_32k(val, 1); break;
+    case 0x7FFE: map_chr_page_4k(val, 0); break;
+    case 0x7FFF: map_chr_page_4k(val, 1); break;
+  }
   return true;
 }
 
-static void map_bnrom_load()
-{
-  mapper.cpu_write = map_bnrom_cpu_write;
-  map_bnrom_update();
-}
-
-static void map_gxrom_update()
-{
-  map_prg_page_32k(mapper.eram[0] >> 4, 1);
-  map_chr_page_8k(mapper.eram[0] & 3, 0);
-}
+static void map_bnrom_load() { mapper.cpu_write = map_bnrom_cpu_write; }
 
 static bool map_gxrom_cpu_write(u16 addr, u8 val)
 {
-  if (addr < 0x8000) {
-    return false;
+  if (addr >= 0x8000) {
+    map_prg_page_32k(val >> 4, 1);
+    map_chr_page_8k(val & 0xF, 0);
+    return true;
   }
-  mapper.eram[0] = val;
-  map_gxrom_update();
-  return true;
+  return false;
 }
 
-static void map_gxrom_load()
-{
-  mapper.cpu_write = map_gxrom_cpu_write;
-  map_gxrom_update();
-}
+static void map_gxrom_load() { mapper.cpu_write = map_gxrom_cpu_write; }
 
 void mn_rom_load(Rom rom)
 {

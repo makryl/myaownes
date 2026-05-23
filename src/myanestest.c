@@ -15,7 +15,8 @@ bool mn_init()
   // test_rom = mn_rom_file("../../data/blargg_ppu_tests_2005.09.15b/vram_access.nes");
   // test_rom = mn_rom_file("../../data/blargg_ppu_tests_2005.09.15b/palette_ram.nes");
   // test_rom = mn_rom_file("../../data/blargg_ppu_tests_2005.09.15b/power_up_palette.nes");
-  test_rom = mn_rom_file("../../data/scroll.nes");
+  // test_rom = mn_rom_file("../../data/scroll.nes");
+  test_rom = mn_rom_file("../../tmp/Battletoads (U).nes");
   if (!test_rom) {
     return false;
   }
