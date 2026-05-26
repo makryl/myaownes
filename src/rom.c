@@ -104,9 +104,9 @@ Rom mn_rom_file(const char* path)
   rom->has_sram = (h.flags & NES_FLAG_SRAM);
   rom->has_trainer = (h.flags & NES_FLAG_TRAINER);
   rom->alt_mirror = (h.flags & NES_FLAG_ALT_MIRROR);
-  rom->ntsc = (h.tv_system & NES_TV_NTSC) || (h.tv_system & NES_TV_MULTI);
-  rom->pal = (h.tv_system & NES_TV_PAL) || (h.tv_system & NES_TV_MULTI);
-  rom->dendy = (h.tv_system & NES_TV_DENDY) || (h.tv_system & NES_TV_MULTI);
+  rom->ntsc = (h.tv_system == NES_TV_NTSC) || (h.tv_system == NES_TV_MULTI);
+  rom->pal = (h.tv_system == NES_TV_PAL) || (h.tv_system == NES_TV_MULTI);
+  rom->dendy = (h.tv_system == NES_TV_DENDY) || (h.tv_system == NES_TV_MULTI);
 
   return rom;
 }
