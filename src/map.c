@@ -130,49 +130,49 @@ static u8* map_ppu_write_pages(u8* src, u8 src_page, u8 dst_page, u8 pages)
 
 static void map_prg_page_4k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->prg_pages * 4 - 1;
+  sp &= (mapper.rom->prg_size >> (MAP_CPU_PAGE_SHIFT + 0)) - 1;
   map_cpu_read_pages(mapper.rom->prg, sp, dp, 1);
 }
 
 static void map_prg_page_8k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->prg_pages * 2 - 1;
+  sp &= (mapper.rom->prg_size >> (MAP_CPU_PAGE_SHIFT + 1)) - 1;
   map_cpu_read_pages(mapper.rom->prg, sp * 2, dp * 2, 2);
 }
 
 static void map_prg_page_16k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->prg_pages - 1;
+  sp &= (mapper.rom->prg_size >> (MAP_CPU_PAGE_SHIFT + 2)) - 1;
   map_cpu_read_pages(mapper.rom->prg, sp * 4, dp * 4, 4);
 }
 
 static void map_prg_page_32k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->prg_pages / 2 - 1;
+  sp &= (mapper.rom->prg_size >> (MAP_CPU_PAGE_SHIFT + 3)) - 1;
   map_cpu_read_pages(mapper.rom->prg, sp * 8, dp * 8, 8);
 }
 
 static void map_chr_page_1k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->chr_pages * 8 - 1;
+  sp &= (mapper.rom->chr_size >> (MAP_PPU_PAGE_SHIFT + 0)) - 1;
   map_ppu_read_pages(mapper.rom->chr, sp, dp, 1);
 }
 
 static void map_chr_page_2k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->chr_pages * 4 - 1;
+  sp &= (mapper.rom->chr_size >> (MAP_PPU_PAGE_SHIFT + 1)) - 1;
   map_ppu_read_pages(mapper.rom->chr, sp * 2, dp * 2, 2);
 }
 
 static void map_chr_page_4k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->chr_pages * 2 - 1;
+  sp &= (mapper.rom->chr_size >> (MAP_PPU_PAGE_SHIFT + 2)) - 1;
   map_ppu_read_pages(mapper.rom->chr, sp * 4, dp * 4, 4);
 }
 
 static void map_chr_page_8k(u8 sp, u8 dp)
 {
-  sp &= mapper.rom->chr_pages - 1;
+  sp &= (mapper.rom->chr_size >> (MAP_PPU_PAGE_SHIFT + 3)) - 1;
   map_ppu_read_pages(mapper.rom->chr, sp * 8, dp * 8, 8);
 }
 

@@ -25,6 +25,7 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline/scanline.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/scrolltest/scroll.nes");
   // test_rom = mn_rom_file("../../tmp/Battletoads (U).nes");
+  test_rom = mn_rom_file("../../tmp/GoodNES/USA/Mega Man (U) [!].nes");
   if (!test_rom) {
     return false;
   }
