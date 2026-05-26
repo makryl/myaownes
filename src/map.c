@@ -30,10 +30,12 @@ static struct
   u8 eram[0x2000]; // used also for mapper registers. <0x4020 never accessed from CPU, even if mapped.
   u8 sram[0x20000];
 
-  u8 openbus;
+  u8 open_bus;
 } mapper;
 
-u8 map_openbus() { return mapper.openbus; }
+const u8* mn_sram() { return mapper.sram; }
+
+u8 map_open_bus() { return mapper.open_bus; }
 
 void map_cpu_cyc()
 {
@@ -44,18 +46,18 @@ void map_cpu_cyc()
 
 u8 map_cpu_read(u16 addr)
 {
-  if (!mapper.cpu_read || !mapper.cpu_read(addr, &mapper.openbus)) {
+  if (!mapper.cpu_read || !mapper.cpu_read(addr, &mapper.open_bus)) {
     const u8* page = mapper.cpu_read_page[addr >> MAP_CPU_PAGE_SHIFT];
     if (page) {
-      mapper.openbus = page[addr & MAP_CPU_PAGE_MASK];
+      mapper.open_bus = page[addr & MAP_CPU_PAGE_MASK];
     }
   }
-  return mapper.openbus;
+  return mapper.open_bus;
 }
 
 void map_cpu_write(u16 addr, u8 val)
 {
-  mapper.openbus = val;
+  mapper.open_bus = val;
   if (!mapper.cpu_write || !mapper.cpu_write(addr, val)) {
     u8* page = mapper.cpu_write_page[addr >> MAP_CPU_PAGE_SHIFT];
     if (page) {
@@ -66,18 +68,18 @@ void map_cpu_write(u16 addr, u8 val)
 
 u8 map_ppu_read(u16 addr)
 {
-  if (!mapper.ppu_read || !mapper.ppu_read(addr, &mapper.openbus)) {
+  if (!mapper.ppu_read || !mapper.ppu_read(addr, &mapper.open_bus)) {
     const u8* page = mapper.ppu_read_page[addr >> MAP_PPU_PAGE_SHIFT];
     if (page) {
-      mapper.openbus = page[addr & MAP_PPU_PAGE_MASK];
+      mapper.open_bus = page[addr & MAP_PPU_PAGE_MASK];
     }
   }
-  return mapper.openbus;
+  return mapper.open_bus;
 }
 
 void map_ppu_write(u16 addr, u8 val)
 {
-  mapper.openbus = val;
+  mapper.open_bus = val;
   if (!mapper.ppu_write || !mapper.ppu_write(addr, val)) {
     u8* page = mapper.ppu_write_page[addr >> MAP_PPU_PAGE_SHIFT];
     if (page) {

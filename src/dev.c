@@ -2,6 +2,7 @@
 #include "myanes.h"
 #include "cpu.h"
 #include "ppu.h"
+#include "common.h"
 
 static struct
 {
@@ -36,6 +37,10 @@ void mn_frame()
     vblank_before = ppu_is_vblank();
     cpu_tick();
   } while (vblank_before || !ppu_is_vblank());
+#if MN_TRACE_BLARGG
+  // tracef("\e[1;1HBLARGG status=%02X\n%s\n", *mn_sram(), (const char*)(mn_sram() + 4));
+  tracef("BLARGG status=%02X\n%s\n", *mn_sram(), (const char*)(mn_sram() + 4));
+#endif
 }
 
 u8 dev_input(u8 idx) { return *dev.joy[idx]; }

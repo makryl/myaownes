@@ -26,3 +26,4 @@ void mn_output(u32* out);
 void mn_power();
 void mn_reset();
 void mn_frame();
+const u8* mn_sram();
