@@ -27,7 +27,10 @@ enum : u16
   PPU_SL_POST_RENDER = 240,
   PPU_SL_VBLANK = 241,
   PPU_SL_PRE_RENDER = 261,
+};
 
+enum : u16
+{
   PPU_CYC_ZERO = 0,
   PPU_CYC_BEGIN = 1,
   PPU_CYC_END = 256,
@@ -120,9 +123,14 @@ static struct Ppu
   u16 shift_attr_lo;
   u16 shift_attr_hi;
 
-  PpuSprite* sprite[8];
+  PpuSprite sprite[2][8];
+  PpuSprite* sprite_oam;
+  PpuSprite* sprite_eval;
+  PpuSprite* sprite_render;
   u16 sprite_addr;
-  u8 sprite_count;
+  u8 sprite_eval_count;
+  u8 sprite_render_count;
+  u8 sprite_busy;
   u8 sprite_shift_lo[8];
   u8 sprite_shift_hi[8];
 
@@ -135,6 +143,8 @@ static struct Ppu
   bool increment_xy;
   bool suppress_vblank;
   bool check_nmi;
+  bool sprite_eval_has0;
+  bool sprite_render_has0;
 } ppu;
 
 void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
@@ -298,7 +308,6 @@ void ppu_bus_write(u16 addr, u8 val)
         ppu.t = (ppu.t & 0x00FF) | (((u16)val & 0x3F) << 8);
       } else {
         ppu.t = (ppu.t & 0xFF00) | val;
-        // ppu.write_v = 2; // пробовал с задержкой 1 2 3 4
         ppu.v = ppu.t;
       }
       ppu.write_latch = !ppu.write_latch;
@@ -355,33 +364,59 @@ static bool ppu_fetch_back()
   }
 }
 
-static void ppu_evaluate_sprites()
+static void ppu_evaluate_sprite_swap()
 {
-  u16 next_sl = ppu.sl == PPU_SL_PRE_RENDER ? 0 : (ppu.sl + 1);
-  u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
-
-  memset(ppu.sprite, 0, sizeof(ppu.sprite));
+  ppu.sprite_render = ppu.sprite_eval;
+  ppu.sprite_render_count = ppu.sprite_eval_count;
+  ppu.sprite_render_has0 = ppu.sprite_eval_has0;
   memset(ppu.sprite_shift_lo, 0, sizeof(ppu.sprite_shift_lo));
   memset(ppu.sprite_shift_hi, 0, sizeof(ppu.sprite_shift_hi));
-  ppu.sprite_addr = 0;
-  ppu.sprite_count = 0;
+}
 
-  for (u8 i = 0; i < 64; ++i) {
-    PpuSprite* sprite = (PpuSprite*)&ppu.oam[i * sizeof(PpuSprite)];
-    if (next_sl >= sprite->y && next_sl < (sprite->y + sprite_height)) {
-      ppu.sprite[ppu.sprite_count++] = sprite;
-      if (ppu.sprite_count >= 8) {
-        ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
-        break;
+static void ppu_evaluate_sprites()
+{
+  if (ppu.sprite_busy) {
+    --ppu.sprite_busy;
+    return;
+  }
+
+  if (ppu.cyc == PPU_CYC_BEGIN) {
+    ppu.sprite_oam = (PpuSprite*)ppu.oam;
+    ppu.sprite_eval = ppu.sprite[(ppu.sl & 1) ? 1 : 0];
+    ppu.sprite_eval_count = 0;
+    ppu.sprite_eval_has0 = false;
+    ppu.sprite_addr = 0;
+    ppu.sprite_busy = 63;
+    return;
+  }
+
+  if ((u8*)ppu.sprite_oam > &ppu.oam[sizeof(ppu.oam) - sizeof(PpuSprite)]) {
+    return;
+  }
+
+  u16 next_sl = ppu.sl == PPU_SL_PRE_RENDER ? 0 : (ppu.sl + 1);
+
+  u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
+  if (next_sl > ppu.sprite_oam->y && next_sl <= (ppu.sprite_oam->y + sprite_height)) {
+    if (ppu.sprite_eval_count < 8) {
+      memcpy(&ppu.sprite_eval[ppu.sprite_eval_count++], ppu.sprite_oam, sizeof(PpuSprite));
+      ppu.sprite_busy += 6;
+      if (ppu.sprite_oam == (PpuSprite*)ppu.oam) {
+        ppu.sprite_eval_has0 = true;
       }
+    } else {
+      ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
     }
   }
+
+  ++ppu.sprite_oam;
+  ppu.sprite_busy += 2;
 }
 
 static void ppu_fetch_sprites()
 {
   u8 i = (ppu.cyc - PPU_CYC_SPRITE_BEGIN) / 8;
-  PpuSprite* sprite = ppu.sprite[i];
+  PpuSprite* sprite = &ppu.sprite_render[i];
 
   switch (ppu.cyc % 8) {
     case 1: {
@@ -390,7 +425,7 @@ static void ppu_fetch_sprites()
         u16 next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
         u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
 
-        u16 row = next_sl - sprite->y;
+        u16 row = next_sl - sprite->y - 1;
         if (sprite->attr & PPU_SPRITE_FLIP_VERT) {
           row = (sprite_height - 1) - row;
         }
@@ -438,7 +473,7 @@ static void ppu_fetch_sprites()
   }
 }
 
-static void ppu_pixel()
+static void ppu_render()
 {
   u8 pixel_back = 0;
   if ((ppu.mask & PPU_MASK_BACK) && (ppu.cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_BACK))) {
@@ -458,8 +493,8 @@ static void ppu_pixel()
   bool is_sprite0 = false;
   if ((ppu.mask & PPU_MASK_SPRITE) && (ppu.cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
     u8 screen_x = ppu.cyc - 1;
-    for (u8 i = 0; i < ppu.sprite_count; i++) {
-      PpuSprite* sprite = ppu.sprite[i];
+    for (u8 i = 0; i < ppu.sprite_render_count; i++) {
+      PpuSprite* sprite = &ppu.sprite_render[i];
       if (screen_x >= sprite->x && screen_x < (sprite->x + 8)) {
         u8 offset = screen_x - sprite->x;
         u8 bit_mask = 0x80 >> offset;
@@ -471,7 +506,7 @@ static void ppu_pixel()
         if (pixel_sprite) {
           pixel_sprite |= 0x10 | ((sprite->attr & 0x03) << 2);
           sprite_priority = (sprite->attr & PPU_SPRITE_PRIORITY) == 0;
-          is_sprite0 = (sprite == (PpuSprite*)ppu.oam);
+          is_sprite0 = (i == 0 && ppu.sprite_render_has0);
           break;
         }
       }
@@ -526,31 +561,22 @@ static void ppu_pixel()
 
 void ppu_tick()
 {
-  // пробовал тут
-  // if (ppu.write_v && !--ppu.write_v) {
-  //   ppu.v = ppu.t;
-  // }
-
   if (ppu.sl <= PPU_SL_END && ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END) {
-    ppu_pixel();
+    ppu_render();
   }
-
-  // пробовал тут
-  // if (ppu.write_v && !--ppu.write_v) {
-  //   ppu.v = ppu.t;
-  // }
 
   if (ppu_is_rendering()) {
     bool inc_x = false;
-    if ((ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END)
-        || (ppu.cyc >= PPU_CYC_PREFETCH_BEGIN && ppu.cyc <= PPU_CYC_PREFETCH_END))
-    {
+    if ((ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END)) {
       inc_x = ppu_fetch_back();
+      ppu_evaluate_sprites();
     } else if (ppu.cyc >= PPU_CYC_SPRITE_BEGIN && ppu.cyc <= PPU_CYC_SPRITE_END) {
       if (ppu.cyc == PPU_CYC_SPRITE_BEGIN) {
-        ppu_evaluate_sprites();
+        ppu_evaluate_sprite_swap();
       }
       ppu_fetch_sprites();
+    } else if (ppu.cyc >= PPU_CYC_PREFETCH_BEGIN && ppu.cyc <= PPU_CYC_PREFETCH_END) {
+      inc_x = ppu_fetch_back();
     }
 
     if (ppu.increment_xy || inc_x) {
@@ -561,21 +587,6 @@ void ppu_tick()
       ppu_inc_y();
     }
 
-    // if (inc_x) {
-    //   ppu_inc_x();
-    // }
-    // if (ppu.increment_xy) {
-    //   ppu_inc_x();
-    //   if ((ppu.v & 0x7000) != 0x7000) {
-    //     ppu.v += 0x1000;
-    //   } else {
-    //     ppu.v &= ~0x7000;
-    //   }
-    // }
-    // if (ppu.cyc == PPU_CYC_END) {
-    //   ppu_inc_y();
-    // }
-
     if (ppu.cyc == PPU_CYC_SWAP_X) {
       ppu_swap_x();
     }
@@ -585,8 +596,12 @@ void ppu_tick()
     }
   }
 
+  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_ZERO) {
+    ppu.status &= ~(PPU_STATUS_HIT | PPU_STATUS_SPRITE_OVERFLOW);
+  }
+
   if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
-    ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_HIT | PPU_STATUS_SPRITE_OVERFLOW);
+    ppu.status &= ~(PPU_STATUS_VBLANK);
   }
 
   if ((ppu.sl == PPU_SL_VBLANK && ppu.cyc == PPU_CYC_BEGIN) && !ppu.suppress_vblank) {
@@ -597,11 +612,6 @@ void ppu_tick()
   if (ppu.check_nmi) {
     cpu_nmi(!ppu.suppress_vblank && (ppu.status & PPU_STATUS_VBLANK) && (ppu.ctrl & PPU_CTRL_NMI));
   }
-
-  // пробовал тут
-  // if (ppu.write_v && !--ppu.write_v) {
-  //   ppu.v = ppu.t;
-  // }
 
   ppu.increment_xy = false;
   ppu.suppress_vblank = false;

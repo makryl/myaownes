@@ -85,14 +85,21 @@ static void cpu_itr_poll()
   }
 }
 
-static void cpu_inc_cyc()
+static void cpu_inc_cyc_begin()
 {
   map_cpu_cyc();
   cpu.cyc++;
-  ppu_tick();
   cpu_itr_poll();
   ppu_tick();
   ppu_tick();
+}
+
+static void cpu_inc_cyc_end() { ppu_tick(); }
+
+static void cpu_inc_cyc()
+{
+  cpu_inc_cyc_begin();
+  cpu_inc_cyc_end();
 }
 
 static u8 cpu_joy_poll(u16 addr)
@@ -136,8 +143,10 @@ static u8 cpu_read_addr_(u16 addr, bool trace)
 
 static u8 cpu_read_addr(u16 addr)
 {
-  cpu_inc_cyc();
-  return cpu_read_addr_(addr, false);
+  cpu_inc_cyc_begin();
+  u8 val = cpu_read_addr_(addr, false);
+  cpu_inc_cyc_end();
+  return val;
 }
 
 static void cpu_dma(u8 val)
@@ -154,7 +163,7 @@ static void cpu_dma(u8 val)
 
 static void cpu_write_addr(u16 addr, u8 val)
 {
-  cpu_inc_cyc();
+  cpu_inc_cyc_begin();
   if (addr < 0x2000) {
     cpu.ram[addr & 0x07FF] = val;
   } else if (addr < 0x4000) {
@@ -170,6 +179,7 @@ static void cpu_write_addr(u16 addr, u8 val)
   } else {
     map_cpu_write(addr, val);
   }
+  cpu_inc_cyc_end();
 }
 
 #if MN_TRACE_CPU
