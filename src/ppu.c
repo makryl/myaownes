@@ -115,6 +115,9 @@ static struct Ppu
   u8 lo;
   u8 hi;
 
+  u8 m;
+  u8 n;
+
   u16 attr_addr;
   u8 attr_shift;
 
@@ -124,7 +127,6 @@ static struct Ppu
   u16 shift_attr_hi;
 
   PpuSprite sprite[2][8];
-  PpuSprite* sprite_oam;
   PpuSprite* sprite_eval;
   PpuSprite* sprite_render;
   u16 sprite_addr;
@@ -259,7 +261,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
       break;
     }
     case 4: {
-      ppu.open_bus = ppu.oam[ppu.oam_addr]; // ++?
+      ppu.open_bus = ppu.oam[ppu.oam_addr];
       break;
     }
     case 7: {
@@ -366,6 +368,7 @@ static bool ppu_fetch_back()
 
 static void ppu_evaluate_sprite_swap()
 {
+  ppu.sprite_addr = 0; // ?
   ppu.sprite_render = ppu.sprite_eval;
   ppu.sprite_render_count = ppu.sprite_eval_count;
   ppu.sprite_render_has0 = ppu.sprite_eval_has0;
@@ -381,42 +384,48 @@ static void ppu_evaluate_sprites()
   }
 
   if (ppu.cyc == PPU_CYC_BEGIN) {
-    ppu.sprite_oam = (PpuSprite*)ppu.oam;
     ppu.sprite_eval = ppu.sprite[(ppu.sl & 1) ? 1 : 0];
+    ppu.m = 0;
+    ppu.n = 0;
     ppu.sprite_eval_count = 0;
     ppu.sprite_eval_has0 = false;
-    ppu.sprite_addr = 0;
     ppu.sprite_busy = 63;
+    memset(ppu.sprite_eval, 0xFF, sizeof(ppu.sprite[0]));
     return;
   }
 
-  if ((u8*)ppu.sprite_oam > &ppu.oam[sizeof(ppu.oam) - sizeof(PpuSprite)]) {
+  if (ppu.n >= 64) {
     return;
   }
 
   u16 next_sl = ppu.sl == PPU_SL_PRE_RENDER ? 0 : (ppu.sl + 1);
+  u8 height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
+  u8* oam_ptr = &ppu.oam[(ppu.n++ << 2) + (ppu.m++ & 3)];
+  u8 y = *oam_ptr;
 
-  u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
-  if (next_sl > ppu.sprite_oam->y && next_sl <= (ppu.sprite_oam->y + sprite_height)) {
+  if (next_sl > y && next_sl <= (y + height)) {
     if (ppu.sprite_eval_count < 8) {
-      memcpy(&ppu.sprite_eval[ppu.sprite_eval_count++], ppu.sprite_oam, sizeof(PpuSprite));
+      memcpy(&ppu.sprite_eval[ppu.sprite_eval_count++], oam_ptr, 4);
+      ppu.m = 0;
       ppu.sprite_busy += 6;
-      if (ppu.sprite_oam == (PpuSprite*)ppu.oam) {
+      if (oam_ptr == ppu.oam) {
         ppu.sprite_eval_has0 = true;
       }
     } else {
       ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
     }
+  } else {
+    if (ppu.sprite_eval_count < 8) {
+      ppu.m = 0;
+    }
   }
-
-  ++ppu.sprite_oam;
-  ppu.sprite_busy += 2;
+  ++ppu.sprite_busy;
 }
 
 static void ppu_fetch_sprites()
 {
   u8 i = (ppu.cyc - PPU_CYC_SPRITE_BEGIN) / 8;
-  PpuSprite* sprite = &ppu.sprite_render[i];
+  PpuSprite* sprite = i < ppu.sprite_render_count ? &ppu.sprite_render[i] : 0;
 
   switch (ppu.cyc % 8) {
     case 1: {

@@ -37,8 +37,10 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_hit_tests_2005.10.05/10.timing_order.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_hit_tests_2005.10.05/11.edge_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/1.Basics.nes");
-  test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/2.Details.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/2.Details.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/3.Timing.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/4.Obscure.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/5.Emulator.nes");
 
   // test_rom = mn_rom_file("../../tmp/Battletoads (U).nes");
   // test_rom = mn_rom_file("../../tmp/GoodNES/USA/Mega Man (U) [!].nes");
