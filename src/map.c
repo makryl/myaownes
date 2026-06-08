@@ -470,7 +470,7 @@ static bool map_mmc3_ppu_read(u16 addr, u8*)
         if (mapper.eram[MAP_MMC3_IRQ_COUNTER] == 0) {
           mapper.eram[MAP_MMC3_IRQ_COUNTER] = mapper.eram[MAP_MMC3_IRQ_LATCH];
           if (mapper.eram[MAP_MMC3_IRQ_ENABLED]) {
-            cpu_irq();
+            cpu_irq(true);
           }
         }
       }

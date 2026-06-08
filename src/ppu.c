@@ -76,7 +76,7 @@ enum : u8
   PPU_STATUS_VBLANK = (1 << 7),
 };
 
-enum PpuSpriteAttr : u8
+enum : u8
 {
   PPU_SPRITE_COLOR0 = (1 << 0),
   PPU_SPRITE_COLOR1 = (1 << 1),
@@ -295,7 +295,10 @@ void ppu_bus_write(u16 addr, u8 val)
       break;
     case 1: ppu.mask = val; break;
     case 3: ppu.oam_addr = val; break;
-    case 4: ppu.oam[ppu.oam_addr++] = val; break;
+    case 4:
+      ppu.oam[ppu.oam_addr] = (ppu.oam_addr & 3) == 2 ? (val & 0xE3) : val;
+      ++ppu.oam_addr;
+      break;
     case 5:
       if (!ppu.write_latch) {
         ppu.t = (ppu.t & 0x7FE0) | (((u16)val & 0xF8) >> 3);
@@ -523,7 +526,7 @@ static void ppu_render()
   }
 
   u8 pixel = 0;
-  if ((!ppu_rendering_enabled() && ppu.v >= 0x3F00)) {
+  if (!ppu_rendering_enabled() && ppu.v >= 0x3F00) {
     pixel = ppu.v;
   } else {
     if (pixel_back && pixel_sprite && is_sprite0 && ppu.cyc < PPU_CYC_END) { // intended emulation bug (<)
