@@ -540,6 +540,9 @@ static void ppu_render()
   }
 
   u8 color_idx = ppu.pam[ppu_pam_addr(pixel)] & 0x3F;
+  if (ppu.mask & PPU_MASK_GRAY) {
+    color_idx &= 0x30;
+  }
   u32 color = palette[color_idx];
 
   if ((ppu.mask & PPU_MASK_RED) || (ppu.mask & PPU_MASK_GREEN) || (ppu.mask & PPU_MASK_BLUE)) {

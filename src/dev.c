@@ -2,6 +2,7 @@
 #include "myanes.h"
 #include "cpu.h"
 #include "ppu.h"
+#include "apu.h"
 #include "common.h"
 
 static struct
@@ -22,12 +23,14 @@ void mn_power()
 {
   cpu_power();
   ppu_power();
+  apu_power();
 }
 
 void mn_reset()
 {
   cpu_reset();
   ppu_reset();
+  apu_reset();
 }
 
 void mn_frame()
