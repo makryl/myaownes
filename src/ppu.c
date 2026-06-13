@@ -7,11 +7,6 @@
 
 // clang-format off
 static const u32 palette[0x40] = {
-  // 0x666666, 0x002A88, 0x1412A7, 0x3B00A4, 0x5C007E, 0x6E0040, 0x6C0600, 0x561D00, 0x333500, 0x0B4800, 0x005200, 0x004F08, 0x00404D, 0x000000, 0x000000, 0x000000, //
-  // 0xADADAD, 0x155FD9, 0x4240FF, 0x7527FE, 0xA01ADF, 0xB71E8B, 0xB33100, 0x964D00, 0x706600, 0x387F00, 0x108B00, 0x00831E, 0x007474, 0x000000, 0x000000, 0x000000, //
-  // 0xFFFEFF, 0x64B0FF, 0x9290FF, 0xC676FF, 0xF36AFF, 0xFE6ECC, 0xFE8170, 0xEA9E22, 0xBCBE00, 0x88D800, 0x5CE430, 0x45E082, 0x48CDDE, 0x4F4F4F, 0x000000, 0x000000, //
-  // 0xFFFEFF, 0xC0DFFF, 0xD3D2FF, 0xE8C8FF, 0xFBC2FF, 0xFEC4EA, 0xFECCC5, 0xF7D8A5, 0xE4E594, 0xCFEF96, 0xBDF4AB, 0xB3F3CC, 0xB5EBF2, 0xB8B8B8, 0x000000, 0x000000, //
-
   0x7C7C7C, 0x0000FC, 0x0000BC, 0x4428BC, 0x940084, 0xA80020, 0xA81000, 0x881400, 0x503000, 0x007800, 0x006800, 0x005800, 0x004058, 0x000000, 0x000000, 0x000000, //
   0xBCBCBC, 0x0078F8, 0x0058F8, 0x6844FC, 0xD800CC, 0xE40058, 0xF83800, 0xE45C10, 0xAC7C00, 0x00B800, 0x00A800, 0x00A844, 0x008888, 0x000000, 0x000000, 0x000000, //
   0xF8F8F8, 0x3CBCFC, 0x6888FC, 0x9878F8, 0xF878F8, 0xF85898, 0xF87858, 0xFCA044, 0xF8B800, 0xB8F818, 0x58D854, 0x58F898, 0x00E8D8, 0x787878, 0x000000, 0x000000, //
@@ -138,7 +133,9 @@ static struct Ppu
 
   u8 read_buf;
   u8 open_bus;
-  u8 write_v;
+
+  u8 pixel_addr;
+  u8 pixel_color;
 
   bool write_latch;
   bool odd_frame;
@@ -147,6 +144,7 @@ static struct Ppu
   bool check_nmi;
   bool sprite_eval_has0;
   bool sprite_render_has0;
+  bool sprite0_hit;
 } ppu;
 
 void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
@@ -371,7 +369,6 @@ static bool ppu_fetch_back()
 
 static void ppu_evaluate_sprite_swap()
 {
-  ppu.sprite_addr = 0; // ?
   ppu.sprite_render = ppu.sprite_eval;
   ppu.sprite_render_count = ppu.sprite_eval_count;
   ppu.sprite_render_has0 = ppu.sprite_eval_has0;
@@ -485,7 +482,7 @@ static void ppu_fetch_sprites()
   }
 }
 
-static void ppu_render()
+static void ppu_render_pixel()
 {
   u8 pixel_back = 0;
   if ((ppu.mask & PPU_MASK_BACK) && (ppu.cyc > 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_BACK))) {
@@ -525,25 +522,33 @@ static void ppu_render()
     }
   }
 
-  u8 pixel = 0;
   if (!ppu_rendering_enabled() && ppu.v >= 0x3F00) {
-    pixel = ppu.v;
+    ppu.pixel_addr = ppu.v;
   } else {
     if (pixel_back && pixel_sprite && is_sprite0 && ppu.cyc < PPU_CYC_END) { // intended emulation bug (<)
-      ppu.status |= PPU_STATUS_HIT;
+      ppu.sprite0_hit = true;
     }
     if (pixel_sprite && (pixel_back == 0 || sprite_priority)) {
-      pixel = pixel_sprite;
+      ppu.pixel_addr = pixel_sprite;
     } else {
-      pixel = pixel_back;
+      ppu.pixel_addr = pixel_back;
     }
   }
+}
 
-  u8 color_idx = ppu.pam[ppu_pam_addr(pixel)] & 0x3F;
-  if (ppu.mask & PPU_MASK_GRAY) {
-    color_idx &= 0x30;
+void ppu_render_palette() { ppu.pixel_color = ppu.pam[ppu_pam_addr(ppu.pixel_addr)] & 0x3F; }
+
+void ppu_render_final()
+{
+  if (ppu.sprite0_hit) {
+    ppu.status |= PPU_STATUS_HIT;
   }
-  u32 color = palette[color_idx];
+
+  if (ppu.mask & PPU_MASK_GRAY) {
+    ppu.pixel_color &= 0x30;
+  }
+
+  u32 rgb = palette[ppu.pixel_color];
 
   if ((ppu.mask & PPU_MASK_RED) || (ppu.mask & PPU_MASK_GREEN) || (ppu.mask & PPU_MASK_BLUE)) {
     float rf = 1.0f;
@@ -561,23 +566,31 @@ static void ppu_render()
       rf *= ppu_tint_accent;
       gf *= ppu_tint_accent;
     }
-    u8 r = (color & 0xFF0000) >> 16;
-    u8 g = (color & 0x00FF00) >> 8;
-    u8 b = (color & 0x0000FF);
+    u8 r = (rgb & 0xFF0000) >> 16;
+    u8 g = (rgb & 0x00FF00) >> 8;
+    u8 b = (rgb & 0x0000FF);
     r *= rf;
     g *= gf;
     b *= bf;
-    color = (r << 16) | (g << 8) | b;
+    rgb = (r << 16) | (g << 8) | b;
   }
 
-  u16 out_idx = (ppu.sl << 8) | (ppu.cyc - 1);
-  dev_output(out_idx, color);
+  u16 out_idx = (ppu.sl << 8) | (ppu.cyc - 3);
+  dev_output(out_idx, rgb);
 }
 
 void ppu_tick()
 {
-  if (ppu.sl <= PPU_SL_END && ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END) {
-    ppu_render();
+  if (ppu.sl <= PPU_SL_END) {
+    if (ppu.cyc >= PPU_CYC_BEGIN + 2 && ppu.cyc <= PPU_CYC_END + 2) {
+      ppu_render_final();
+    }
+    if (ppu.cyc >= PPU_CYC_BEGIN + 1 && ppu.cyc <= PPU_CYC_END + 1) {
+      ppu_render_palette();
+    }
+    if (ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END) {
+      ppu_render_pixel();
+    }
   }
 
   if (ppu_is_rendering()) {
@@ -611,12 +624,9 @@ void ppu_tick()
     }
   }
 
-  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_ZERO) {
-    ppu.status &= ~(PPU_STATUS_HIT | PPU_STATUS_SPRITE_OVERFLOW);
-  }
-
   if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
-    ppu.status &= ~(PPU_STATUS_VBLANK);
+    ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_HIT | PPU_STATUS_SPRITE_OVERFLOW);
+    ppu.sprite0_hit = false;
   }
 
   if ((ppu.sl == PPU_SL_VBLANK && ppu.cyc == PPU_CYC_BEGIN) && !ppu.suppress_vblank) {
