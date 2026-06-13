@@ -28,6 +28,8 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/ram_after_reset.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/registers.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_timing_test6/cpu_timing_test.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/flowing_palette.nes"); // iNES 2.0 bug in rom.c
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/full_palette_smooth.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/full_palette.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_misc/instr_misc.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_test-v5/all_instrs.nes");
@@ -53,8 +55,8 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/count_errors.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/test_buttons.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/thorough_test.nes"); // black screen
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline/scanline.nes"); // flickering pixels after line
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline-a1/scanline.nes"); // flickering pixels after line
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline/scanline.nes"); // area1 flickering pixels after line
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline-a1/scanline.nes"); // area1 flickering pixels after line
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/scrolltest/scroll.nes"); // fixed bottom panel flickers
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes"); // infinite
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes"); // infinite

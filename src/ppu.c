@@ -113,9 +113,6 @@ static struct Ppu
   u8 m;
   u8 n;
 
-  u16 attr_addr;
-  u8 attr_shift;
-
   u16 shift_tile_lo;
   u16 shift_tile_hi;
   u16 shift_attr_lo;
@@ -124,7 +121,6 @@ static struct Ppu
   PpuSprite sprite[2][8];
   PpuSprite* sprite_eval;
   PpuSprite* sprite_render;
-  u16 sprite_addr;
   u8 sprite_eval_count;
   u8 sprite_render_count;
   u8 sprite_busy;
@@ -134,8 +130,8 @@ static struct Ppu
   u8 read_buf;
   u8 open_bus;
 
-  u8 pixel_addr;
-  u8 pixel_color;
+  u8 pixel;
+  u8 color;
 
   bool write_latch;
   bool odd_frame;
@@ -166,10 +162,10 @@ u16 ppu_sl() { return ppu.sl; }
 bool ppu_is_vblank() { return ppu.status & PPU_STATUS_VBLANK; }
 
 #if MN_TRACE_PPU
-#define trace_ppu(fmt, ...)                                                                                    \
-  tracef("PPU  " fmt "  C:%02X M:%02X ST:%02X O:%02X SY:%02X SX:%02X A:%04X L:%d B:%02X PPU:%3d,%3d CYC:%d\n", \
-         __VA_ARGS__, ppu.ctrl, ppu.mask, ppu.status, ppu.sprite_addr, ppu.scroll[0], ppu.scroll[1], ppu.addr, \
-         ppu.write_latch, ppu.read_buf, ppu.sl, ppu.cyc, cpu_cyc());
+#define trace_ppu(fmt, ...)                                                                                 \
+  tracef("PPU  " fmt "  C:%02X M:%02X S:%02X O:%02X V:%04X T:%04X X:%02X W:%d R:%02X PPU:%3d,%3d CYC:%d\n", \
+         __VA_ARGS__, ppu.ctrl, ppu.mask, ppu.status, ppu.oam_addr, ppu.v, ppu.t, ppu.x, ppu.write_latch,   \
+         ppu.read_buf, ppu.sl, ppu.cyc, cpu_cyc());
 #else
 #define trace_ppu(fmt, ...) (void)0
 #endif
@@ -330,33 +326,30 @@ static bool ppu_fetch_back()
   ppu.shift_attr_hi <<= 1;
 
   switch (ppu.cyc % 8) {
-    case 1: { // nametable
+    case 2: { // nametable
       u16 table = (ppu.ctrl & PPU_CTRL_BACK_NAMETABLE) ? 0x1000 : 0x0000;
-      u16 idx = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF));
+      u16 val = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF));
       u16 fine_y = (ppu.v & 0x7000) >> 12;
-      ppu.nt = table | (idx << 4) | fine_y;
-
+      ppu.nt = table | (val << 4) | fine_y;
+      return false;
+    }
+    case 4: { // attribute
       u16 nt_select = ppu.v & 0x0C00;
       u16 coarse_x = ppu.v & 0x001F;
       u16 coarse_y = (ppu.v & 0x03E0) >> 5;
-      ppu.attr_addr = 0x23C0 | nt_select | ((coarse_y >> 2) << 3) | (coarse_x >> 2);
-      ppu.attr_shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
+      u16 addr = 0x23C0 | nt_select | ((coarse_y >> 2) << 3) | (coarse_x >> 2);
+      u16 shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
+      u8 val = ppu_read_addr(addr);
+      ppu.at = (val >> shift) & 0x03;
       return false;
     }
-    case 3: { // attribute
-      u8 attr = ppu_read_addr(ppu.attr_addr);
-      ppu.at = (attr >> ppu.attr_shift) & 0x03;
-      return false;
-    }
-    case 5: { // chr lo
+    case 6: { // chr lo
       ppu.lo = ppu_read_addr(ppu.nt);
       return false;
     }
-    case 7: { // chr hi
+    case 0: { // chr hi
       ppu.hi = ppu_read_addr(ppu.nt | 8);
-      return false;
-    }
-    case 0: { // shift
+
       ppu.shift_tile_lo = (ppu.shift_tile_lo & 0xFF00) | ppu.lo;
       ppu.shift_tile_hi = (ppu.shift_tile_hi & 0xFF00) | ppu.hi;
       ppu.shift_attr_lo = (ppu.shift_attr_lo & 0xFF00) | ((ppu.at & 1) ? 0xFF : 0x00);
@@ -428,7 +421,7 @@ static void ppu_fetch_sprites()
   PpuSprite* sprite = i < ppu.sprite_render_count ? &ppu.sprite_render[i] : 0;
 
   switch (ppu.cyc % 8) {
-    case 1: {
+    case 2: {
       ppu.nt = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); // unused NT
       if (sprite) {
         u16 next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
@@ -441,30 +434,28 @@ static void ppu_fetch_sprites()
 
         if (!(ppu.ctrl & PPU_CTRL_SPRITE_SIZE)) { // 8x8
           u16 table = (ppu.ctrl & PPU_CTRL_SPRITE_NAMETABLE) ? 0x1000 : 0x0000;
-          ppu.sprite_addr = table + (sprite->tile << 4) + row;
+          ppu.nt = table + (sprite->tile << 4) + row;
         } else {
           u16 table = (sprite->tile & 1) ? 0x1000 : 0x0000;
-          ppu.sprite_addr = table + ((sprite->tile & 0xFE) << 4) + (row >= 8 ? row + 8 : row);
+          ppu.nt = table + ((sprite->tile & 0xFE) << 4) + (row >= 8 ? row + 8 : row);
         }
       } else {
         u16 table = (ppu.ctrl & PPU_CTRL_SPRITE_NAMETABLE) ? 0x1000 : 0x0000;
-        ppu.sprite_addr = table + (0xFF << 4);
+        ppu.nt = table + (0xFF << 4);
       }
       break;
     }
-    case 3: {
+    case 4: {
       ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); // ignored NT
       break;
     }
-    case 5: {
-      ppu.lo = ppu_read_addr(ppu.sprite_addr);
-      break;
-    }
-    case 7: {
-      ppu.hi = ppu_read_addr(ppu.sprite_addr + 8);
+    case 6: {
+      ppu.lo = ppu_read_addr(ppu.nt);
       break;
     }
     case 0: {
+      ppu.hi = ppu_read_addr(ppu.nt | 8);
+
       if (sprite) {
         if (sprite->attr & PPU_SPRITE_FLIP_HORIZ) {
           ppu.lo = ((ppu.lo & 0xF0) >> 4) | ((ppu.lo & 0x0F) << 4);
@@ -522,33 +513,31 @@ static void ppu_render_pixel()
     }
   }
 
-  if (!ppu_rendering_enabled() && ppu.v >= 0x3F00) {
-    ppu.pixel_addr = ppu.v;
+  if (pixel_back && pixel_sprite && is_sprite0 && ppu.cyc < PPU_CYC_END) { // intended emulation bug (<)
+    ppu.sprite0_hit = true;
+  }
+
+  if (pixel_sprite && (pixel_back == 0 || sprite_priority)) {
+    ppu.pixel = pixel_sprite;
   } else {
-    if (pixel_back && pixel_sprite && is_sprite0 && ppu.cyc < PPU_CYC_END) { // intended emulation bug (<)
-      ppu.sprite0_hit = true;
-    }
-    if (pixel_sprite && (pixel_back == 0 || sprite_priority)) {
-      ppu.pixel_addr = pixel_sprite;
-    } else {
-      ppu.pixel_addr = pixel_back;
-    }
+    ppu.pixel = pixel_back;
   }
 }
 
-void ppu_render_palette() { ppu.pixel_color = ppu.pam[ppu_pam_addr(ppu.pixel_addr)] & 0x3F; }
+static void ppu_forced_vblank() { ppu.pixel = ppu.v >= 0x3F00 ? ppu.v : 0; }
+static void ppu_palette_color() { ppu.color = ppu.pam[ppu_pam_addr(ppu.pixel)] & 0x3F; }
 
-void ppu_render_final()
+static void ppu_dac(u8 x)
 {
   if (ppu.sprite0_hit) {
     ppu.status |= PPU_STATUS_SPRITE0_HIT;
   }
 
   if (ppu.mask & PPU_MASK_GRAY) {
-    ppu.pixel_color &= 0x30;
+    ppu.color &= 0x30;
   }
 
-  u32 rgb = palette[ppu.pixel_color];
+  u32 rgb = palette[ppu.color];
 
   if ((ppu.mask & PPU_MASK_RED) || (ppu.mask & PPU_MASK_GREEN) || (ppu.mask & PPU_MASK_BLUE)) {
     float rf = 1.0f;
@@ -575,21 +564,29 @@ void ppu_render_final()
     rgb = (r << 16) | (g << 8) | b;
   }
 
-  u16 out_idx = (ppu.sl << 8) | (ppu.cyc - 3);
+  u16 out_idx = (ppu.sl << 8) | x;
   dev_output(out_idx, rgb);
 }
 
 void ppu_tick()
 {
   if (ppu.sl <= PPU_SL_END) {
-    if (ppu.cyc >= PPU_CYC_BEGIN + 2 && ppu.cyc <= PPU_CYC_END + 2) {
-      ppu_render_final();
-    }
-    if (ppu.cyc >= PPU_CYC_BEGIN + 1 && ppu.cyc <= PPU_CYC_END + 1) {
-      ppu_render_palette();
-    }
-    if (ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END) {
-      ppu_render_pixel();
+    if (ppu_is_rendering()) {
+      if (ppu.cyc >= PPU_CYC_BEGIN + 2 && ppu.cyc <= PPU_CYC_END + 2) {
+        ppu_dac(ppu.cyc - 3);
+      }
+      if (ppu.cyc >= PPU_CYC_BEGIN + 1 && ppu.cyc <= PPU_CYC_END + 1) {
+        ppu_palette_color();
+      }
+      if (ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END) {
+        ppu_render_pixel();
+      }
+    } else {
+      if (ppu.cyc >= PPU_CYC_BEGIN && ppu.cyc <= PPU_CYC_END) {
+        ppu_forced_vblank();
+        ppu_palette_color();
+        ppu_dac(ppu.cyc - 1);
+      }
     }
   }
 
