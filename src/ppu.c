@@ -67,7 +67,7 @@ enum : u8
 {
   // PPU_STATUS_CAN_WRITE = (1 << 4),
   PPU_STATUS_SPRITE_OVERFLOW = (1 << 5),
-  PPU_STATUS_HIT = (1 << 6),
+  PPU_STATUS_SPRITE0_HIT = (1 << 6),
   PPU_STATUS_VBLANK = (1 << 7),
 };
 
@@ -541,7 +541,7 @@ void ppu_render_palette() { ppu.pixel_color = ppu.pam[ppu_pam_addr(ppu.pixel_add
 void ppu_render_final()
 {
   if (ppu.sprite0_hit) {
-    ppu.status |= PPU_STATUS_HIT;
+    ppu.status |= PPU_STATUS_SPRITE0_HIT;
   }
 
   if (ppu.mask & PPU_MASK_GRAY) {
@@ -625,7 +625,7 @@ void ppu_tick()
   }
 
   if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
-    ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_HIT | PPU_STATUS_SPRITE_OVERFLOW);
+    ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_SPRITE0_HIT | PPU_STATUS_SPRITE_OVERFLOW);
     ppu.sprite0_hit = false;
   }
 
