@@ -99,19 +99,15 @@ static struct Ppu
   u8 ctrl;
   u8 mask;
   u8 status;
-  u8 oam_addr;
 
   u16 t;
   u16 v;
   u8 x;
-
+  u16 nm; // todo: u8? combine with nt?
   u16 nt;
   u8 at;
   u8 lo;
   u8 hi;
-
-  u8 m;
-  u8 n;
 
   u16 shift_tile_lo;
   u16 shift_tile_hi;
@@ -255,7 +251,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
       break;
     }
     case 4: {
-      ppu.open_bus = ppu.oam[ppu.oam_addr];
+      ppu.open_bus = ppu.oam[ppu.nm & 0xFF];
       break;
     }
     case 7: {
@@ -288,10 +284,10 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.t = (ppu.t & 0xF3FF) | (((u16)val & 0x03) << 10);
       break;
     case 1: ppu.mask = val; break;
-    case 3: ppu.oam_addr = val; break;
+    case 3: ppu.nm = val; break;
     case 4:
-      ppu.oam[ppu.oam_addr] = (ppu.oam_addr & 3) == 2 ? (val & 0xE3) : val;
-      ++ppu.oam_addr;
+      ppu.oam[ppu.nm & 0xFF] = (ppu.nm & 3) == 2 ? (val & 0xE3) : val;
+      ++ppu.nm;
       break;
     case 5:
       if (!ppu.write_latch) {
@@ -378,8 +374,6 @@ static void ppu_evaluate_sprites()
 
   if (ppu.cyc == PPU_CYC_BEGIN) {
     ppu.sprite_eval = ppu.sprite[(ppu.sl & 1) ? 1 : 0];
-    ppu.m = 0;
-    ppu.n = 0;
     ppu.sprite_eval_count = 0;
     ppu.sprite_eval_has0 = false;
     ppu.sprite_busy = 63;
@@ -387,36 +381,38 @@ static void ppu_evaluate_sprites()
     return;
   }
 
-  if (ppu.n >= 64) {
+  if (ppu.nm > 0xFF) {
     return;
   }
 
   u16 next_sl = ppu.sl == PPU_SL_PRE_RENDER ? 0 : (ppu.sl + 1);
   u8 height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
-  u8* oam_ptr = &ppu.oam[(ppu.n++ << 2) + (ppu.m++ & 3)];
+  u8* oam_ptr = &ppu.oam[ppu.nm];
   u8 y = *oam_ptr;
+  bool hit = next_sl > y && next_sl <= (y + height);
 
-  if (next_sl > y && next_sl <= (y + height)) {
-    if (ppu.sprite_eval_count < 8) {
+  if (ppu.sprite_eval_count < 8) {
+    if (hit) {
       memcpy(&ppu.sprite_eval[ppu.sprite_eval_count++], oam_ptr, 4);
-      ppu.m = 0;
       ppu.sprite_busy += 6;
       if (oam_ptr == ppu.oam) {
         ppu.sprite_eval_has0 = true;
       }
-    } else {
-      ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
     }
   } else {
-    if (ppu.sprite_eval_count < 8) {
-      ppu.m = 0;
+    if (hit) {
+      ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
     }
+    ppu.nm = (ppu.nm & 0xFFFC) | ((ppu.nm + 1) & 3); // NES bug: increment both m and n: m here, n below.
   }
+  ppu.nm += 4;
   ++ppu.sprite_busy;
 }
 
 static void ppu_fetch_sprites()
 {
+  ppu.nm = 0;
+
   u8 i = (ppu.cyc - PPU_CYC_SPRITE_BEGIN) / 8;
   PpuSprite* sprite = i < ppu.sprite_render_count ? &ppu.sprite_render[i] : 0;
 
