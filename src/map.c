@@ -17,6 +17,7 @@ static struct
   void (*cpu_cyc)();
   bool (*cpu_read)(u16, u8*);
   bool (*cpu_write)(u16, u8);
+  void (*ppu_addr)(u16);
   bool (*ppu_read)(u16, u8*);
   bool (*ppu_write)(u16, u8);
 
@@ -63,6 +64,13 @@ void map_cpu_write(u16 addr, u8 val)
     if (page) {
       page[addr & MAP_CPU_PAGE_MASK] = val;
     }
+  }
+}
+
+void map_ppu_addr(u16 addr)
+{
+  if (mapper.ppu_addr) {
+    mapper.ppu_addr(addr);
   }
 }
 
@@ -391,9 +399,10 @@ static void map_cxrom_load() { mapper.cpu_write = map_cxrom_cpu_write; }
 enum
 {
   MAP_MMC3_CTRL = 8,
-  MAP_MMC3_IRQ_A12,
-  MAP_MMC3_IRQ_LATCH,
+  MAP_MMC3_IRQ_FILTER,
   MAP_MMC3_IRQ_COUNTER,
+  MAP_MMC3_IRQ_LATCH,
+  MAP_MMC3_IRQ_RELOAD,
   MAP_MMC3_IRQ_ENABLED,
 };
 
@@ -452,40 +461,40 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
       return true;
     case 0xA001: /* sram protect not needed*/ return true;
     case 0xC000: mapper.eram[MAP_MMC3_IRQ_LATCH] = val; return true;
-    case 0xC001: mapper.eram[MAP_MMC3_IRQ_COUNTER] = 0; return true;
-    case 0xE000: mapper.eram[MAP_MMC3_IRQ_ENABLED] = 0; return true;
+    case 0xC001: mapper.eram[MAP_MMC3_IRQ_RELOAD] = 1; return true;
+    case 0xE000:
+      mapper.eram[MAP_MMC3_IRQ_ENABLED] = 0;
+      cpu_irq(false);
+      return true;
     case 0xE001: mapper.eram[MAP_MMC3_IRQ_ENABLED] = 1; return true;
   }
   return false;
 }
 
-static bool map_mmc3_ppu_read(u16 addr, u8*)
+static void map_mmc3_ppu_addr(u16 addr)
 {
-  if (addr < 0x2000) {
-    if (addr & 0x1000) {
-      if (mapper.eram[MAP_MMC3_IRQ_A12] == 0) {
-        if (mapper.eram[MAP_MMC3_IRQ_COUNTER] > 0) {
-          --mapper.eram[MAP_MMC3_IRQ_COUNTER];
-        }
-        if (mapper.eram[MAP_MMC3_IRQ_COUNTER] == 0) {
-          mapper.eram[MAP_MMC3_IRQ_COUNTER] = mapper.eram[MAP_MMC3_IRQ_LATCH];
-          if (mapper.eram[MAP_MMC3_IRQ_ENABLED]) {
-            cpu_irq(true);
-          }
-        }
+  if (addr & 0x1000) {
+    if (mapper.eram[MAP_MMC3_IRQ_FILTER] == 0) {
+      if (mapper.eram[MAP_MMC3_IRQ_COUNTER] == 0 || mapper.eram[MAP_MMC3_IRQ_RELOAD]) {
+        mapper.eram[MAP_MMC3_IRQ_COUNTER] = mapper.eram[MAP_MMC3_IRQ_LATCH];
+        mapper.eram[MAP_MMC3_IRQ_RELOAD] = 0;
+      } else {
+        --mapper.eram[MAP_MMC3_IRQ_COUNTER];
       }
-      mapper.eram[MAP_MMC3_IRQ_A12] = 4;
-    } else if (mapper.eram[MAP_MMC3_IRQ_A12] == 4) {
-      --mapper.eram[MAP_MMC3_IRQ_A12];
+      if (mapper.eram[MAP_MMC3_IRQ_COUNTER] == 0 && mapper.eram[MAP_MMC3_IRQ_ENABLED]) {
+        cpu_irq(true);
+      }
     }
+    mapper.eram[MAP_MMC3_IRQ_FILTER] = 4;
+  } else if (mapper.eram[MAP_MMC3_IRQ_FILTER] == 4) {
+    --mapper.eram[MAP_MMC3_IRQ_FILTER];
   }
-  return false;
 }
 
 static void map_mmc3_cpu_cyc()
 {
-  if (mapper.eram[MAP_MMC3_IRQ_A12] > 0 && mapper.eram[MAP_MMC3_IRQ_A12] < 4) {
-    --mapper.eram[MAP_MMC3_IRQ_A12];
+  if (mapper.eram[MAP_MMC3_IRQ_FILTER] > 0 && mapper.eram[MAP_MMC3_IRQ_FILTER] < 4) {
+    --mapper.eram[MAP_MMC3_IRQ_FILTER];
   }
 }
 
@@ -493,7 +502,7 @@ static void map_mmc3_load()
 {
   mapper.cpu_cyc = map_mmc3_cpu_cyc;
   mapper.cpu_write = map_mmc3_cpu_write;
-  mapper.ppu_read = map_mmc3_ppu_read;
+  mapper.ppu_addr = map_mmc3_ppu_addr;
   map_mmc3_update();
 }
 

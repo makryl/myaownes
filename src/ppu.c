@@ -96,6 +96,8 @@ static struct Ppu
   u16 cyc;
   u16 sl;
 
+  u16 addr;
+
   u8 ctrl;
   u8 mask;
   u8 status;
@@ -168,23 +170,28 @@ bool ppu_is_vblank() { return ppu.status & PPU_STATUS_VBLANK; }
 
 static u8 ppu_pam_addr(u16 addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
 
-static u8 ppu_read_addr(u16 addr)
+static void ppu_addr(u16 addr)
 {
   addr &= 0x3FFF;
-  if (addr >= 0x3F00) {
-    return ppu.pam[ppu_pam_addr(addr)];
+  ppu.addr = addr;
+  map_ppu_addr(addr);
+}
+
+static u8 ppu_read()
+{
+  if (ppu.addr >= 0x3F00) {
+    return ppu.pam[ppu_pam_addr(ppu.addr)];
   } else {
-    return map_ppu_read(addr);
+    return map_ppu_read(ppu.addr);
   }
 }
 
-static void ppu_write_addr(u16 addr, u8 val)
+static void ppu_write(u8 val)
 {
-  addr &= 0x3FFF;
-  if (addr >= 0x3F00) {
-    ppu.pam[ppu_pam_addr(addr)] = val;
+  if (ppu.addr >= 0x3F00) {
+    ppu.pam[ppu_pam_addr(ppu.addr)] = val;
   } else {
-    map_ppu_write(addr, val);
+    map_ppu_write(ppu.addr, val);
   }
 }
 
@@ -233,6 +240,7 @@ static void ppu_inc()
     ppu.increment_xy = true;
   } else {
     ppu.v += (ppu.ctrl & PPU_CTRL_INC_Y) ? 32 : 1;
+    ppu_addr(ppu.v);
   }
 }
 
@@ -258,10 +266,12 @@ u8 ppu_bus_read(u16 addr, bool trace)
       u8 val;
       if ((ppu.v & 0x3FFF) < 0x3F00) {
         val = ppu.read_buf;
-        ppu.read_buf = ppu_read_addr(ppu.v);
+        ppu.read_buf = ppu_read();
       } else {
-        val = ppu_read_addr(ppu.v);
-        ppu.read_buf = ppu_read_addr(ppu.v & 0x2FFF);
+        val = ppu_read();
+        ppu.addr = ppu.v & 0x2FFF;
+        ppu.read_buf = ppu_read();
+        ppu.addr = ppu.v;
       }
       if (trace) {
         return val;
@@ -304,15 +314,19 @@ void ppu_bus_write(u16 addr, u8 val)
       } else {
         ppu.t = (ppu.t & 0xFF00) | val;
         ppu.v = ppu.t;
+        ppu_addr(ppu.v);
       }
       ppu.write_latch = !ppu.write_latch;
       break;
     case 7:
-      ppu_write_addr(ppu.v, val);
+      ppu_write(val);
       ppu_inc();
       break;
   }
 }
+
+static u16 ppu_nt_addr() { return 0x2000 | (ppu.v & 0x0FFF); }
+static u16 ppu_at_addr() { return 0x23C0 | (ppu.v & 0x0C00) | ((ppu.v >> 4) & 0x38) | ((ppu.v >> 2) & 7); }
 
 static bool ppu_fetch_back()
 {
@@ -322,29 +336,43 @@ static bool ppu_fetch_back()
   ppu.shift_attr_hi <<= 1;
 
   switch (ppu.cyc % 8) {
+    case 1: {
+      ppu_addr(ppu_nt_addr());
+      return false;
+    }
     case 2: { // nametable
+      ppu_addr(ppu_nt_addr());
       u16 table = (ppu.ctrl & PPU_CTRL_BACK_NAMETABLE) ? 0x1000 : 0x0000;
-      u16 val = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF));
-      u16 fine_y = (ppu.v & 0x7000) >> 12;
-      ppu.nt = table | (val << 4) | fine_y;
+      u8 fine_y = (ppu.v & 0x7000) >> 12;
+      ppu.nt = table | (ppu_read() << 4) | fine_y;
+      return false;
+    }
+    case 3: {
+      ppu_addr(ppu_at_addr());
       return false;
     }
     case 4: { // attribute
-      u16 nt_select = ppu.v & 0x0C00;
-      u16 coarse_x = ppu.v & 0x001F;
-      u16 coarse_y = (ppu.v & 0x03E0) >> 5;
-      u16 addr = 0x23C0 | nt_select | ((coarse_y >> 2) << 3) | (coarse_x >> 2);
-      u16 shift = ((coarse_y & 2) << 1) | (coarse_x & 2);
-      u8 val = ppu_read_addr(addr);
-      ppu.at = (val >> shift) & 0x03;
+      ppu_addr(ppu_at_addr());
+      u8 shift = ((ppu.v >> 4) & 4) | (ppu.v & 2);
+      ppu.at = (ppu_read() >> shift) & 0x03;
+      return false;
+    }
+    case 5: {
+      ppu_addr(ppu.nt);
       return false;
     }
     case 6: { // chr lo
-      ppu.lo = ppu_read_addr(ppu.nt);
+      ppu_addr(ppu.nt);
+      ppu.lo = ppu_read();
+      return false;
+    }
+    case 7: {
+      ppu_addr(ppu.nt | 8);
       return false;
     }
     case 0: { // chr hi
-      ppu.hi = ppu_read_addr(ppu.nt | 8);
+      ppu_addr(ppu.nt | 8);
+      ppu.hi = ppu_read();
 
       ppu.shift_tile_lo = (ppu.shift_tile_lo & 0xFF00) | ppu.lo;
       ppu.shift_tile_hi = (ppu.shift_tile_hi & 0xFF00) | ppu.hi;
@@ -417,8 +445,14 @@ static void ppu_fetch_sprites()
   PpuSprite* sprite = i < ppu.sprite_render_count ? &ppu.sprite_render[i] : 0;
 
   switch (ppu.cyc % 8) {
+    case 1: {
+      ppu_addr(ppu_nt_addr());
+      break;
+    }
     case 2: {
-      ppu.nt = ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); // unused NT
+      ppu_addr(ppu_nt_addr());
+      ppu.nt = ppu_read(); // unused NT
+
       if (sprite) {
         u16 next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
         u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
@@ -441,16 +475,31 @@ static void ppu_fetch_sprites()
       }
       break;
     }
+    case 3: {
+      ppu_addr(ppu_nt_addr());
+      break;
+    }
     case 4: {
-      ppu_read_addr(0x2000 | (ppu.v & 0x0FFF)); // ignored NT
+      ppu_addr(ppu_nt_addr());
+      ppu_read(); // ignored NT
+      break;
+    }
+    case 5: {
+      ppu_addr(ppu.nt);
       break;
     }
     case 6: {
-      ppu.lo = ppu_read_addr(ppu.nt);
+      ppu_addr(ppu.nt);
+      ppu.lo = ppu_read();
+      break;
+    }
+    case 7: {
+      ppu_addr(ppu.nt | 8);
       break;
     }
     case 0: {
-      ppu.hi = ppu_read_addr(ppu.nt | 8);
+      ppu_addr(ppu.nt | 8);
+      ppu.hi = ppu_read();
 
       if (sprite) {
         if (sprite->attr & PPU_SPRITE_FLIP_HORIZ) {

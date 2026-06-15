@@ -92,16 +92,13 @@ void cpu_power()
 static void cpu_cyc_begin()
 {
   cpu.cyc++;
+  map_cpu_cyc();
   apu_tick();
   ppu_tick();
   ppu_tick();
 }
 
-static void cpu_cyc_end()
-{
-  ppu_tick();
-  map_cpu_cyc();
-}
+static void cpu_cyc_end() { ppu_tick(); }
 
 static void cpu_poll_and_cyc()
 {
@@ -639,7 +636,7 @@ static void cpu_dma()
 {
   cpu_poll_and_cyc();
   if (cpu.cyc & 1) {
-    cpu_poll_and_cyc();
+    // cpu_poll_and_cyc();
   }
   for (u16 i = 0; i < 256; ++i) {
     u8 data = cpu_read_addr(cpu.dma_addr | i);

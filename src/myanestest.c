@@ -6,11 +6,6 @@ Rom test_rom;
 bool mn_init()
 {
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/other/nestest.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/blargg_nes_cpu_test5/cpu.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/blargg_ppu_tests_2005.09.15b/palette_ram.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/blargg_ppu_tests_2005.09.15b/sprite_ram.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/blargg_ppu_tests_2005.09.15b/vram_access.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/branch_timing_tests/1.Branch_Basics.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/branch_timing_tests/2.Backward_Branch.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/branch_timing_tests/3.Forward_Branch.nes");
@@ -34,6 +29,13 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_misc/instr_misc.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_test-v5/all_instrs.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/instr_timing.nes"); // was apu fail, now freeze
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/MMC1_A12/mmc1_a12.nes"); // fail
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/1-clocking.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/2-details.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/3-A12_clocking.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/4-scanline_timing.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/5-MMC3.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/6-MMC3_alt.nes"); // fail, ignore old rev
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/nmi_sync/demo_ntsc.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/nmi_sync/demo_pal.nes"); // not implemented
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/oam_read/oam_read.nes");
@@ -55,9 +57,11 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/count_errors.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/test_buttons.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/thorough_test.nes"); // black screen
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline/scanline.nes"); // area1 flickering pixels after line
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline-a1/scanline.nes"); // area1 flickering pixels after line
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scrolltest/scroll.nes"); // fixed bottom panel flickers
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline/scanline.nes"); // area1 flickering pixels after line,
+  // can fix by removing alignment cycle in oam dma, but is that correct?
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline-a1/scanline.nes"); // same as above
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/scrolltest/scroll.nes"); // fixed bottom panel flickers,
+  // same as nestopia and mesen - is that correct?
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes"); // infinite
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes"); // infinite
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_hit_tests_2005.10.05/01.basics.nes");
@@ -76,16 +80,9 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/3.Timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/4.Obscure.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_overflow_tests/5.Emulator.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/stomper/smwstomp.nes"); // fail
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/stomper/smwstomp.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/stress/NEStress.NES"); // cpu ok, other has errors
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/tvpassfail/tv.nes"); // fail square
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/1.frame_basics.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/2.vbl_timing.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/3.even_odd_frames.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/4.vbl_clear_timing.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/5.nmi_suppression.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/6.nmi_disable.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/7.nmi_timing.nes");
 
   // test_rom = mn_rom_file("../../tmp/Battletoads (U).nes");
   // test_rom = mn_rom_file("../../tmp/GoodNES/USA/Mega Man (U) [!].nes");
