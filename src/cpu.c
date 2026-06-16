@@ -636,7 +636,7 @@ static void cpu_dma()
 {
   cpu_poll_and_cyc();
   if (cpu.cyc & 1) {
-    // cpu_poll_and_cyc();
+    cpu_poll_and_cyc();
   }
   for (u16 i = 0; i < 256; ++i) {
     u8 data = cpu_read_addr(cpu.dma_addr | i);

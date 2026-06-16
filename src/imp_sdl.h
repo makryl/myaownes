@@ -71,8 +71,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_A: imp.joy1 = (imp.joy1 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT; break;
         case SDLK_S: imp.joy1 = (imp.joy1 & ~MN_INPUT_UP) | MN_INPUT_DOWN; break;
         case SDLK_D: imp.joy1 = (imp.joy1 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT; break;
-        case SDLK_J: imp.joy1 |= MN_INPUT_A; break;
-        case SDLK_K: imp.joy1 |= MN_INPUT_B; break;
+        case SDLK_J: imp.joy1 |= MN_INPUT_B; break;
+        case SDLK_K: imp.joy1 |= MN_INPUT_A; break;
         case SDLK_SPACE:
         case SDLK_F: imp.joy1 |= MN_INPUT_SELECT; break;
         case SDLK_RETURN:
@@ -82,8 +82,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_LEFT: imp.joy2 = (imp.joy2 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT; break;
         case SDLK_DOWN: imp.joy2 = (imp.joy2 & ~MN_INPUT_UP) | MN_INPUT_DOWN; break;
         case SDLK_RIGHT: imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT; break;
-        case SDLK_KP_1: imp.joy2 |= MN_INPUT_A; break;
-        case SDLK_KP_2: imp.joy2 |= MN_INPUT_B; break;
+        case SDLK_KP_1: imp.joy2 |= MN_INPUT_B; break;
+        case SDLK_KP_2: imp.joy2 |= MN_INPUT_A; break;
       }
       break;
     case SDL_EVENT_KEY_UP:
@@ -92,8 +92,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_A: imp.joy1 &= ~MN_INPUT_LEFT; break;
         case SDLK_S: imp.joy1 &= ~MN_INPUT_DOWN; break;
         case SDLK_D: imp.joy1 &= ~MN_INPUT_RIGHT; break;
-        case SDLK_J: imp.joy1 &= ~MN_INPUT_A; break;
-        case SDLK_K: imp.joy1 &= ~MN_INPUT_B; break;
+        case SDLK_J: imp.joy1 &= ~MN_INPUT_B; break;
+        case SDLK_K: imp.joy1 &= ~MN_INPUT_A; break;
         case SDLK_SPACE:
         case SDLK_F: imp.joy1 &= ~MN_INPUT_SELECT; break;
         case SDLK_RETURN:
@@ -103,8 +103,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_LEFT: imp.joy2 &= ~MN_INPUT_LEFT; break;
         case SDLK_DOWN: imp.joy2 &= ~MN_INPUT_DOWN; break;
         case SDLK_RIGHT: imp.joy2 &= ~MN_INPUT_RIGHT; break;
-        case SDLK_KP_1: imp.joy2 &= ~MN_INPUT_A; break;
-        case SDLK_KP_2: imp.joy2 &= ~MN_INPUT_B; break;
+        case SDLK_KP_1: imp.joy2 &= ~MN_INPUT_B; break;
+        case SDLK_KP_2: imp.joy2 &= ~MN_INPUT_A; break;
       }
       break;
   }

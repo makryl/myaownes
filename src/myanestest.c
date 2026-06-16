@@ -35,7 +35,6 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/3-A12_clocking.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/4-scanline_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/5-MMC3.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/6-MMC3_alt.nes"); // fail, ignore old rev
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/nmi_sync/demo_ntsc.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/nmi_sync/demo_pal.nes"); // not implemented
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/oam_read/oam_read.nes");
