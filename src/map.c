@@ -34,7 +34,8 @@ static struct
   u8 open_bus;
 } mapper;
 
-const u8* mn_sram() { return mapper.prg_ram; } // todo prg/chr
+const u8* mn_prg_ram() { return mapper.prg_ram; }
+const u8* mn_chr_ram() { return mapper.chr_ram; }
 
 u8 map_open_bus() { return mapper.open_bus; }
 
@@ -321,25 +322,26 @@ static void map_nrom_load()
   }
 }
 
-enum
+typedef struct
 {
-  MAP_MMC1_CTRL = 0,
-  MAP_MMC1_CHR0,
-  MAP_MMC1_CHR1,
-  MAP_MMC1_PRG,
-  MAP_MMC1_SHIFT,
-};
+  u8 ctrl;
+  u8 chr0;
+  u8 chr1;
+  u8 prg;
+  u8 shift;
+} MapMMC1;
 
 static void map_mmc1_update()
 {
-  u8 ctrl_nt = mapper.eram[MAP_MMC1_CTRL] & 3;
-  u8 ctrl_prg = (mapper.eram[MAP_MMC1_CTRL] >> 2) & 3;
-  u8 ctrl_chr = mapper.eram[MAP_MMC1_CTRL] >> 4;
-  u8 chr_page0 = mapper.eram[MAP_MMC1_CHR0];
-  u8 chr_page1 = ctrl_chr ? mapper.eram[MAP_MMC1_CHR1] : mapper.eram[MAP_MMC1_CHR0];
+  MapMMC1* reg = (MapMMC1*)mapper.eram;
+  u8 ctrl_nt = reg->ctrl & 3;
+  u8 ctrl_prg = (reg->ctrl >> 2) & 3;
+  u8 ctrl_chr = reg->ctrl >> 4;
+  u8 chr_page0 = reg->chr0;
+  u8 chr_page1 = ctrl_chr ? reg->chr1 : reg->chr0;
   u8 prg_sup0 = chr_page0 & 0x10;
   u8 prg_sup1 = chr_page1 & 0x10;
-  u8 prg_page = mapper.eram[MAP_MMC1_PRG] & 0x0F;
+  u8 prg_page = reg->prg & 0x0F;
   u8 prg_last = -1 & 0x0F;
 
   if (!mapper.rom->alt_mirror) {
@@ -374,22 +376,23 @@ static void map_mmc1_update()
 
 static bool map_mmc1_cpu_write(u16 addr, u8 val)
 {
+  MapMMC1* reg = (MapMMC1*)mapper.eram;
   // todo: mmc1 is slower than cpu, ignore sequential write on next cpu cycle
   if (addr < 0x8000) {
     return false;
   }
   if (val & 0x80) {
-    mapper.eram[MAP_MMC1_CTRL] |= 0x0C;
-    mapper.eram[MAP_MMC1_SHIFT] = 0x10;
+    reg->ctrl |= 0x0C;
+    reg->shift = 0x10;
     map_mmc1_update();
   } else {
-    bool last = mapper.eram[MAP_MMC1_SHIFT] & 1;
-    mapper.eram[MAP_MMC1_SHIFT] >>= 1;
-    mapper.eram[MAP_MMC1_SHIFT] |= (val & 1) << 4;
+    bool last = reg->shift & 1;
+    reg->shift >>= 1;
+    reg->shift |= (val & 1) << 4;
     if (last) {
-      u8 reg = (addr >> 13) & 3;
-      mapper.eram[reg] = mapper.eram[MAP_MMC1_SHIFT] & 0x1F;
-      mapper.eram[MAP_MMC1_SHIFT] = 0x10;
+      u8 idx = (addr >> 13) & 3;
+      mapper.eram[idx] = reg->shift & 0x1F;
+      reg->shift = 0x10;
       map_mmc1_update();
     }
   }
@@ -398,12 +401,13 @@ static bool map_mmc1_cpu_write(u16 addr, u8 val)
 
 static void map_mmc1_load()
 {
+  MapMMC1* reg = (MapMMC1*)mapper.eram;
   mapper.cpu_write = map_mmc1_cpu_write;
-  mapper.eram[MAP_MMC1_CTRL] = 0x0F;
-  mapper.eram[MAP_MMC1_CHR0] = 0x00;
-  mapper.eram[MAP_MMC1_CHR1] = 0x01;
-  mapper.eram[MAP_MMC1_PRG] = 0x00;
-  mapper.eram[MAP_MMC1_SHIFT] = 0x10;
+  reg->ctrl = 0x0F;
+  reg->chr0 = 0x00;
+  reg->chr1 = 0x01;
+  reg->prg = 0x00;
+  reg->shift = 0x10;
   map_mmc1_update();
 }
 
@@ -433,44 +437,50 @@ static bool map_cxrom_cpu_write(u16 addr, u8 val)
 
 static void map_cxrom_load() { mapper.cpu_write = map_cxrom_cpu_write; }
 
-enum
+typedef struct
 {
-  MAP_MMC3_CTRL = 8,
-  MAP_MMC3_IRQ_FILTER,
-  MAP_MMC3_IRQ_COUNTER,
-  MAP_MMC3_IRQ_LATCH,
-  MAP_MMC3_IRQ_RELOAD,
-  MAP_MMC3_IRQ_ENABLED,
-};
-
-// todo struct MapMMC3
+  u8 chr0;
+  u8 chr1;
+  u8 chr2;
+  u8 chr3;
+  u8 chr4;
+  u8 chr5;
+  u8 prg0;
+  u8 prg1;
+  u8 ctrl;
+  u8 filter;
+  u8 counter;
+  u8 latch;
+  u8 reload;
+  u8 enabled;
+} MapMMC3;
 
 static void map_mmc3_update()
 {
-  if (mapper.eram[MAP_MMC3_CTRL] & 0x80) {
-    map_chr_page_1k(mapper.eram[2], 0);
-    map_chr_page_1k(mapper.eram[3], 1);
-    map_chr_page_1k(mapper.eram[4], 2);
-    map_chr_page_1k(mapper.eram[5], 3);
-    map_chr_page_2k(mapper.eram[0] >> 1, 2);
-    map_chr_page_2k(mapper.eram[1] >> 1, 3);
+  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  if (reg->ctrl & 0x80) {
+    map_chr_page_1k(reg->chr2, 0);
+    map_chr_page_1k(reg->chr3, 1);
+    map_chr_page_1k(reg->chr4, 2);
+    map_chr_page_1k(reg->chr5, 3);
+    map_chr_page_2k(reg->chr0 >> 1, 2);
+    map_chr_page_2k(reg->chr1 >> 1, 3);
   } else {
-    map_chr_page_2k(mapper.eram[0] >> 1, 0);
-    map_chr_page_2k(mapper.eram[1] >> 1, 1);
-    map_chr_page_1k(mapper.eram[2], 4);
-    map_chr_page_1k(mapper.eram[3], 5);
-    map_chr_page_1k(mapper.eram[4], 6);
-    map_chr_page_1k(mapper.eram[5], 7);
+    map_chr_page_2k(reg->chr0 >> 1, 0);
+    map_chr_page_2k(reg->chr1 >> 1, 1);
+    map_chr_page_1k(reg->chr2, 4);
+    map_chr_page_1k(reg->chr3, 5);
+    map_chr_page_1k(reg->chr4, 6);
+    map_chr_page_1k(reg->chr5, 7);
   }
-
-  if (mapper.eram[MAP_MMC3_CTRL] & 0x40) {
+  if (reg->ctrl & 0x40) {
     map_prg_rom_page_8k(-2, 4);
-    map_prg_rom_page_8k(mapper.eram[7], 5);
-    map_prg_rom_page_8k(mapper.eram[6], 6);
+    map_prg_rom_page_8k(reg->prg1, 5);
+    map_prg_rom_page_8k(reg->prg0, 6);
     map_prg_rom_page_8k(-1, 7);
   } else {
-    map_prg_rom_page_8k(mapper.eram[6], 4);
-    map_prg_rom_page_8k(mapper.eram[7], 5);
+    map_prg_rom_page_8k(reg->prg0, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
     map_prg_rom_page_8k(-2, 6);
     map_prg_rom_page_8k(-1, 7);
   }
@@ -478,13 +488,14 @@ static void map_mmc3_update()
 
 static bool map_mmc3_cpu_write(u16 addr, u8 val)
 {
+  MapMMC3* reg = (MapMMC3*)mapper.eram;
   switch (addr & 0xE001) {
     case 0x8000:
-      mapper.eram[MAP_MMC3_CTRL] = val;
+      reg->ctrl = val;
       map_mmc3_update();
       return true;
     case 0x8001:
-      mapper.eram[mapper.eram[MAP_MMC3_CTRL] & 7] = val;
+      mapper.eram[reg->ctrl & 7] = val;
       map_mmc3_update();
       return true;
     case 0xA000:
@@ -497,41 +508,43 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
       }
       return true;
     case 0xA001: /* sram protect not needed*/ return true;
-    case 0xC000: mapper.eram[MAP_MMC3_IRQ_LATCH] = val; return true;
-    case 0xC001: mapper.eram[MAP_MMC3_IRQ_RELOAD] = 1; return true;
+    case 0xC000: reg->latch = val; return true;
+    case 0xC001: reg->reload = 1; return true;
     case 0xE000:
-      mapper.eram[MAP_MMC3_IRQ_ENABLED] = 0;
+      reg->enabled = 0;
       cpu_irq(false);
       return true;
-    case 0xE001: mapper.eram[MAP_MMC3_IRQ_ENABLED] = 1; return true;
+    case 0xE001: reg->enabled = 1; return true;
   }
   return false;
 }
 
 static void map_mmc3_ppu_addr(u16 addr)
 {
+  MapMMC3* reg = (MapMMC3*)mapper.eram;
   if (addr & 0x1000) {
-    if (mapper.eram[MAP_MMC3_IRQ_FILTER] == 0) {
-      if (mapper.eram[MAP_MMC3_IRQ_COUNTER] == 0 || mapper.eram[MAP_MMC3_IRQ_RELOAD]) {
-        mapper.eram[MAP_MMC3_IRQ_COUNTER] = mapper.eram[MAP_MMC3_IRQ_LATCH];
-        mapper.eram[MAP_MMC3_IRQ_RELOAD] = 0;
+    if (reg->filter == 0) {
+      if (reg->counter == 0 || reg->reload) {
+        reg->counter = reg->latch;
+        reg->reload = 0;
       } else {
-        --mapper.eram[MAP_MMC3_IRQ_COUNTER];
+        --reg->counter;
       }
-      if (mapper.eram[MAP_MMC3_IRQ_COUNTER] == 0 && mapper.eram[MAP_MMC3_IRQ_ENABLED]) {
+      if (reg->counter == 0 && reg->enabled) {
         cpu_irq(true);
       }
     }
-    mapper.eram[MAP_MMC3_IRQ_FILTER] = 4;
-  } else if (mapper.eram[MAP_MMC3_IRQ_FILTER] == 4) {
-    --mapper.eram[MAP_MMC3_IRQ_FILTER];
+    reg->filter = 4;
+  } else if (reg->filter == 4) {
+    --reg->filter;
   }
 }
 
 static void map_mmc3_cpu_cyc()
 {
-  if (mapper.eram[MAP_MMC3_IRQ_FILTER] > 0 && mapper.eram[MAP_MMC3_IRQ_FILTER] < 4) {
-    --mapper.eram[MAP_MMC3_IRQ_FILTER];
+  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  if (reg->filter > 0 && reg->filter < 4) {
+    --reg->filter;
   }
 }
 

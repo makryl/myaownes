@@ -41,7 +41,7 @@ void mn_frame()
     cpu_tick();
   } while (vblank_before || !ppu_is_vblank());
 #if MN_TRACE_BLARGG
-  tracef("\e[2J\e[HBLARGG status=%02X\n%s\n", *mn_sram(), (const char*)(mn_sram() + 4));
+  tracef("\e[2J\e[Hstatus=%02X\n%s\n", *mn_prg_ram(), (const char*)(mn_prg_ram() + 4));
 #endif
 }
 

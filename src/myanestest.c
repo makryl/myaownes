@@ -6,6 +6,26 @@ Rom test_rom;
 bool mn_init()
 {
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/other/nestest.nes");
+
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/dmc.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/noise.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/square.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/triangle.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4015_cleared.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_timing.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_written.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/irq_flag_cleared.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/len_ctrs_enabled.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/works_immediately.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/1-len_ctr.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/2-len_table.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/3-irq_flag.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/4-jitter.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/5-len_timing.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/6-irq_flag_timing.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/7-dmc_basics.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/rom_singles/8-dmc_rates.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_test/apu_test.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/branch_timing_tests/1.Branch_Basics.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/branch_timing_tests/2.Backward_Branch.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/branch_timing_tests/3.Forward_Branch.nes");
@@ -23,13 +43,14 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/ram_after_reset.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/registers.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_timing_test6/cpu_timing_test.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/flowing_palette.nes"); // iNES 2.0 bug in rom.c
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/flowing_palette.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/full_palette_smooth.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/full_palette.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_misc/instr_misc.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_test-v5/all_instrs.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/instr_timing.nes"); // was apu fail, now freeze
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/MMC1_A12/mmc1_a12.nes"); // fail
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/MMC1_A12/mmc1_a12.nes"); // i dont fully understand this test,
+  // but looks same as mesen, fceux and nestopia
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/1-clocking.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/2-details.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/3-A12_clocking.nes");
@@ -82,6 +103,13 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/stomper/smwstomp.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/stress/NEStress.NES"); // cpu ok, other has errors
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/tvpassfail/tv.nes"); // fail square
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/1.frame_basics.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/2.vbl_timing.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/3.even_odd_frames.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/4.vbl_clear_timing.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/5.nmi_suppression.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/6.nmi_disable.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/vbl_nmi_timing/7.nmi_timing.nes");
 
   // test_rom = mn_rom_file("../../tmp/Battletoads (U).nes");
   // test_rom = mn_rom_file("../../tmp/GoodNES/USA/Mega Man (U) [!].nes");

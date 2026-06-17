@@ -105,7 +105,7 @@ static struct Ppu
   u16 t;
   u16 v;
   u8 x;
-  u16 nm; // todo: u8? combine with nt?
+  u16 nm;
   u16 nt;
   u8 at;
   u8 lo;
