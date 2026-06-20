@@ -47,7 +47,8 @@ static struct Cpu
   u8 ram[0x0800];
   u32 cyc;
   u16 itr;
-  u16 dma_addr;
+  u16 oam_dma_addr;
+  u16 dmc_dma_addr;
   u16 pc;
   u8 s;
   u8 p;
@@ -59,9 +60,11 @@ static struct Cpu
   bool nmi;
   bool irq;
   bool brk;
-  bool dma;
+  bool oam_dma;
+  bool dmc_dma;
   bool joy_strobe;
   bool page_crossed;
+  bool write;
 } cpu;
 
 u32 cpu_cyc() { return cpu.cyc; }
@@ -89,16 +92,28 @@ void cpu_power()
   cpu_poll();
 }
 
+void cpu_dmc(u16 addr)
+{
+  cpu.dmc_dma_addr = addr;
+  cpu.dmc_dma = true;
+}
+
+static void cpu_dmc_dma();
+
 static void cpu_cyc_begin()
 {
-  cpu.cyc++;
-  map_cpu_cyc();
+  cpu_dmc_dma();
   apu_tick();
   ppu_tick();
   ppu_tick();
 }
 
-static void cpu_cyc_end() { ppu_tick(); }
+static void cpu_cyc_end()
+{
+  map_cpu_cyc();
+  ppu_tick();
+  ++cpu.cyc;
+}
 
 static void cpu_poll_and_cyc()
 {
@@ -157,6 +172,7 @@ static u8 cpu_read_addr(u16 addr)
 
 static void cpu_write_addr(u16 addr, u8 val)
 {
+  cpu.write = true;
   cpu_poll();
   cpu_cyc_begin();
   if (addr < 0x2000) {
@@ -165,8 +181,8 @@ static void cpu_write_addr(u16 addr, u8 val)
     ppu_bus_write(addr, val);
   } else if (addr < 0x4020) {
     if (addr == 0x4014) {
-      cpu.dma_addr = val << 8;
-      cpu.dma = true;
+      cpu.oam_dma_addr = val << 8;
+      cpu.oam_dma = true;
     } else if (addr == 0x4016) {
       cpu_joy_strobe(val);
     } else {
@@ -176,6 +192,7 @@ static void cpu_write_addr(u16 addr, u8 val)
     map_cpu_write(addr, val);
   }
   cpu_cyc_end();
+  cpu.write = false;
 }
 
 #if MN_TRACE_CPU
@@ -632,28 +649,48 @@ static void cpu_itr_exec()
 #endif
 }
 
-static void cpu_dma()
+static void cpu_dma_align()
 {
   cpu_poll_and_cyc();
   if (cpu.cyc & 1) {
     cpu_poll_and_cyc();
   }
-  for (u16 i = 0; i < 256; ++i) {
-    u8 data = cpu_read_addr(cpu.dma_addr | i);
+}
+
+static void cpu_dmc_dma()
+{
+  if (!cpu.write && cpu.dmc_dma) {
+    cpu.write = true; // suppress recursion
+    cpu_dma_align();
+    u8 val = cpu_read_addr(cpu.dmc_dma_addr);
     cpu_poll();
     cpu_cyc_begin();
-    ppu_bus_write(0x2004, data);
+    apu_dmc_dma(val);
+    cpu_cyc_end();
+    cpu.write = false;
+    cpu.dmc_dma = false;
+  }
+}
+
+static void cpu_oam_dma()
+{
+  cpu_dma_align();
+  for (u16 i = 0; i < 256; ++i) {
+    u8 val = cpu_read_addr(cpu.oam_dma_addr | i);
+    cpu_poll();
+    cpu_cyc_begin();
+    ppu_bus_write(0x2004, val);
     cpu_cyc_end();
   }
-  cpu.dma = false;
+  cpu.oam_dma = false;
 }
 
 void cpu_tick()
 {
   if (cpu.itr) {
     cpu_itr_exec();
-  } else if (cpu.dma) {
-    cpu_dma();
+  } else if (cpu.oam_dma) {
+    cpu_oam_dma();
   }
 
 #if MN_TRACE_CPU

@@ -7,13 +7,13 @@ bool mn_init()
 {
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/other/nestest.nes");
 
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/dmc.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/noise.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/square.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/triangle.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4015_cleared.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_timing.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_written.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/dmc.nes"); // not tested
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/noise.nes"); // not tested
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/square.nes"); // not tested
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/triangle.nes"); // not tested
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4015_cleared.nes"); // fail 3
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_timing.nes"); // fail 3
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_written.nes"); // fail 2
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/irq_flag_cleared.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/len_ctrs_enabled.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/works_immediately.nes");
@@ -39,7 +39,7 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/4-irq_and_dma.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/5-branch_delays_irq.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/cpu_interrupts.nes");
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/cpu_interrupts.nes"); // success, but skips 2 3 4
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/ram_after_reset.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/registers.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_timing_test6/cpu_timing_test.nes");
@@ -48,7 +48,7 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/full_palette.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_misc/instr_misc.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_test-v5/all_instrs.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/instr_timing.nes"); // was apu fail, now freeze
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/instr_timing.nes"); // fail unofficial instructions
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/MMC1_A12/mmc1_a12.nes"); // i dont fully understand this test,
   // but looks same as mesen, fceux and nestopia
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/1-clocking.nes");
