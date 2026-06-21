@@ -53,7 +53,7 @@ static struct Apu
   u8 dmc_out;
 
   bool mode5;
-  bool frame_irq_enabled;
+  bool frame_irq_disabled;
   bool frame_irq;
   bool dmc_has_sample_buf;
   bool dmc_irq_enabled;
@@ -95,20 +95,26 @@ void apu_power()
   apu_reset();
 }
 
+static void apu_reset_cyc() { apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4; }
+
 void apu_reset()
 {
-  apu.cyc = 0;
-  apu.mode5 = false;
-  apu.frame_irq_enabled = false;
-  apu.frame_irq = false;
-  apu.dmc_irq_enabled = false;
-  apu.dmc_irq = false;
+  apu.pulse1_enabled = false;
+  apu.pulse2_enabled = false;
+  apu.triangle_enabled = false;
+  apu.noise_enabled = false;
+  apu.dmc_enabled = false;
 
   apu.pulse1_len = 0;
   apu.pulse2_len = 0;
   apu.triangle_len = 0;
   apu.noise_len = 0;
   apu.dmc_len = 0;
+
+  apu.frame_irq = false;
+  apu.dmc_irq = false;
+
+  apu_reset_cyc();
 }
 
 u8 apu_bus_read(u16 addr, bool trace)
@@ -131,7 +137,7 @@ u8 apu_bus_read(u16 addr, bool trace)
       if (apu.dmc_len > 0) {
         status |= APU_STATUS_DMC;
       }
-      if (apu.frame_irq_enabled && apu.frame_irq) {
+      if (!apu.frame_irq_disabled && apu.frame_irq) {
         status |= APU_STATUS_FRAME_IRQ;
       }
       if (apu.dmc_irq_enabled && apu.dmc_irq) {
@@ -197,11 +203,11 @@ void apu_bus_write(u16 addr, u8 val)
     }
     case 0x17: {
       apu.mode5 = (val & 0x80);
-      apu.frame_irq_enabled = !(val & 0x40);
-      if (!apu.frame_irq_enabled) {
+      apu.frame_irq_disabled = (val & 0x40);
+      if (apu.frame_irq_disabled) {
         apu.frame_irq = false;
       }
-      apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4;
+      apu_reset_cyc();
       break;
     }
   }
@@ -297,7 +303,7 @@ void apu_tick()
     }
   }
 
-  cpu_irq((apu.frame_irq_enabled && apu.frame_irq) || (apu.dmc_irq_enabled && apu.dmc_irq));
+  cpu_irq((!apu.frame_irq_disabled && apu.frame_irq) || (apu.dmc_irq_enabled && apu.dmc_irq));
 
   ++apu.cyc;
 }
