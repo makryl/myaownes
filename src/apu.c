@@ -1,5 +1,6 @@
 #include "apu.h"
 #include "cpu.h"
+#include "map.h"
 #include <string.h>
 
 enum : u16
@@ -303,7 +304,7 @@ void apu_tick()
     }
   }
 
-  cpu_irq((!apu.frame_irq_disabled && apu.frame_irq) || (apu.dmc_irq_enabled && apu.dmc_irq));
+  map_apu_irq((!apu.frame_irq_disabled && apu.frame_irq) || (apu.dmc_irq_enabled && apu.dmc_irq));
 
   ++apu.cyc;
 }

@@ -32,12 +32,24 @@ static struct
   u8 chr_ram[0x100000];
 
   u8 open_bus;
+
+  bool apu_irq;
+  bool irq;
 } mapper;
 
 const u8* mn_prg_ram() { return mapper.prg_ram; }
 const u8* mn_chr_ram() { return mapper.chr_ram; }
 
 u8 map_open_bus() { return mapper.open_bus; }
+
+static void map_cpu_irq() { cpu_irq(mapper.apu_irq || mapper.irq); }
+
+void map_apu_irq(bool enabled)
+{
+  mapper.apu_irq = enabled;
+  map_cpu_irq();
+}
+
 
 void map_cpu_cyc()
 {
@@ -512,7 +524,8 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
     case 0xC001: reg->reload = 1; return true;
     case 0xE000:
       reg->enabled = 0;
-      cpu_irq(false);
+      mapper.irq = false;
+      map_cpu_irq();
       return true;
     case 0xE001: reg->enabled = 1; return true;
   }
@@ -531,7 +544,8 @@ static void map_mmc3_ppu_addr(u16 addr)
         --reg->counter;
       }
       if (reg->counter == 0 && reg->enabled) {
-        cpu_irq(true);
+        mapper.irq = true;
+        map_cpu_irq();
       }
     }
     reg->filter = 4;
