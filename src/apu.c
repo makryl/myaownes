@@ -1,6 +1,7 @@
 #include "apu.h"
 #include "cpu.h"
 #include "map.h"
+#include "common.h"
 #include <string.h>
 
 enum : u16
@@ -48,18 +49,20 @@ static struct Apu
   u8 triangle_len;
   u8 noise_len;
 
+  u8 dmc_start;
   u8 dmc_period;
-  u8 dmc_sample_buf;
+  u8 dmc_buf;
   u8 dmc_out_bit;
   u8 dmc_out;
 
   bool mode5;
   bool frame_irq_disabled;
   bool frame_irq;
-  bool dmc_has_sample_buf;
   bool dmc_irq_enabled;
   bool dmc_irq;
+  bool dmc_has_buf;
   bool dmc_loop;
+  bool dmc_silence;
 
   bool pulse1_enabled;
   bool pulse2_enabled;
@@ -72,6 +75,16 @@ static struct Apu
   bool halt_triangle;
   bool halt_noise;
 } apu;
+
+#if MN_TRACE_APU
+#define apu_trace_dmc(fmt, ...)                                                      \
+  tracef(fmt                                                                         \
+         " | %s | CPU CYC:%10d | APU HALF CYC:%10d | dmc_len:%d | dmc_has_buf:%d | " \
+         "dmc_out_bit:%d\n" __VA_OPT__(, ) __VA_ARGS__,                              \
+         cpu_cyc() & 1 ? "PUT" : "GET", cpu_cyc(), apu.cyc, apu.dmc_len, apu.dmc_has_buf, apu.dmc_out_bit)
+#else
+#define apu_trace_dmc(fmt, ...) (void)0
+#endif
 
 void apu_power()
 {
@@ -94,6 +107,7 @@ void apu_power()
   }
 
   apu_reset();
+  ++apu.cyc_reset; // extra one because zero cycle is not yet started
 }
 
 static void apu_reset_cyc() { apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4; }
@@ -146,11 +160,12 @@ u8 apu_bus_read(u16 addr, bool trace)
       }
       if (!trace) {
         apu.frame_irq = false;
+        // apu_trace_dmc("APU READ $4015=%02X  ", status);
       }
       return status;
     }
   }
-  return 0;
+  return map_open_bus();
 }
 
 void apu_bus_write(u16 addr, u8 val)
@@ -175,6 +190,7 @@ void apu_bus_write(u16 addr, u8 val)
     case 0x12: apu.dmc_sample_addr = 0xC000 + (val * 64); break;
     case 0x13: apu.dmc_sample_len = (val * 16) + 1; break;
     case 0x15: {
+      apu_trace_dmc("APU WRITE $4015=%02X ", val);
       apu.pulse1_enabled = (val & APU_STATUS_PULSE1);
       apu.pulse2_enabled = (val & APU_STATUS_PULSE2);
       apu.triangle_enabled = (val & APU_STATUS_TRIANGLE);
@@ -197,7 +213,7 @@ void apu_bus_write(u16 addr, u8 val)
       } else if (apu.dmc_len == 0) {
         apu.dmc_addr = apu.dmc_sample_addr;
         apu.dmc_len = apu.dmc_sample_len;
-        cpu_dmc(apu.dmc_addr);
+        apu.dmc_start = (cpu_cyc() & 1) ? 2 : 3;
       }
       apu.dmc_irq = false;
       break;
@@ -216,8 +232,21 @@ void apu_bus_write(u16 addr, u8 val)
 
 void apu_dmc_dma(u8 val)
 {
-  apu.dmc_sample_buf = val;
-  apu.dmc_has_sample_buf = true;
+  apu_trace_dmc("APU DMC DMA=%02X     ", val);
+  apu.dmc_buf = val;
+  apu.dmc_has_buf = true;
+  apu.dmc_addr = 0x8000 | (apu.dmc_addr + 1);
+
+  if (apu.dmc_len > 0) {
+    if (--apu.dmc_len == 0) {
+      if (apu.dmc_loop) {
+        apu.dmc_addr = apu.dmc_sample_addr;
+        apu.dmc_len = apu.dmc_sample_len;
+      } else {
+        apu.dmc_irq = true;
+      }
+    }
+  }
 }
 
 static void apu_update_len()
@@ -243,32 +272,33 @@ static void apu_update_env()
 
 void apu_tick()
 {
-  if (apu.dmc_timer > 0) {
-    --apu.dmc_timer;
-  }
   if (apu.dmc_timer == 0) {
     apu.dmc_timer = apu_dmc_period[apu.dmc_period];
-    if (apu.dmc_out_bit > 0) {
-      --apu.dmc_out_bit;
-    }
-  }
-  if (apu.dmc_out_bit == 0 && apu.dmc_has_sample_buf) {
-    apu.dmc_out = apu.dmc_sample_buf;
-    apu.dmc_out_bit = 8;
-    apu.dmc_has_sample_buf = false;
-    if (apu.dmc_len > 0) {
-      if (--apu.dmc_len == 0) {
-        if (apu.dmc_loop) {
-          apu.dmc_addr = apu.dmc_sample_addr;
-          apu.dmc_len = apu.dmc_sample_len;
+    if (apu.dmc_out_bit == 0) {
+      if (apu.dmc_has_buf) {
+        apu_trace_dmc("APU DMC SHIFT=%04X ", apu.dmc_addr);
+        apu.dmc_out = apu.dmc_buf;
+        apu.dmc_has_buf = false;
+        apu.dmc_silence = false;
+        if (apu.dmc_len > 0) {
           cpu_dmc(apu.dmc_addr);
-        } else {
-          apu.dmc_irq = true;
         }
       } else {
-        apu.dmc_addr = 0x8000 | (apu.dmc_addr + 1);
-        cpu_dmc(apu.dmc_addr);
+        if (!apu.dmc_silence) {
+          apu_trace_dmc("APU DMC SILENCE    ");
+        }
+        apu.dmc_silence = true;
       }
+      apu.dmc_out_bit = 8;
+    }
+    --apu.dmc_out_bit;
+  }
+  --apu.dmc_timer;
+
+  if (apu.dmc_start > 0) {
+    if (--apu.dmc_start == 0 && !apu.dmc_has_buf && apu.dmc_len > 0) {
+      apu_trace_dmc("APU DMC START=%04X ", apu.dmc_addr);
+      cpu_dmc(apu.dmc_addr);
     }
   }
 
@@ -283,25 +313,19 @@ void apu_tick()
 
   u16 last_step = (apu.mode5 ? apu.step5 : apu.step4);
 
-  if (apu.cyc == apu.step1 || apu.cyc == apu.step2 || apu.cyc == apu.step3) {
+  if (apu.cyc == apu.step1 + 1 || apu.cyc == apu.step2 + 1 || apu.cyc == apu.step3 + 1 || apu.cyc == last_step + 1) {
     apu_update_env();
-  } else if (apu.cyc == apu.step2 + 1) {
+  }
+  if (apu.cyc == apu.step2 + 1 || apu.cyc == last_step + 1) {
     apu_update_len();
-  } else if (apu.cyc == last_step) {
-    apu_update_env();
+  }
+  if (apu.cyc == last_step || apu.cyc == last_step + 1 || apu.cyc == last_step + 2) {
     if (!apu.mode5) {
       apu.frame_irq = true;
     }
-  } else if (apu.cyc == last_step + 1) {
-    apu_update_len();
-    if (!apu.mode5) {
-      apu.frame_irq = true;
-    }
-  } else if (apu.cyc == last_step + 2) {
+  }
+  if (apu.cyc == last_step + 2) {
     apu.cyc = 0;
-    if (!apu.mode5) {
-      apu.frame_irq = true;
-    }
   }
 
   map_apu_irq((!apu.frame_irq_disabled && apu.frame_irq) || (apu.dmc_irq_enabled && apu.dmc_irq));

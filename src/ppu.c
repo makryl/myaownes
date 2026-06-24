@@ -15,6 +15,7 @@ static const u32 palette[0x40] = {
 // clang-format on
 
 static const float ppu_tint_accent = 0.75f;
+static const u8 ppu_rw_delay = 4;
 
 enum : u16
 {
@@ -125,8 +126,12 @@ static struct Ppu
   u8 sprite_shift_lo[8];
   u8 sprite_shift_hi[8];
 
-  u8 read_buf;
   u8 open_bus;
+
+  u8 read_buf;
+  u8 write_buf;
+  u8 read_cyc;
+  u8 write_cyc;
 
   u8 pixel;
   u8 color;
@@ -151,6 +156,7 @@ void ppu_reset()
   ppu.t = 0;
   ppu.x = 0;
   ppu.read_buf = 0;
+  ppu.write_buf = 0;
   ppu.write_latch = false;
   ppu.odd_frame = false;
 }
@@ -259,24 +265,30 @@ u8 ppu_bus_read(u16 addr, bool trace)
       break;
     }
     case 4: {
-      ppu.open_bus = ppu.oam[ppu.nm & 0xFF];
+      u8 val = ppu.oam[ppu.nm & 0xFF];
+      if (trace) {
+        return val;
+      }
+      ppu.open_bus = val;
       break;
     }
     case 7: {
       u8 val;
       if ((ppu.v & 0x3FFF) < 0x3F00) {
         val = ppu.read_buf;
-        ppu.read_buf = ppu_read();
+        if (trace) {
+          return val;
+        }
       } else {
         val = ppu_read();
+        if (trace) {
+          return val;
+        }
         ppu.addr = ppu.v & 0x2FFF;
-        ppu.read_buf = ppu_read();
-        ppu.addr = ppu.v;
       }
-      if (trace) {
-        return val;
+      if (ppu.read_cyc == 0) {
+        ppu.read_cyc = ppu_rw_delay;
       }
-      ppu_inc();
       ppu.open_bus = val;
       break;
     }
@@ -319,8 +331,10 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.write_latch = !ppu.write_latch;
       break;
     case 7:
-      ppu_write(val);
-      ppu_inc();
+      ppu.write_buf = val;
+      if (ppu.write_cyc == 0) {
+        ppu.write_cyc = ppu_rw_delay;
+      }
       break;
   }
 }
@@ -615,6 +629,19 @@ static void ppu_dac(u8 x)
 
 void ppu_tick()
 {
+  if (ppu.read_cyc > 0) {
+    if (--ppu.read_cyc == 0) {
+      ppu.read_buf = ppu_read();
+      ppu_inc();
+    }
+  }
+  if (ppu.write_cyc > 0) {
+    if (--ppu.write_cyc == 0) {
+      ppu_write(ppu.write_buf);
+      ppu_inc();
+    }
+  }
+
   if (ppu.sl <= PPU_SL_END) {
     if (ppu_is_rendering()) {
       if (ppu.cyc >= PPU_CYC_BEGIN + 2 && ppu.cyc <= PPU_CYC_END + 2) {
