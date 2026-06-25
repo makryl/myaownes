@@ -7,10 +7,10 @@ bool mn_init()
 {
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/other/nestest.nes");
 
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/dmc.nes"); // not tested
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/noise.nes"); // not tested
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/square.nes"); // not tested
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/triangle.nes"); // not tested
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/dmc.nes"); // todo
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/noise.nes"); // todo
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/square.nes"); // todo
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_mixer/triangle.nes"); // todo
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4015_cleared.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/apu_reset/4017_written.nes");
@@ -45,7 +45,7 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_timing_test6/cpu_timing_test.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/dmc_dma_during_read4/dma_2007_read.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/dmc_dma_during_read4/dma_2007_write.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/dmc_dma_during_read4/dma_4016_read.nes"); // fail
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/dmc_dma_during_read4/dma_4016_read.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/dmc_dma_during_read4/double_2007_read.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/dmc_dma_during_read4/read_write_2007.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/full_palette/flowing_palette.nes");
@@ -95,7 +95,7 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/scrolltest/scroll.nes"); // fixed bottom panel flickers,
   // same as nestopia and mesen - is that correct?
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes"); // failed
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_hit_tests_2005.10.05/01.basics.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_hit_tests_2005.10.05/02.alignment.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_hit_tests_2005.10.05/03.corners.nes");
