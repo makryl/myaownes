@@ -32,7 +32,7 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_dummy_reads/cpu_dummy_reads.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_dummy_writes/cpu_dummy_writes_oam.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_dummy_writes/cpu_dummy_writes_ppumem.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_exec_space/test_cpu_exec_space_apu.nes"); // fail
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_exec_space/test_cpu_exec_space_apu.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_exec_space/test_cpu_exec_space_ppuio.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/1-cli_latency.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes");
@@ -60,19 +60,18 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/rom_singles/1-instr_timing.nes"); // fail unofficial
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/rom_singles/2-branch_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/instr_timing.nes"); // fail unofficial
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/MMC1_A12/mmc1_a12.nes"); // i dont fully understand this test,
-  // same as mesen, fceux and nestopia
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/MMC1_A12/mmc1_a12.nes"); // no input, same as mesen and nestopia
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/1-clocking.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/2-details.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/3-A12_clocking.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/4-scanline_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/5-MMC3.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/nmi_sync/demo_ntsc.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/nmi_sync/demo_pal.nes"); // not implemented
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/nmi_sync/demo_pal.nes"); // todo
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/oam_read/oam_read.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/oam_stress/oam_stress.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/pal_apu_tests/*.nes"); // todo
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_open_bus/ppu_open_bus.nes"); // open bus 1 sec decay fail
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_open_bus/ppu_open_bus.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_read_buffer/test_ppu_read_buffer.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_vbl_nmi/rom_singles/01-vbl_basics.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_vbl_nmi/rom_singles/02-vbl_set_time.nes");
@@ -85,15 +84,15 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_vbl_nmi/rom_singles/09-even_odd_frames.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_vbl_nmi/rom_singles/10-even_odd_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/ppu_vbl_nmi/ppu_vbl_nmi.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/count_errors_fast.nes"); // errors 21/1000
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/count_errors.nes"); // conflicts 78/1000
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/count_errors_fast.nes"); // similar to mesen, nestopia
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/count_errors.nes"); // similar to mesen, nestopia
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/test_buttons.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/read_joy3/thorough_test.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline/scanline.nes"); // area1 flickering pixels after line,
-  // can fix by removing alignment cycle in oam dma, but is that correct?
+  // can fix by removing alignment cycle in oam dma (but will not), close to nestopia and mesen
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/scanline-a1/scanline.nes"); // same as above
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/scrolltest/scroll.nes"); // fixed bottom panel flickers,
-  // same as nestopia and mesen - is that correct?
+  // same as nestopia and mesen
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/sprite_hit_tests_2005.10.05/01.basics.nes");

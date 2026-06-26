@@ -31,16 +31,12 @@ static struct
   u8 prg_ram[0x100000];
   u8 chr_ram[0x100000];
 
-  u8 open_bus;
-
   bool apu_irq;
   bool irq;
 } mapper;
 
 const u8* mn_prg_ram() { return mapper.prg_ram; }
 const u8* mn_chr_ram() { return mapper.chr_ram; }
-
-u8 map_open_bus() { return mapper.open_bus; }
 
 static void map_cpu_irq() { cpu_irq(mapper.apu_irq || mapper.irq); }
 
@@ -58,20 +54,18 @@ void map_cpu_cyc()
   }
 }
 
-u8 map_cpu_read(u16 addr)
+void map_cpu_read(u16 addr, u8* val)
 {
-  if (!mapper.cpu_read || !mapper.cpu_read(addr, &mapper.open_bus)) {
+  if (!mapper.cpu_read || !mapper.cpu_read(addr, val)) {
     const u8* page = mapper.cpu_read_page[addr >> MAP_CPU_PAGE_SHIFT];
     if (page) {
-      mapper.open_bus = page[addr & MAP_CPU_PAGE_MASK];
+      *val = page[addr & MAP_CPU_PAGE_MASK];
     }
   }
-  return mapper.open_bus;
 }
 
 void map_cpu_write(u16 addr, u8 val)
 {
-  mapper.open_bus = val;
   if (!mapper.cpu_write || !mapper.cpu_write(addr, val)) {
     u8* page = mapper.cpu_write_page[addr >> MAP_CPU_PAGE_SHIFT];
     if (page) {
@@ -87,20 +81,18 @@ void map_ppu_addr(u16 addr)
   }
 }
 
-u8 map_ppu_read(u16 addr)
+void map_ppu_read(u16 addr, u8* val)
 {
-  if (!mapper.ppu_read || !mapper.ppu_read(addr, &mapper.open_bus)) {
+  if (!mapper.ppu_read || !mapper.ppu_read(addr, val)) {
     const u8* page = mapper.ppu_read_page[addr >> MAP_PPU_PAGE_SHIFT];
     if (page) {
-      mapper.open_bus = page[addr & MAP_PPU_PAGE_MASK];
+      *val = page[addr & MAP_PPU_PAGE_MASK];
     }
   }
-  return mapper.open_bus;
 }
 
 void map_ppu_write(u16 addr, u8 val)
 {
-  mapper.open_bus = val;
   if (!mapper.ppu_write || !mapper.ppu_write(addr, val)) {
     u8* page = mapper.ppu_write_page[addr >> MAP_PPU_PAGE_SHIFT];
     if (page) {
@@ -320,8 +312,8 @@ static void map_nrom_load()
 
   map_prg_ram_page_8k(0, 3);
 
-  map_cpu_read_pages(mapper.eram, 0, 4, 2);
-  map_cpu_write_pages(mapper.eram, 0, 4, 2);
+  // map_cpu_read_pages(mapper.eram, 0, 4, 2);
+  // map_cpu_write_pages(mapper.eram, 0, 4, 2);
 
   map_chr_page_8k(0, 0);
 

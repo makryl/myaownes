@@ -66,7 +66,6 @@ enum : u8
 
 enum : u8
 {
-  // PPU_STATUS_CAN_WRITE = (1 << 4),
   PPU_STATUS_SPRITE_OVERFLOW = (1 << 5),
   PPU_STATUS_SPRITE0_HIT = (1 << 6),
   PPU_STATUS_VBLANK = (1 << 7),
@@ -127,6 +126,7 @@ static struct Ppu
   u8 sprite_shift_hi[8];
 
   u8 open_bus;
+  u8 open_bus_decay[8];
 
   u8 read_buf;
   u8 write_buf;
@@ -144,12 +144,14 @@ static struct Ppu
   bool sprite_eval_has0;
   bool sprite_render_has0;
   bool sprite0_hit;
+  bool ready;
 } ppu;
 
 void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
 
 void ppu_reset()
 {
+  ppu.ready = false;
   ppu.ctrl = 0;
   ppu.mask = 0;
   ppu.status = 0;
@@ -188,7 +190,9 @@ static u8 ppu_read()
   if (ppu.addr >= 0x3F00) {
     return ppu.pam[ppu_pam_addr(ppu.addr)];
   } else {
-    return map_ppu_read(ppu.addr);
+    u8 val = ppu.open_bus;
+    map_ppu_read(ppu.addr, &val); // update open_bus? (ppu_open_bus.nes)
+    return val;
   }
 }
 
@@ -250,6 +254,28 @@ static void ppu_inc()
   }
 }
 
+static void ppu_open_bus_set(u8 val, u8 mask)
+{
+  val &= mask;
+  ppu.open_bus = val | (ppu.open_bus & ~mask);
+  for (u8 i = 0; i <= 7; ++i) {
+    if (val & (1 << i)) {
+      ppu.open_bus_decay[i] = 32; // 600ms = 36 vblanks at 60Hz, 30 vblanks at 50Hz
+    }
+  }
+}
+
+static void ppu_open_bus_decay()
+{
+  for (u8 i = 0; i < 8; ++i) {
+    if (ppu.open_bus_decay[i] > 0) {
+      if (--ppu.open_bus_decay[i] == 0) {
+        ppu.open_bus &= ~(1 << i);
+      }
+    }
+  }
+}
+
 u8 ppu_bus_read(u16 addr, bool trace)
 {
   switch (addr & 0x7) {
@@ -257,7 +283,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
       if (trace) {
         return ppu.status;
       }
-      ppu.open_bus = ppu.status;
+      ppu_open_bus_set(ppu.status, 0xE0);
       ppu.write_latch = false;
       ppu.suppress_vblank = true;
       ppu.check_nmi = true;
@@ -269,27 +295,27 @@ u8 ppu_bus_read(u16 addr, bool trace)
       if (trace) {
         return val;
       }
-      ppu.open_bus = val;
+      ppu_open_bus_set(val, 0xFF);
       break;
     }
     case 7: {
-      u8 val;
       if ((ppu.v & 0x3FFF) < 0x3F00) {
-        val = ppu.read_buf;
+        u8 val = ppu.read_buf;
         if (trace) {
           return val;
         }
+        ppu_open_bus_set(val, 0xFF);
       } else {
-        val = ppu_read();
+        u8 val = ppu_read();
         if (trace) {
           return val;
         }
         ppu.addr = ppu.v & 0x2FFF;
+        ppu_open_bus_set(val, 0x3F);
       }
       if (ppu.read_cyc == 0) {
         ppu.read_cyc = ppu_rw_delay;
       }
-      ppu.open_bus = val;
       break;
     }
   }
@@ -298,7 +324,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
 
 void ppu_bus_write(u16 addr, u8 val)
 {
-  ppu.open_bus = val;
+  ppu_open_bus_set(val, 0xFF);
   switch (addr & 0x7) {
     case 0:
       ppu.check_nmi = (ppu.ctrl & PPU_CTRL_NMI) != (val & PPU_CTRL_NMI);
@@ -336,6 +362,13 @@ void ppu_bus_write(u16 addr, u8 val)
         ppu.write_cyc = ppu_rw_delay;
       }
       break;
+  }
+  if (!ppu.ready) {
+    ppu.ctrl = 0;
+    ppu.mask = 0;
+    ppu.t = 0;
+    ppu.x = 0;
+    ppu.write_latch = false;
   }
 }
 
@@ -696,6 +729,8 @@ void ppu_tick()
   if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
     ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_SPRITE0_HIT | PPU_STATUS_SPRITE_OVERFLOW);
     ppu.sprite0_hit = false;
+    ppu.ready = true;
+    ppu_open_bus_decay();
   }
 
   if ((ppu.sl == PPU_SL_VBLANK && ppu.cyc == PPU_CYC_BEGIN) && !ppu.suppress_vblank) {

@@ -132,7 +132,7 @@ void apu_reset()
   apu_reset_cyc();
 }
 
-u8 apu_bus_read(u16 addr, bool trace)
+void apu_bus_read(u16 addr, u8* val, bool trace)
 {
   switch (addr & 0x1F) {
     case 0x15: {
@@ -162,10 +162,9 @@ u8 apu_bus_read(u16 addr, bool trace)
         apu.frame_irq = false;
         // apu_trace_dmc("APU READ $4015=%02X  ", status);
       }
-      return status;
+      *val = status;
     }
   }
-  return map_open_bus();
 }
 
 void apu_bus_write(u16 addr, u8 val)

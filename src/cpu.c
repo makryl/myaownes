@@ -60,6 +60,7 @@ static struct Cpu
   u8 joy_idx;
   u8 joy_shift_delay;
   u8 dmc_dma_delay;
+  u8 open_bus;
   bool reset;
   bool nmi;
   bool irq;
@@ -111,7 +112,7 @@ static u8 cpu_joy_poll(u16 addr)
     return (dev_input(cpu.joy_idx) & 1);
   }
   cpu.joy_shift_delay = 2;
-  return (cpu.joy[cpu.joy_idx] & 1);
+  return (cpu.joy[cpu.joy_idx] & 1) | (cpu.open_bus & 0xE0);
 }
 
 static void cpu_joy_shift()
@@ -157,21 +158,21 @@ static void cpu_poll_and_cyc()
 
 static u8 cpu_read_addr_(u16 addr, bool trace)
 {
+  u8 val = cpu.open_bus;
   if (addr < 0x2000) {
-    return cpu.ram[addr & 0x07FF];
+    val = cpu.ram[addr & 0x07FF];
   } else if (addr < 0x4000) {
-    return ppu_bus_read(addr, trace);
+    val = ppu_bus_read(addr, trace);
   } else if (addr < 0x4020) {
-    if (addr == 0x4014) {
-      return map_open_bus();
-    } else if (addr == 0x4016 || addr == 0x4017) {
-      return cpu_joy_poll(addr);
+    if (addr == 0x4016 || addr == 0x4017) {
+      val = cpu_joy_poll(addr);
     } else {
-      return apu_bus_read(addr, trace);
+      apu_bus_read(addr, &val, trace);
     }
   } else {
-    return map_cpu_read(addr);
+    map_cpu_read(addr, &val);
   }
+  return val;
 }
 
 static u8 cpu_read_addr(u16 addr)
@@ -179,15 +180,16 @@ static u8 cpu_read_addr(u16 addr)
   cpu.addr = addr;
   cpu_poll();
   cpu_cyc_begin();
-  u8 val = cpu_read_addr_(addr, false);
+  cpu.open_bus = cpu_read_addr_(addr, false);
   cpu_cyc_end();
-  return val;
+  return cpu.open_bus;
 }
 
 static void cpu_write_addr(u16 addr, u8 val)
 {
-  cpu.addr = addr;
   cpu.write = true;
+  cpu.addr = addr;
+  cpu.open_bus = val;
   cpu_poll();
   cpu_cyc_begin();
   if (addr < 0x2000) {
@@ -675,7 +677,7 @@ static void cpu_dma_align()
 
 static void cpu_dmc_read()
 {
-  cpu_cyc_begin(); // begin/end for correct trace cycles in apu_dmc_dma
+  cpu_cyc_begin(); // begin/end for correct trace cycles in apu_dmc_dma, also keep cpu.addr
   apu_dmc_dma(cpu_read_addr_(cpu.dmc_dma_addr, false));
   cpu_cyc_end();
 }
