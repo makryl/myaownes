@@ -28,6 +28,9 @@ target_link_libraries(myanes PUBLIC GLESv2 SDL3-static)
 add_executable(myanestest src/myanestest.c)
 target_link_libraries(myanestest myanes)
 
+add_executable(tests src/tests.c)
+target_link_libraries(tests myanes)
+
 # install(TARGETS sandbox RUNTIME DESTINATION "./")
 
 
