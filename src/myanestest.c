@@ -39,7 +39,7 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/4-irq_and_dma.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/rom_singles/5-branch_delays_irq.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/cpu_interrupts.nes"); // passed, but skips 2 3 4
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_interrupts_v2/cpu_interrupts.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/ram_after_reset.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_reset/registers.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/cpu_timing_test6/cpu_timing_test.nes");
@@ -57,9 +57,9 @@ bool mn_init()
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_misc/rom_singles/04-dummy_reads_apu.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_misc/instr_misc.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_test-v5/all_instrs.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/rom_singles/1-instr_timing.nes"); // fail unofficial
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/rom_singles/1-instr_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/rom_singles/2-branch_timing.nes");
-  // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/instr_timing.nes"); // fail unofficial
+  // test_rom = mn_rom_file("../../tmp/nes-test-roms/instr_timing/instr_timing.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/MMC1_A12/mmc1_a12.nes"); // no input, same as mesen and nestopia
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/1-clocking.nes");
   // test_rom = mn_rom_file("../../tmp/nes-test-roms/mmc3_test_2/rom_singles/2-details.nes");

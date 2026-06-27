@@ -607,7 +607,7 @@ static void cpu_op_XAS(u8 am)
 
 static void cpu_op_SXA(u8 am)
 {
-  u16 addr = cpu_addr(am, true);
+  u16 addr = cpu_addr(am, false);
   u8 op = addr >> 8;
   if (cpu.page_crossed) {
     u8 val = cpu.x & op;
@@ -619,7 +619,7 @@ static void cpu_op_SXA(u8 am)
 
 static void cpu_op_SYA(u8 am)
 {
-  u16 addr = cpu_addr(am, true);
+  u16 addr = cpu_addr(am, false);
   u8 op = addr >> 8;
   if (cpu.page_crossed) {
     u8 val = cpu.y & op;
