@@ -149,13 +149,6 @@ static void cpu_cyc_end()
   ++cpu.cyc;
 }
 
-static void cpu_poll_and_cyc()
-{
-  cpu_poll();
-  cpu_cyc_begin();
-  cpu_cyc_end();
-}
-
 static u8 cpu_read_addr_(u16 addr, bool trace)
 {
   u8 val = cpu.open_bus;
@@ -321,7 +314,7 @@ static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
 static u8 cpu_stack_pop(bool seq)
 {
   if (!seq) {
-    cpu_poll_and_cyc();
+    cpu_read_addr(cpu.s | 0x0100);
   }
   return cpu_read_addr(++cpu.s | 0x0100);
 }
@@ -342,6 +335,7 @@ static u16 cpu_addr(u8 am, bool readonly)
 {
   cpu.page_crossed = false;
   switch (am) {
+    case CPU_ADDR_ACC:
     case CPU_ADDR_IMP: return cpu.pc;
     case CPU_ADDR_IMM: return cpu.pc++;
     case CPU_ADDR_IND: {
@@ -389,14 +383,12 @@ static void cpu_write(u8 am, u8 val) { cpu_write_addr(cpu_addr(am, false), val);
 
 static u8 cpu_read_write(u8 am, u8 (*cb)(u8))
 {
-  switch (am) {
-    case CPU_ADDR_ACC:
-      cpu_poll_and_cyc();
-      cpu.a = cpu_flag_zn(cb(cpu.a));
-      return cpu.a;
-  }
   u16 addr = cpu_addr(am, false);
   u8 val = cpu_read_addr(addr);
+  if (am == CPU_ADDR_ACC) {
+    cpu.a = cpu_flag_zn(cb(cpu.a));
+    return cpu.a;
+  }
   cpu_write_addr(addr, val);
   val = cb(val);
   cpu_write_addr(addr, val);
@@ -540,7 +532,7 @@ static void cpu_op_JMP(u8 am) { cpu.pc = cpu_addr(am, true); }
 static void cpu_op_JSR(u8 am)
 {
   u16 addr = cpu_addr(am, true); // read hi byte at end?
-  cpu_poll_and_cyc();
+  cpu_read_addr(cpu.s | 0x0100); // implement inside of cpu_stack_push?
   cpu_stack_push16(cpu.pc - 1);
   cpu.pc = addr;
 }
@@ -634,15 +626,14 @@ static void cpu_itr_exec()
   u16 addr = cpu.itr;
 
   if (!cpu.brk) {
-    cpu_poll_and_cyc();
-    cpu_poll_and_cyc();
+    cpu_read_addr(cpu.pc);
+    cpu_read_addr(cpu.pc);
   }
 
   if (addr == CPU_ITR_RESET) {
-    cpu_poll_and_cyc();
-    cpu_poll_and_cyc();
-    cpu_poll_and_cyc();
-    cpu.s -= 3;
+    cpu_read_addr(0x0100 | cpu.s--);
+    cpu_read_addr(0x0100 | cpu.s--);
+    cpu_read_addr(0x0100 | cpu.s--);
   } else {
     cpu_stack_push16(cpu.pc);
     cpu_stack_push(cpu.p | (cpu.brk ? CPU_FLAG_BREAK : 0) | CPU_FLAG_ALWAYS_ONE);

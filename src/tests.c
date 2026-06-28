@@ -296,8 +296,9 @@ bool run_test_steps(TestParams params, u32* out_hash)
   return result;
 }
 
-void run_test(TestParams params)
+bool run_test(TestParams params)
 {
+  bool result = false;
   if (!params.steps[0].hash || !params.steps[0].frames) {
     if (!params.steps[0].frames) {
       params.steps[0].frames = 300;
@@ -321,9 +322,10 @@ void run_test(TestParams params)
            params.steps[0].frames, params.steps[0].joy1, params.steps[0].reset);
   } else {
     u32 hash = 0;
-    bool result = run_test_steps(params, &hash);
+    result = run_test_steps(params, &hash);
     printf("%4s | %08X | %s\n", result ? "OK" : "FAIL", hash, params.path);
   }
+  return result;
 }
 
 int main(int, char**)
@@ -334,9 +336,13 @@ int main(int, char**)
   mn_output((u32*)pixels);
 
   u32 count = sizeof(tests) / sizeof(tests[0]);
+  u32 errors = 0;
   for (u32 i = 0; i < count; ++i) {
-    run_test(tests[i]);
+    if (!run_test(tests[i])) {
+      ++errors;
+    }
   }
+  printf("%4s | %8d | TOTAL ERRORS\n", errors ? "FAIL" : "OK", errors);
 
   return 0;
 }
