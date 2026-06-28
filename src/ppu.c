@@ -144,14 +144,12 @@ static struct Ppu
   bool sprite_eval_has0;
   bool sprite_render_has0;
   bool sprite0_hit;
-  bool ready;
 } ppu;
 
 void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
 
 void ppu_reset()
 {
-  ppu.ready = false;
   ppu.ctrl = 0;
   ppu.mask = 0;
   ppu.status = 0;
@@ -362,13 +360,6 @@ void ppu_bus_write(u16 addr, u8 val)
         ppu.write_cyc = ppu_rw_delay;
       }
       break;
-  }
-  if (!ppu.ready) {
-    ppu.ctrl = 0;
-    ppu.mask = 0;
-    ppu.t = 0;
-    ppu.x = 0;
-    ppu.write_latch = false;
   }
 }
 
@@ -731,7 +722,6 @@ void ppu_tick()
   if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
     ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_SPRITE0_HIT | PPU_STATUS_SPRITE_OVERFLOW);
     ppu.sprite0_hit = false;
-    ppu.ready = true;
     ppu_open_bus_decay();
   }
 
