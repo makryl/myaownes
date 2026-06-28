@@ -74,6 +74,11 @@ static struct Apu
   bool halt_pulse2;
   bool halt_triangle;
   bool halt_noise;
+
+  bool dec_pulse1;
+  bool dec_pulse2;
+  bool dec_triangle;
+  bool dec_noise;
 } apu;
 
 #if MN_TRACE_APU
@@ -105,12 +110,7 @@ void apu_power()
     apu.step4 = 16626 * 2;
     apu.step5 = 20782 * 2;
   }
-
-  apu_reset();
-  ++apu.cyc_reset; // extra one because zero cycle is not yet started
 }
-
-static void apu_reset_cyc() { apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4; }
 
 void apu_reset()
 {
@@ -129,7 +129,7 @@ void apu_reset()
   apu.frame_irq = false;
   apu.dmc_irq = false;
 
-  apu_reset_cyc();
+  apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4;
 }
 
 void apu_bus_read(u16 addr, u8* val, bool trace)
@@ -174,10 +174,26 @@ void apu_bus_write(u16 addr, u8 val)
     case 0x04: apu.halt_pulse2 = (val & 0x20); break;
     case 0x08: apu.halt_triangle = (val & 0x80); break;
     case 0x0C: apu.halt_noise = (val & 0x20); break;
-    case 0x03: apu.pulse1_len = apu.pulse1_enabled ? apu_channel_len[val >> 3] : 0; break;
-    case 0x07: apu.pulse2_len = apu.pulse2_enabled ? apu_channel_len[val >> 3] : 0; break;
-    case 0x0B: apu.triangle_len = apu.triangle_enabled ? apu_channel_len[val >> 3] : 0; break;
-    case 0x0F: apu.noise_len = apu.noise_enabled ? apu_channel_len[val >> 3] : 0; break;
+    case 0x03:
+      if (!apu.dec_pulse1) {
+        apu.pulse1_len = apu.pulse1_enabled ? apu_channel_len[val >> 3] : 0;
+      }
+      break;
+    case 0x07:
+      if (!apu.dec_pulse2) {
+        apu.pulse2_len = apu.pulse2_enabled ? apu_channel_len[val >> 3] : 0;
+      }
+      break;
+    case 0x0B:
+      if (!apu.dec_triangle) {
+        apu.triangle_len = apu.triangle_enabled ? apu_channel_len[val >> 3] : 0;
+      }
+      break;
+    case 0x0F:
+      if (!apu.dec_noise) {
+        apu.noise_len = apu.noise_enabled ? apu_channel_len[val >> 3] : 0;
+      }
+      break;
     case 0x10:
       apu.dmc_loop = (val & 0x40);
       apu.dmc_period = (val & 0x0F);
@@ -223,7 +239,7 @@ void apu_bus_write(u16 addr, u8 val)
       if (apu.frame_irq_disabled) {
         apu.frame_irq = false;
       }
-      apu_reset_cyc();
+      apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4;
       break;
     }
   }
@@ -248,18 +264,30 @@ void apu_dmc_dma(u8 val)
   }
 }
 
-static void apu_update_len()
+static void apu_update_len_get()
 {
-  if (!apu.halt_pulse1 && apu.pulse1_len > 0) {
+  apu.dec_pulse1 = !apu.halt_pulse1 && apu.pulse1_len > 0;
+  apu.dec_pulse2 = !apu.halt_pulse2 && apu.pulse2_len > 0;
+  apu.dec_triangle = !apu.halt_triangle && apu.triangle_len > 0;
+  apu.dec_noise = !apu.halt_noise && apu.noise_len > 0;
+}
+
+static void apu_update_len_put()
+{
+  if (apu.dec_pulse1) {
+    apu.dec_pulse1 = false;
     --apu.pulse1_len;
   }
-  if (!apu.halt_pulse2 && apu.pulse2_len > 0) {
+  if (apu.dec_pulse2) {
+    apu.dec_pulse2 = false;
     --apu.pulse2_len;
   }
-  if (!apu.halt_triangle && apu.triangle_len > 0) {
+  if (apu.dec_triangle) {
+    apu.dec_triangle = false;
     --apu.triangle_len;
   }
-  if (!apu.halt_noise && apu.noise_len > 0) {
+  if (apu.dec_noise) {
+    apu.dec_noise = false;
     --apu.noise_len;
   }
 }
@@ -305,7 +333,8 @@ void apu_tick()
     if (--apu.cyc_reset == 0) {
       apu.cyc = 0;
       if (apu.mode5) {
-        apu_update_len();
+        apu_update_len_get();
+        apu_update_len_put();
       }
     }
   }
@@ -315,8 +344,11 @@ void apu_tick()
   if (apu.cyc == apu.step1 + 1 || apu.cyc == apu.step2 + 1 || apu.cyc == apu.step3 + 1 || apu.cyc == last_step + 1) {
     apu_update_env();
   }
+  if (apu.cyc == apu.step2 || apu.cyc == last_step) {
+    apu_update_len_get();
+  }
   if (apu.cyc == apu.step2 + 1 || apu.cyc == last_step + 1) {
-    apu_update_len();
+    apu_update_len_put();
   }
   if (apu.cyc == last_step || apu.cyc == last_step + 1 || apu.cyc == last_step + 2) {
     if (!apu.mode5) {

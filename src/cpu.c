@@ -307,8 +307,8 @@ static void cpu_flag_overflow(bool cond)
 
 static u16 cpu_read16_addr(u16 addr) { return (u16)cpu_read_addr(addr) | ((u16)cpu_read_addr(addr + 1) << 8); }
 static u16 cpu_read16_zptr(u8 zptr) { return (u16)cpu_read_addr(zptr) | ((u16)cpu_read_addr((u8)(zptr + 1)) << 8); }
-static u8 cpu_read_op() { return cpu_read_addr(cpu.pc++); }
-static u16 cpu_read16_op() { return (u16)cpu_read_op() | ((u16)cpu_read_op() << 8); }
+static u8 cpu_read_pc() { return cpu_read_addr(cpu.pc++); }
+static u16 cpu_read16_pc() { return (u16)cpu_read_pc() | ((u16)cpu_read_pc() << 8); }
 
 static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
 static u8 cpu_stack_pop(bool seq)
@@ -339,37 +339,37 @@ static u16 cpu_addr(u8 am, bool readonly)
     case CPU_ADDR_IMP: return cpu.pc;
     case CPU_ADDR_IMM: return cpu.pc++;
     case CPU_ADDR_IND: {
-      u16 addr0 = trace_addr0(cpu_read16_op());
+      u16 addr0 = trace_addr0(cpu_read16_pc());
       u8 lo = cpu_read_addr(addr0);
       u16 hi_addr = (addr0 & 0xFF00) | ((addr0 + 1) & 0x00FF); // NES bug: for hi byte read, inc only low addr byte
       u8 hi = cpu_read_addr(hi_addr);
       return trace_addr((u16)lo | ((u16)hi << 8));
     }
     case CPU_ADDR_REL: {
-      i8 off = (i8)cpu_read_op();
+      i8 off = (i8)cpu_read_pc();
       cpu_cyc_begin(); // NES bug: cyc for offset without poll
       cpu_cyc_end();
       return trace_addr(cpu_addr_offset(cpu.pc, off, readonly));
     }
-    case CPU_ADDR_ABS: return trace_addr(cpu_read16_op());
-    case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_op()), cpu.x, readonly));
-    case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_op()), cpu.y, readonly));
+    case CPU_ADDR_ABS: return trace_addr(cpu_read16_pc());
+    case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_pc()), cpu.x, readonly));
+    case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_pc()), cpu.y, readonly));
     case CPU_ADDR_NDX: {
-      u8 zptr = cpu_read_op();
+      u8 zptr = cpu_read_pc();
       cpu_read_addr(zptr);
       zptr += cpu.x;
       return trace_addr(cpu_read16_zptr(trace_addr0(zptr)));
     }
-    case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_read_op())), cpu.y, readonly));
-    case CPU_ADDR_ZPG: return trace_addr(cpu_read_op());
+    case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_read_pc())), cpu.y, readonly));
+    case CPU_ADDR_ZPG: return trace_addr(cpu_read_pc());
     case CPU_ADDR_ZPX: {
-      u8 zptr = cpu_read_op();
+      u8 zptr = cpu_read_pc();
       cpu_read_addr(zptr);
       zptr += cpu.x;
       return trace_addr(zptr);
     }
     case CPU_ADDR_ZPY: {
-      u8 zptr = cpu_read_op();
+      u8 zptr = cpu_read_pc();
       cpu_read_addr(zptr);
       zptr += cpu.y;
       return trace_addr(zptr);
@@ -513,7 +513,7 @@ static void cpu_branch(u8 am, u8 flag, bool cond)
   if (((cpu.p & flag) != 0) == cond) {
     cpu.pc = cpu_addr(am, true);
   } else {
-    i8 off = (i8)cpu_read_op();
+    i8 off = (i8)cpu_read_pc();
     (void)(trace_addr(cpu.pc + off));
   }
 }
@@ -729,7 +729,7 @@ void cpu_tick()
   trace.ppu_sl = ppu_sl();
 #endif
 
-  switch (cpu_read_op()) {
+  switch (cpu_read_pc()) {
     // clang-format off
 #define L(cc, aaa, o0, o1, o2, o3, o4, o5, o6, o7) \
   case (aaa << 5) | (0 << 2) | cc: o0; break; \
