@@ -656,6 +656,8 @@ static void ppu_dac(u8 x)
     rgb = (r << 16) | (g << 8) | b;
   }
 
+  rgb |= 0xFF000000;
+
   u16 out_idx = (ppu.sl << 8) | x;
   dev_output(out_idx, rgb);
 }
