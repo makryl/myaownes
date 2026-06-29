@@ -66,8 +66,8 @@ static TestParams tests[] = {
   { "blargg_apu_2005.07.30/09.reset_timing.nes", { { 0x2886AFFC, 8, 0x00, 0 } } }, //
   { "blargg_apu_2005.07.30/10.len_halt_timing.nes", { { 0x2886AFFC, 12, 0x00, 0 } } }, //
   { "blargg_apu_2005.07.30/11.len_reload_timing.nes", { { 0x2886AFFC, 13, 0x00, 0 } } }, //
-  { "blargg_nes_cpu_test5/cpu.nes", { 0x80ED81E0, 962, 0, 0 } }, //
-  { "blargg_nes_cpu_test5/official.nes", { 0x80ED81E0, 623, 0, 0 } }, //
+  { "blargg_nes_cpu_test5/cpu.nes", { { 0x80ED81E0, 962, 0, 0 } } }, //
+  { "blargg_nes_cpu_test5/official.nes", { { 0x80ED81E0, 623, 0, 0 } } }, //
   { "blargg_ppu_tests_2005.09.15b/palette_ram.nes", { { 0x2886AFFC, 8, 0x00, 0 } } }, //
   { "blargg_ppu_tests_2005.09.15b/sprite_ram.nes", { { 0x2886AFFC, 11, 0x00, 0 } } }, //
   { "blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes", { { 0x2886AFFC, 13, 0x00, 0 } } }, //
@@ -95,6 +95,7 @@ static TestParams tests[] = {
   { "dmc_dma_during_read4/dma_4016_read.nes", { { 0x441C2F34, 9, 0, 0 } } }, //
   { "dmc_dma_during_read4/double_2007_read.nes", { { 0x80B4A112, 10, 0, 0 } } }, //
   { "dmc_dma_during_read4/read_write_2007.nes", { { 0xEB956420, 8, 0, 0 } } }, //
+  { "dpcmletterbox/dpcmletterbox.nes", { { 0x24EBFE89, 3, 0x00, 0 }, { 0xCAB5C165, 216, 0xA0, 0 } } }, //
   { "full_palette/flowing_palette.nes", { { 0x3BE460EE, 44, 0, 0 } } }, //
   { "full_palette/full_palette_smooth.nes", { { 0x8E7BD8DB, 44, 0, 0 } } }, //
   { "full_palette/full_palette.nes", { { 0xDD6E6884, 44, 0, 0 } } }, //
@@ -130,6 +131,17 @@ static TestParams tests[] = {
   { "mmc3_test_2/rom_singles/4-scanline_timing.nes", { { 0xF6D14A7E, 251, 0, 0 } } }, //
   { "mmc3_test_2/rom_singles/5-MMC3.nes", { { 0xFAF35560, 18, 0, 0 } } }, //
   // { "mmc5test_v2/mmc5test.nes", {} }, // todo
+  { "nes_instr_test/rom_singles/01-implied.nes", { { 0x0F76F905, 57, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/02-immediate.nes", { { 0x60452B1E, 51, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/03-zero_page.nes", { { 0x75E5E809, 68, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/04-zp_xy.nes", { { 0x2D7C7D05, 166, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/05-absolute.nes", { { 0x0E0A1490, 65, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/06-abs_xy.nes", { { 0x393F728D, 239, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/07-ind_x.nes", { { 0x8A0D9C19, 98, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/08-ind_y.nes", { { 0x28E6D4DE, 93, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/09-branches.nes", { { 0xB23466FB, 28, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/10-stack.nes", { { 0x17116DAB, 121, 0x00, 0 } } }, //
+  { "nes_instr_test/rom_singles/11-special.nes", { { 0x3A5F745A, 5, 0x00, 0 } } }, //
   { "nmi_sync/demo_ntsc.nes",
     { { 0xB9F1DFBA, 100, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 }, { 0xB9F1DFBA, 1, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 } } }, //
   // { 0, 0, "nmi_sync/demo_pal.nes" }, // todo
@@ -143,6 +155,23 @@ static TestParams tests[] = {
   // { 0, 0, "pal_apu_tests/*.nes" }, // todo
   { "ppu_open_bus/ppu_open_bus.nes", { { 0x3EB4ABE5, 247, 0, 0 } } }, //
   { "ppu_read_buffer/test_ppu_read_buffer.nes", { { 0xD22D42A2, 1066, 0, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/01-basics.nes", { { 0xE654945D, 25, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/02-alignment.nes", { { 0x057D9670, 26, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/03-corners.nes", { { 0xEFCA28B7, 14, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/04-flip.nes", { { 0xB297CC81, 15, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/05-left_clip.nes", { { 0x9DF4E002, 22, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/06-right_edge.nes", { { 0x601652B5, 16, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/07-screen_bottom.nes", { { 0x50189868, 21, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/08-double_height.nes", { { 0x53286670, 15, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/09-timing.nes", { { 0x00CC842A, 109, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/rom_singles/10-timing_order.nes", { { 0x94A60512, 43, 0x00, 0 } } }, //
+  { "ppu_sprite_hit/ppu_sprite_hit.nes", { { 0xDDE50B5E, 376, 0x00, 0 } } }, //
+  { "ppu_sprite_overflow/rom_singles/01-basics.nes", { { 0xE654945D, 16, 0x00, 0 } } }, //
+  { "ppu_sprite_overflow/rom_singles/02-details.nes", { { 0x7111D067, 22, 0x00, 0 } } }, //
+  { "ppu_sprite_overflow/rom_singles/03-timing.nes", { { 0x6E1E7158, 202, 0x00, 0 } } }, //
+  { "ppu_sprite_overflow/rom_singles/04-obscure.nes", { { 0xCE39FCC6, 18, 0x00, 0 } } }, //
+  { "ppu_sprite_overflow/rom_singles/05-emulator.nes", { { 0x5E275C0F, 12, 0x00, 0 } } }, //
+  { "ppu_sprite_overflow/ppu_sprite_overflow.nes", { { 0x12619948, 297, 0x00, 0 } } }, //
   { "ppu_vbl_nmi/rom_singles/01-vbl_basics.nes", { { 0x1AF3E9A3, 131, 0, 0 } } }, //
   { "ppu_vbl_nmi/rom_singles/02-vbl_set_time.nes", { { 0x59B9C83E, 125, 0, 0 } } }, //
   { "ppu_vbl_nmi/rom_singles/03-vbl_clear_time.nes", { { 0x7B0B8BE1, 127, 0, 0 } } }, //
@@ -193,7 +222,7 @@ static TestParams tests[] = {
       { 0xAF352CF3, 1, 0, 0 },
       { 0xAF352CF3, 1, 0, 0 },
       { 0x02718FFD, 1, 0, 0 } } }, // same as above
-  { "scrolltest/scroll.nes", { { 0xCE84FBEF, 7, 0, 0 }, { 0xC7BD0DCE, 60, 0xA0, 0 } } }, //
+  { "scrolltest/scroll.nes", { { 0xCE84FBEF, 7, 0, 0 }, { 0x3DD88BC3, 60, 0xA0, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes", { { 0xF4998922, 122, 0, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes", { { 0x42149129, 122, 0, 0 } } }, //
   { "sprite_hit_tests_2005.10.05/01.basics.nes", { { 0xAC38F2AD, 24, 0, 0 } } }, //

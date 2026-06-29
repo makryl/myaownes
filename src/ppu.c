@@ -143,7 +143,6 @@ static struct Ppu
   bool check_nmi;
   bool sprite_eval_has0;
   bool sprite_render_has0;
-  bool sprite0_hit;
 } ppu;
 
 void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
@@ -442,7 +441,7 @@ static void ppu_evaluate_sprites()
     ppu.sprite_eval = ppu.sprite[(ppu.sl & 1) ? 1 : 0];
     ppu.sprite_eval_count = 0;
     ppu.sprite_eval_has0 = false;
-    ppu.sprite_busy = 63;
+    ppu.sprite_busy = 64;
     memset(ppu.sprite_eval, 0xFF, sizeof(ppu.sprite[0]));
     return;
   }
@@ -596,8 +595,8 @@ static void ppu_render_pixel()
     }
   }
 
-  if (pixel_back && pixel_sprite && is_sprite0 && ppu.cyc < PPU_CYC_END) { // intended emulation bug (<)
-    ppu.sprite0_hit = true;
+  if (pixel_back && pixel_sprite && is_sprite0 && ppu.cyc < PPU_CYC_END) { // NES bug: hit not set on x=255
+    ppu.status |= PPU_STATUS_SPRITE0_HIT;
   }
 
   if (pixel_sprite && (pixel_back == 0 || sprite_priority)) {
@@ -612,10 +611,6 @@ static void ppu_palette_color() { ppu.color = ppu.pam[ppu_pam_addr(ppu.pixel)] &
 
 static void ppu_dac(u8 x)
 {
-  if (ppu.sprite0_hit) {
-    ppu.status |= PPU_STATUS_SPRITE0_HIT;
-  }
-
   if (ppu.mask & PPU_MASK_GRAY) {
     ppu.color &= 0x30;
   }
@@ -719,10 +714,13 @@ void ppu_tick()
     }
   }
 
-  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
-    ppu.status &= ~(PPU_STATUS_VBLANK | PPU_STATUS_SPRITE0_HIT | PPU_STATUS_SPRITE_OVERFLOW);
-    ppu.sprite0_hit = false;
+  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_ZERO) {
+    ppu.status &= ~(PPU_STATUS_SPRITE0_HIT | PPU_STATUS_SPRITE_OVERFLOW);
     ppu_open_bus_decay();
+  }
+
+  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.cyc == PPU_CYC_BEGIN) {
+    ppu.status &= ~PPU_STATUS_VBLANK;
   }
 
   if ((ppu.sl == PPU_SL_VBLANK && ppu.cyc == PPU_CYC_BEGIN) && !ppu.suppress_vblank) {
