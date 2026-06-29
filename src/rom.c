@@ -9,15 +9,14 @@ struct NESHeader
   u8 magic[4];
   u8 prg_pages;
   u8 chr_pages;
-  u8 flags;
-  u8 mapper;
-  u8 mapper_ext;
+  u8 mapper_flags;
+  u8 mapper_sig2;
+  u8 sub_mapper;
   u8 prg_chr_ext;
   u8 prg_ram_size;
   u8 chr_ram_size;
   u8 tv_system;
-  u8 hw_type;
-  u8 pad[2];
+  u8 other[3];
 };
 
 enum : u8
@@ -65,7 +64,7 @@ Rom mn_rom_file(const char* path)
     return 0;
   }
 
-  bool is_v2 = (h.mapper & 0x0C) == 0x08;
+  bool is_v2 = (h.mapper_sig2 & 0x0C) == 0x08;
 
   size_t prg_rom_size = 0;
   size_t chr_rom_size = 0;
@@ -96,7 +95,7 @@ Rom mn_rom_file(const char* path)
     return 0;
   }
 
-  if (h.flags & NES_FLAG_TRAINER) { // todo
+  if (h.mapper_flags & NES_FLAG_TRAINER) { // todo
     fseek(f, 512, SEEK_CUR);
   }
 
@@ -115,14 +114,13 @@ Rom mn_rom_file(const char* path)
   rom->chr_rom = chr_rom_size > 0 ? rom->prg_rom + prg_rom_size : 0;
   rom->prg_rom_size = prg_rom_size;
   rom->chr_rom_size = chr_rom_size;
-  rom->vert_mirror = (h.flags & NES_FLAG_VERT_MIRROR);
-  rom->has_trainer = (h.flags & NES_FLAG_TRAINER);
-  rom->alt_mirror = (h.flags & NES_FLAG_ALT_MIRROR);
+  rom->vert_mirror = (h.mapper_flags & NES_FLAG_VERT_MIRROR);
+  rom->has_trainer = (h.mapper_flags & NES_FLAG_TRAINER);
+  rom->alt_mirror = (h.mapper_flags & NES_FLAG_ALT_MIRROR);
 
   if (is_v2) {
-    rom->mapper = (h.mapper & 0xF0) | (h.flags >> 4) | ((h.mapper_ext & 0x0F) << 8);
-    rom->submapper = (h.mapper & 0x0F);
-    rom->hw_type = h.hw_type;
+    rom->mapper = (h.mapper_flags >> 4) | (h.mapper_sig2 & 0xF0) | ((h.sub_mapper & 0x0F) << 8);
+    rom->submapper = (h.sub_mapper >> 4);
     rom->ntsc = (h.tv_system == NES_TV_NTSC) || (h.tv_system == NES_TV_MULTI);
     rom->pal = (h.tv_system == NES_TV_PAL) || (h.tv_system == NES_TV_MULTI);
     rom->dendy = (h.tv_system == NES_TV_DENDY) || (h.tv_system == NES_TV_MULTI);
@@ -137,7 +135,7 @@ Rom mn_rom_file(const char* path)
     u32 chr_ram_size = (chr_ram_shift > 0) ? 64 << chr_ram_shift : 0;
     u32 chr_sram_size = (chr_sram_shift > 0) ? 64 << chr_sram_shift : 0;
 
-    if ((h.flags & NES_FLAG_BATTERY) && prg_sram_size == 0 && chr_sram_size == 0) {
+    if ((h.mapper_flags & NES_FLAG_BATTERY) && prg_sram_size == 0 && chr_sram_size == 0) {
       prg_sram_size = 8192;
     }
 
@@ -151,8 +149,8 @@ Rom mn_rom_file(const char* path)
     rom->has_prg_battery = prg_sram_size > 0;
     rom->has_chr_battery = chr_sram_size > 0;
   } else {
-    rom->mapper = (h.mapper & 0xF0) | (h.flags >> 4);
-    rom->hw_type = 0;
+    rom->mapper = (h.mapper_flags >> 4) | (h.mapper_sig2 & 0xF0);
+    rom->submapper = 0;
     rom->ntsc = true;
     rom->pal = false;
     rom->dendy = false;
@@ -160,7 +158,7 @@ Rom mn_rom_file(const char* path)
     rom->prg_ram_size = 8192;
     rom->chr_ram_size = 8192;
 
-    rom->has_prg_battery = (h.flags & NES_FLAG_BATTERY);
+    rom->has_prg_battery = (h.mapper_flags & NES_FLAG_BATTERY);
     rom->has_chr_battery = false;
   }
 

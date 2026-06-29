@@ -12,7 +12,6 @@ struct Rom
   u32 chr_ram_size;
   u16 mapper;
   u8 submapper;
-  u8 hw_type;
   bool vert_mirror;
   bool has_prg_battery;
   bool has_chr_battery;

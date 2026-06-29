@@ -491,6 +491,7 @@ typedef struct
   u8 latch;
   u8 reload;
   u8 enabled;
+  u8 alt_irq;
 } MapMMC3;
 
 static void map_mmc3_update()
@@ -565,14 +566,14 @@ static void map_mmc3_ppu_addr(u16 addr)
     if (reg->filter == 0) {
       if (reg->counter == 0 || reg->reload) {
         reg->counter = reg->latch;
-        reg->reload = 0;
       } else {
         --reg->counter;
       }
-      if (reg->counter == 0 && reg->enabled) {
+      if (reg->counter == 0 && reg->enabled && (reg->reload || !reg->alt_irq || reg->latch)) {
         mapper.irq = true;
         map_cpu_irq();
       }
+      reg->reload = 0;
     }
     reg->filter = 4;
   } else if (reg->filter == 4) {
@@ -594,6 +595,13 @@ static void map_mmc3_load()
   mapper.cpu_write = map_mmc3_cpu_write;
   mapper.ppu_addr = map_mmc3_ppu_addr;
   map_mmc3_update();
+}
+
+static void map_mmc3a_load()
+{
+  map_mmc3_load();
+  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  reg->alt_irq = true;
 }
 
 /*
@@ -864,6 +872,7 @@ void mn_rom_load(Rom rom)
     // case 5: map_mmc5_load(); break;
     case 7: map_axrom_load(); break;
     case 11: map_colordreams_load(); break;
+    case 12: map_mmc3a_load(); break;
     case 34: map_bnrom_load(); break;
     case 66: map_gxrom_load(); break;
   }

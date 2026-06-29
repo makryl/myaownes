@@ -125,11 +125,24 @@ static TestParams tests[] = {
   { "instr_timing/rom_singles/2-branch_timing.nes", { { 0xB8E3CDB8, 133, 0, 0 } } }, //
   { "instr_timing/instr_timing.nes", { { 0x6F1BAA40, 1284, 0, 0 } } }, //
   { "MMC1_A12/mmc1_a12.nes", { { 0x382587DA, 25, 0, 0 } } }, //
+  { "mmc3_irq_tests/1.Clocking.nes", { { 0xB732D83F, 15, 0x00, 0 } } }, //
+  { "mmc3_irq_tests/2.Details.nes", { { 0x3E64BDBE, 20, 0x00, 0 } } }, //
+  { "mmc3_irq_tests/3.A12_clocking.nes", { { 0x9A45FD7C, 17, 0x00, 0 } } }, //
+  { "mmc3_irq_tests/4.Scanline_timing.nes", { { 0xA6F1F0EA, 66, 0x00, 0 } } }, //
+  { "mmc3_irq_tests/5.MMC3_rev_A_m12.nes", { { 0x022863D4, 15, 0x00, 0 } } }, //
+  { "mmc3_irq_tests/6.MMC3_rev_B.nes", { { 0x6DBFFE7B, 16, 0x00, 0 } } }, //
+  { "mmc3_test/1-clocking.nes", { { 0x3D4C2E04, 20, 0x00, 0 } } }, //
+  { "mmc3_test/2-details.nes", { { 0x390FC588, 23, 0x00, 0 } } }, //
+  { "mmc3_test/3-A12_clocking.nes", { { 0xD3189FEE, 21, 0x00, 0 } } }, //
+  { "mmc3_test/4-scanline_timing.nes", { { 0xF6D14A7E, 249, 0x00, 0 } } }, //
+  { "mmc3_test/5-MMC3.nes", { { 0xFAF35560, 16, 0x00, 0 } } }, //
+  { "mmc3_test/6-MMC6_m12.nes", { { 0xAD40DA76, 16, 0x00, 0 } } }, //
   { "mmc3_test_2/rom_singles/1-clocking.nes", { { 0x3D4C2E04, 18, 0, 0 } } }, //
   { "mmc3_test_2/rom_singles/2-details.nes", { { 0x390FC588, 21, 0, 0 } } }, //
   { "mmc3_test_2/rom_singles/3-A12_clocking.nes", { { 0xD3189FEE, 17, 0, 0 } } }, //
   { "mmc3_test_2/rom_singles/4-scanline_timing.nes", { { 0xF6D14A7E, 251, 0, 0 } } }, //
   { "mmc3_test_2/rom_singles/5-MMC3.nes", { { 0xFAF35560, 18, 0, 0 } } }, //
+  { "mmc3_test_2/rom_singles/6-MMC3_alt_m12.nes", { { 0x09093FB9, 18, 0x00, 0 } } }, //
   // { "mmc5test_v2/mmc5test.nes", {} }, // todo
   { "nes_instr_test/rom_singles/01-implied.nes", { { 0x0F76F905, 57, 0x00, 0 } } }, //
   { "nes_instr_test/rom_singles/02-immediate.nes", { { 0x60452B1E, 51, 0x00, 0 } } }, //
