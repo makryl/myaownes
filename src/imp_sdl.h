@@ -20,7 +20,11 @@ static struct
   Uint64 curr_time;
   Uint64 max_frame_time;
   Uint64 frame_time;
+  bool pause;
+  bool speedup;
 } imp;
+
+static const u8 imp_speedup = 4; // todo: config?
 
 SDL_AppResult SDL_AppInit(void**, int, char*[])
 {
@@ -84,6 +88,9 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_RIGHT: imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT; break;
         case SDLK_KP_1: imp.joy2 |= MN_INPUT_B; break;
         case SDLK_KP_2: imp.joy2 |= MN_INPUT_A; break;
+
+        case SDLK_ESCAPE: imp.pause = !imp.pause; break;
+        case SDLK_TAB: imp.speedup = true; break;
       }
       break;
     case SDL_EVENT_KEY_UP:
@@ -105,6 +112,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_RIGHT: imp.joy2 &= ~MN_INPUT_RIGHT; break;
         case SDLK_KP_1: imp.joy2 &= ~MN_INPUT_B; break;
         case SDLK_KP_2: imp.joy2 &= ~MN_INPUT_A; break;
+
+        case SDLK_TAB: imp.speedup = false; break;
       }
       break;
   }
@@ -120,6 +129,12 @@ SDL_AppResult SDL_AppIterate(void*)
   Uint64 diff = time - imp.last_time;
   if (diff > imp.max_frame_time) {
     diff = imp.max_frame_time;
+  }
+  if (imp.pause) {
+    diff = 0;
+  }
+  if (imp.speedup) {
+    diff *= imp_speedup;
   }
   imp.curr_time += diff;
   imp.last_time = time;

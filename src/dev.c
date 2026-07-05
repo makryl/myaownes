@@ -21,25 +21,25 @@ void mn_output(u32* out) { dev.out = out; }
 
 void mn_power()
 {
+  apu_power();
   cpu_power();
   ppu_power();
-  apu_power();
 }
 
 void mn_reset()
 {
+  apu_reset();
   cpu_reset();
   ppu_reset();
-  apu_reset();
 }
 
 void mn_frame()
 {
   bool vblank_before;
   do {
-    vblank_before = ppu_is_vblank();
+    vblank_before = ppu_vblank();
     cpu_tick();
-  } while (vblank_before || !ppu_is_vblank());
+  } while (vblank_before || !ppu_vblank());
 #if MN_TRACE_BLARGG
   tracef("\e[2J\e[Hstatus=%02X\n%s\n", *mn_prg_ram(), (const char*)(mn_prg_ram() + 4));
 #endif

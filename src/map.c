@@ -15,7 +15,7 @@ static struct
   Rom rom;
 
   void (*cpu_cyc)();
-  bool (*cpu_read)(u16, u8*);
+  bool (*cpu_read)(u16, u8*, bool);
   bool (*cpu_write)(u16, u8);
   void (*ppu_addr)(u16);
   bool (*ppu_read)(u16, u8*);
@@ -54,9 +54,9 @@ void map_cpu_cyc()
   }
 }
 
-void map_cpu_read(u16 addr, u8* val)
+void map_cpu_read(u16 addr, u8* val, bool trace)
 {
-  if (!mapper.cpu_read || !mapper.cpu_read(addr, val)) {
+  if (!mapper.cpu_read || !mapper.cpu_read(addr, val, trace)) {
     const u8* page = mapper.cpu_read_page[addr >> MAP_CPU_PAGE_SHIFT];
     if (page) {
       *val = page[addr & MAP_CPU_PAGE_MASK];
@@ -575,8 +575,8 @@ static void map_mmc3_ppu_addr(u16 addr)
       }
       reg->reload = 0;
     }
-    reg->filter = 4;
-  } else if (reg->filter == 4) {
+    reg->filter = 5;
+  } else if (reg->filter == 5) {
     --reg->filter;
   }
 }
@@ -584,7 +584,7 @@ static void map_mmc3_ppu_addr(u16 addr)
 static void map_mmc3_cpu_cyc()
 {
   MapMMC3* reg = (MapMMC3*)mapper.eram;
-  if (reg->filter > 0 && reg->filter < 4) {
+  if (reg->filter > 0 && reg->filter < 5) {
     --reg->filter;
   }
 }

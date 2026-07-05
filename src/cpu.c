@@ -69,7 +69,8 @@ static struct Cpu
   bool dmc_dma;
   bool joy_strobe;
   bool page_crossed;
-  bool write; // todo: remove readonly
+  bool write;
+  bool suppress_poll;
 } cpu;
 
 u32 cpu_cyc() { return cpu.cyc; }
@@ -80,6 +81,9 @@ void cpu_irq(bool enabled) { cpu.irq = enabled; }
 
 static void cpu_poll()
 {
+  if (cpu.suppress_poll) {
+    return;
+  }
   cpu.itr = 0;
   if (cpu.reset) {
     cpu.itr = CPU_ITR_RESET;
@@ -136,15 +140,16 @@ static void cpu_joy_strobe(u8 val)
 static void cpu_cyc_begin()
 {
   cpu_dmc_dma(); // todo: only opcode read for PAL?
+  cpu_poll();
+  ppu_tick();
+  ppu_tick();
   apu_tick();
-  ppu_tick();
-  ppu_tick();
+  map_cpu_cyc();
 }
 
 static void cpu_cyc_end()
 {
   cpu_joy_shift();
-  map_cpu_cyc();
   ppu_tick();
   ++cpu.cyc;
 }
@@ -163,7 +168,7 @@ static u8 cpu_read_addr_(u16 addr, bool trace)
       apu_bus_read(addr, &val, trace);
     }
   } else {
-    map_cpu_read(addr, &val);
+    map_cpu_read(addr, &val, trace);
   }
   return val;
 }
@@ -171,7 +176,6 @@ static u8 cpu_read_addr_(u16 addr, bool trace)
 static u8 cpu_read_addr(u16 addr)
 {
   cpu.addr = addr;
-  cpu_poll();
   cpu_cyc_begin();
   cpu.open_bus = cpu_read_addr_(addr, false);
   cpu_cyc_end();
@@ -183,7 +187,6 @@ static void cpu_write_addr(u16 addr, u8 val)
   cpu.write = true;
   cpu.addr = addr;
   cpu.open_bus = val;
-  cpu_poll();
   cpu_cyc_begin();
   if (addr < 0x2000) {
     cpu.ram[addr & 0x07FF] = val;
@@ -205,15 +208,13 @@ static void cpu_write_addr(u16 addr, u8 val)
   cpu.write = false;
 }
 
-static void cpu_dummy_read() { cpu_read_addr(cpu.addr); }
-
 #if MN_TRACE_CPU
 static struct
 {
   struct Cpu cpu;
   const char* opname;
   int cpu_cyc;
-  int ppu_cyc;
+  int ppu_dot;
   int ppu_sl;
   u16 addr0;
   u16 addr;
@@ -227,7 +228,7 @@ static struct
     tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",                     \
            cpu_read_addr_(trace.cpu.pc + 1, true), cpu_read_addr_(trace.cpu.pc + 2, true),                           \
            cpu_read_addr_(trace.cpu.pc, true), trace.cpu.pc, trace.opname, trace.cpu.a, trace.cpu.x, trace.cpu.y,    \
-           trace.cpu.p, trace.cpu.s, trace.ppu_sl, trace.ppu_cyc, trace.cpu_cyc, trace.addr0, trace.addr, trace.val) \
+           trace.cpu.p, trace.cpu.s, trace.ppu_sl, trace.ppu_dot, trace.cpu_cyc, trace.addr0, trace.addr, trace.val) \
       _Pragma("clang diagnostic pop")
 #define trace_tick0(fmt) trace_tick("%4$04X  %3$02X       %5$4s " fmt);
 #define trace_tick1(fmt) trace_tick("%4$04X  %3$02X %1$02X    %5$4s " fmt);
@@ -278,7 +279,6 @@ static u8 cpu_flag_zn(u8 val)
   } else {
     cpu.p &= ~CPU_FLAG_ZERO;
   }
-
   if (val & 0x80) {
     cpu.p |= CPU_FLAG_NEGATIVE;
   } else {
@@ -347,8 +347,9 @@ static u16 cpu_addr(u8 am, bool readonly)
     }
     case CPU_ADDR_REL: {
       i8 off = (i8)cpu_read_pc();
-      cpu_cyc_begin(); // NES bug: cyc for offset without poll
-      cpu_cyc_end();
+      cpu.suppress_poll = true; // NES bug: cyc for offset without poll
+      cpu_read_addr(cpu.pc);
+      cpu.suppress_poll = false;
       return trace_addr(cpu_addr_offset(cpu.pc, off, readonly));
     }
     case CPU_ADDR_ABS: return trace_addr(cpu_read16_pc());
@@ -662,7 +663,7 @@ static void cpu_itr_exec()
 static void cpu_dma_align()
 {
   if (cpu.cyc & 1) {
-    cpu_dummy_read();
+    cpu_read_addr(cpu.addr);
   }
 }
 
@@ -683,14 +684,14 @@ static void cpu_dmc_dma()
       if (--cpu.dmc_dma_delay == 0) {
         cpu_dmc_read();
         if (!cpu.write) {
-          cpu_dummy_read(); // align
+          cpu_read_addr(cpu.addr); // align
         }
       }
     }
   } else if (!cpu.write && cpu.dmc_dma) {
     cpu.dmc_dma = false;
-    cpu_dummy_read(); // halt
-    cpu_dummy_read(); // dummy
+    cpu_read_addr(cpu.addr); // halt
+    cpu_read_addr(cpu.addr); // dummy
     cpu_dma_align();
     cpu_dmc_read();
   }
@@ -698,7 +699,7 @@ static void cpu_dmc_dma()
 
 static void cpu_oam_dma()
 {
-  cpu_dummy_read(); // halt
+  cpu_read_addr(cpu.addr); // halt
   cpu_dma_align();
   for (u16 i = 0; i < 256; ++i) {
     u8 val = cpu_read_addr(cpu.oam_dma_addr | i);
@@ -706,7 +707,7 @@ static void cpu_oam_dma()
   }
   if (cpu.dmc_dma_delay > 0) {
     while (cpu.dmc_dma_delay > 1) {
-      cpu_dummy_read(); // halt/dummy/align tail
+      cpu_read_addr(cpu.addr); // halt/dummy/align tail
     }
     cpu.dmc_dma_delay = 0;
     cpu_dmc_read();
@@ -725,7 +726,7 @@ void cpu_tick()
 #if MN_TRACE_CPU
   trace.cpu = cpu;
   trace.cpu_cyc = cpu.cyc;
-  trace.ppu_cyc = ppu_cyc();
+  trace.ppu_dot = ppu_dot();
   trace.ppu_sl = ppu_sl();
 #endif
 

@@ -16,12 +16,12 @@ add_subdirectory(external/SDL3-3.4.8 EXCLUDE_FROM_ALL)
 include_directories(include)
 
 add_library(myanes
-  src/rom.c
-  src/dev.c
-  src/cpu.c
-  src/ppu.c
   src/apu.c
+  src/cpu.c
+  src/dev.c
   src/map.c
+  src/ppu.c
+  src/rom.c
 )
 target_link_libraries(myanes PUBLIC GLESv2 SDL3-static)
 
