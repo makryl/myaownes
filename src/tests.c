@@ -96,9 +96,9 @@ static TestParams tests[] = {
   { "dmc_dma_during_read4/double_2007_read.nes", { { 0x80B4A112, 16, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/read_write_2007.nes", { { 0xEB956420, 18, 0x00, 0 } } }, //
   { "dpcmletterbox/dpcmletterbox.nes", { { 0x24EBFE89, 10, 0x00, 0 }, { 0xCAB5C165, 216, 0xA0, 0 } } }, //
-  { "full_palette/flowing_palette.nes", { { 0x3BE460EE, 30, 0, 0 } } }, //
-  { "full_palette/full_palette_smooth.nes", { { 0x8E7BD8DB, 30, 0, 0 } } }, //
-  { "full_palette/full_palette.nes", { { 0xDD6E6884, 30, 0, 0 } } }, //
+  { "full_palette/flowing_palette.nes", { { 0x426913E7, 30, 0, 0 } } }, //
+  { "full_palette/full_palette_smooth.nes", { { 0x0C972D06, 30, 0, 0 } } }, //
+  { "full_palette/full_palette.nes", { { 0x29F8072A, 30, 0, 0 } } }, //
   { "instr_misc/rom_singles/01-abs_x_wrap.nes", { { 0x290CAB05, 11, 0x00, 0 } } }, //
   { "instr_misc/rom_singles/02-branch_wrap.nes", { { 0x54041E4A, 12, 0x00, 0 } } }, //
   { "instr_misc/rom_singles/03-dummy_reads.nes", { { 0x4D1E0C1E, 56, 0x00, 0 } } }, //
@@ -174,7 +174,7 @@ static TestParams tests[] = {
   { "nes_instr_test/rom_singles/10-stack.nes", { { 0x17116DAB, 128, 0x00, 0 } } }, //
   { "nes_instr_test/rom_singles/11-special.nes", { { 0x3A5F745A, 10, 0x00, 0 } } }, //
   { "nmi_sync/demo_ntsc.nes",
-    { { 0xB9F1DFBA, 100, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 }, { 0xB9F1DFBA, 1, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 } } }, //
+    { { 0xB9F1DFBA, 29, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 }, { 0xB9F1DFBA, 1, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 } } }, //
   // { 0, 0, "nmi_sync/demo_pal.nes" }, // todo
   { "oam_read/oam_read.nes", { { 0xA35A57E7, 32, 0x00, 0 } } }, //
   { "oam_stress/oam_stress.nes", { { 0x596023FD, 1703, 0x00, 0 } } }, //

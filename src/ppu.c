@@ -16,6 +16,7 @@ static const u32 palette[0x40] = {
 
 static const float ppu_tint_accent = 0.75f;
 static const u8 ppu_rw_delay = 4;
+static const u8 ppu_mask_delay = 3;
 
 enum : u16
 {
@@ -145,21 +146,18 @@ static struct Ppu
   u8 read_buf;
   u8 read_delay;
   u8 write_delay;
+  u8 mask_delay;
 
-  u8 rendering;
-  u8 pixel_back;
-  u8 pixel_sprite;
-  u8 pixel_final;
+  u8 pixel;
   u8 color;
 
+  bool rendering;
   bool write_latch;
   bool odd_frame;
   bool suppress_vblank;
   bool check_nmi;
   bool sprite_eval_has0;
   bool sprite_render_has0;
-  bool sprite_render_hit0;
-  bool sprite_render_priority;
 } ppu;
 
 void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
@@ -255,10 +253,10 @@ static void ppu_inc_y()
 
 static void ppu_inc_v()
 {
-  if (ppu_render_enabled() && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER)) {
+  if (ppu.rendering && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER)) {
     ppu_inc_x();
     ppu_inc_y();
-  } else {
+  } else { // todo: implement swap collision too
     ppu.v += (ppu.ctrl & PPU_CTRL_INC_Y) ? 32 : 1;
     ppu_addr(ppu.v);
   }
@@ -301,7 +299,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
       break;
     }
     case PPU_REG_OAMDATA: {
-      u8 val = ppu.oam[ppu.nm & 0xFF];
+      u8 val = ppu.oam[ppu.nm & 0xFF]; // todo: eval collision?
       if (trace) {
         return val;
       }
@@ -342,16 +340,8 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.t = (ppu.t & 0xF3FF) | (((u16)val & 0x03) << 10);
       break;
     case PPU_REG_MASK:
-      bool was_enabled = ppu_render_enabled();
       ppu.mask = val;
-      bool is_enabled = ppu_render_enabled();
-      if (was_enabled != is_enabled) {
-        if (is_enabled && ppu.dot < 258) {
-          tracef("PPU RENDER %s | CYC:%d | PPU:%d,%d\n", is_enabled ? "ENABLED" : "DISABLED", cpu_cyc(), ppu.dot,
-                 ppu.sl);
-          int a = 0;
-        }
-      }
+      ppu.mask_delay = ppu_mask_delay;
       break;
     case PPU_REG_OAMADDR: ppu.nm = val; break;
     case PPU_REG_OAMDATA:
@@ -613,7 +603,7 @@ static void ppu_fetch_unused()
 
 static void ppu_fetch()
 {
-  if (ppu_render_enabled()) {
+  if (ppu.rendering) {
     if (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) {
       bool inc_x = false;
       if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END)) {
@@ -637,42 +627,37 @@ static void ppu_fetch()
         if (ppu.dot == PPU_DOT_END) {
           ppu_inc_y();
         }
+      }
 
-        if (ppu.dot == PPU_DOT_SWAP_X) {
-          ppu_swap_x();
-          // tracef("PPU SWAP X | CYC:%d | PPU:%d,%d\n", cpu_cyc(), ppu.dot, ppu.sl);
-        }
+      if (ppu.dot == PPU_DOT_SWAP_X) {
+        ppu_swap_x();
       }
     }
 
-    if (!ppu.read_delay && !ppu.write_delay && ppu.sl == PPU_SL_PRE_RENDER && ppu.dot >= PPU_DOT_SWAP_Y_BEGIN
-        && ppu.dot <= PPU_DOT_SWAP_Y_END)
-    {
+    if (ppu.sl == PPU_SL_PRE_RENDER && ppu.dot >= PPU_DOT_SWAP_Y_BEGIN && ppu.dot <= PPU_DOT_SWAP_Y_END) {
       ppu_swap_y();
-      // tracef("PPU SWAP Y | CYC:%d | PPU:%d,%d\n", cpu_cyc(), ppu.dot, ppu.sl);
     }
   }
 }
 
-static void ppu_render_back(u8 x)
+static void ppu_render_pixel(u8 x)
 {
-  ppu.pixel_back = 0;
+  u8 pixel_back = 0;
   if ((ppu.mask & PPU_MASK_BACK) && (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_BACK))) {
     u16 bit_mask = 0x8000 >> ppu.x;
     u8 p0 = (ppu.shift_tile_lo & bit_mask) ? 1 : 0;
     u8 p1 = (ppu.shift_tile_hi & bit_mask) ? 1 : 0;
-    ppu.pixel_back = p0 | (p1 << 1);
-    if (ppu.pixel_back) {
+    pixel_back = p0 | (p1 << 1);
+    if (pixel_back) {
       u8 a0 = (ppu.shift_attr_lo & bit_mask) ? 1 : 0;
       u8 a1 = (ppu.shift_attr_hi & bit_mask) ? 1 : 0;
-      ppu.pixel_back |= (a0 << 2) | (a1 << 3);
+      pixel_back |= (a0 << 2) | (a1 << 3);
     }
   }
-}
 
-static void ppu_render_sprite(u8 x)
-{
-  ppu.pixel_sprite = 0;
+  u8 pixel_sprite = 0;
+  bool sprite_priority = false;
+  bool sprite0_hit = false;
   if ((ppu.mask & PPU_MASK_SPRITE) && (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
     for (u8 i = 0; i < ppu.sprite_render_count; i++) {
       PpuSprite* sprite = &ppu.sprite_render[i];
@@ -682,34 +667,32 @@ static void ppu_render_sprite(u8 x)
 
         u8 p0 = (ppu.sprite_shift_lo[i] & bit_mask) ? 1 : 0;
         u8 p1 = (ppu.sprite_shift_hi[i] & bit_mask) ? 1 : 0;
-        ppu.pixel_sprite = p0 | (p1 << 1);
+        pixel_sprite = p0 | (p1 << 1);
 
-        if (ppu.pixel_sprite) {
-          ppu.pixel_sprite |= 0x10 | ((sprite->attr & 0x03) << 2);
-          ppu.sprite_render_priority = (sprite->attr & PPU_SPRITE_PRIORITY) == 0;
-          ppu.sprite_render_hit0 = (i == 0 && ppu.sprite_render_has0);
+        if (pixel_sprite) {
+          pixel_sprite |= 0x10 | ((sprite->attr & 0x03) << 2);
+          sprite_priority = (sprite->attr & PPU_SPRITE_PRIORITY) == 0;
+          sprite0_hit = (i == 0 && ppu.sprite_render_has0);
           break;
         }
       }
     }
   }
-}
 
-static void ppu_render_priority(u8 x)
-{
-  if (ppu.pixel_back && ppu.pixel_sprite && ppu.sprite_render_hit0 && x < 255) { // NES bug: hit not set on x=255
+  if (pixel_back && pixel_sprite && sprite0_hit && x < 255) { // NES bug: hit not set on x=255
     ppu.status |= PPU_STATUS_SPRITE0_HIT;
   }
-  if (ppu.pixel_sprite && (ppu.pixel_back == 0 || ppu.sprite_render_priority)) {
-    ppu.pixel_final = ppu.pixel_sprite;
+
+  if (pixel_sprite && (pixel_back == 0 || sprite_priority)) {
+    ppu.pixel = pixel_sprite;
   } else {
-    ppu.pixel_final = ppu.pixel_back;
+    ppu.pixel = pixel_back;
   }
 }
 
-static void ppu_render_palette(u8)
+static void ppu_render_palette()
 {
-  u8 pixel = ppu_render_enabled() ? ppu.pixel_final : (ppu.v >= 0x3F00 ? ppu.v : 0);
+  u8 pixel = ppu_render_enabled() ? ppu.pixel : (ppu.v >= 0x3F00 ? ppu.v : 0);
   ppu.color = ppu.pam[ppu_pam_addr(pixel)] & 0x3F;
 }
 
@@ -754,34 +737,14 @@ static void ppu_render_mask(u8 x)
 
 static void ppu_render()
 {
-  if (ppu.rendering > 0) {
-    --ppu.rendering;
-  }
   if (ppu.sl <= PPU_SL_END) {
-    if (ppu_render_enabled()) {
-      ppu.rendering = 3;
-    }
-    for (i8 off = 3; off >= 0; --off) {
+    for (i8 off = 2; off >= 0; --off) {
       if (ppu.dot >= PPU_DOT_BEGIN + off && ppu.dot <= PPU_DOT_END + off) {
         u8 x = ppu.dot - PPU_DOT_BEGIN - off;
         switch (off) {
-          case 0:
-            //
-            ppu_render_back(x);
-            ppu_render_sprite(x);
-            ppu_render_priority(x);
-            break;
-          case 1:
-            //
-            ppu_render_palette(x);
-            break;
-          case 2:
-            //
-            ppu_render_mask(x);
-            break;
-          case 3:
-            //
-            break;
+          case 0: ppu_render_pixel(x); break;
+          case 1: ppu_render_palette(); break;
+          case 2: ppu_render_mask(x); break;
         }
       }
     }
@@ -828,15 +791,21 @@ void ppu_tick()
     }
   }
 
+  if (ppu.mask_delay > 0) {
+    if (--ppu.mask_delay == 0) {
+      ppu.rendering = (ppu.mask & PPU_MASK_BACK) || (ppu.mask & PPU_MASK_SPRITE);
+    }
+  }
+
   if (++ppu.dot > PPU_DOT_LAST) {
     ppu.dot = 0;
     if (++ppu.sl > PPU_SL_PRE_RENDER) {
       ppu.sl = 0;
+      if (ppu.odd_frame && ppu.rendering) {
+        ++ppu.dot;
+      }
       ppu.odd_frame = !ppu.odd_frame;
     }
-  }
-  if (ppu.odd_frame && ppu.sl == PPU_SL_PRE_RENDER && ppu.dot == PPU_DOT_LAST - 1 && ppu_render_enabled()) {
-    ++ppu.dot;
   }
   ++ppu.cyc;
 }
