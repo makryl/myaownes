@@ -27,24 +27,18 @@ add_executable(tests src/tests.c)
 target_link_libraries(tests myanes)
 
 function (target_emscripten name html js)
-  set_target_properties(${name} PROPERTIES
-    RUNTIME_OUTPUT_NAME ${name}
-    SUFFIX .html
-    LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${html};${CMAKE_CURRENT_SOURCE_DIR}/${js}"
-  )
-  target_link_options(${name} PRIVATE
-    --shell-file=${CMAKE_CURRENT_SOURCE_DIR}/${html}
-    --pre-js=${CMAKE_CURRENT_SOURCE_DIR}/${js}
-  )
-  install(
-    TARGETS ${name}
-    DESTINATION "./"
-    # FILES
-    #   $<$<CONFIG:Debug>:${CMAKE_CURRENT_BINARY_DIR}/index.js>
-    #   $<$<CONFIG:Debug>:${CMAKE_CURRENT_BINARY_DIR}/index.wasm>
-    #   $<$<CONFIG:Debug>:${CMAKE_CURRENT_BINARY_DIR}/index.wasm.map>
-    # DESTINATION "./"
-  )
+  if (EMSCRIPTEN)
+    set_target_properties(${name} PROPERTIES
+      RUNTIME_OUTPUT_NAME ${name}
+      SUFFIX .html
+      LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${html};${CMAKE_CURRENT_SOURCE_DIR}/${js}"
+    )
+    target_link_options(${name} PRIVATE
+      --shell-file=${CMAKE_CURRENT_SOURCE_DIR}/${html}
+      --pre-js=${CMAKE_CURRENT_SOURCE_DIR}/${js}
+    )
+    install(TARGETS ${name} DESTINATION "./")
+  endif()
 endfunction()
 
 add_executable(myanestest src/test.c)
