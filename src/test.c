@@ -18,8 +18,8 @@ bool mn_init()
   // test_rom = mn_rom_file("GoodNES/USA/Mega Man (U) [!].nes");
 
   // test_rom = mn_rom_file("GoodNES/USA/Battletoads (U) [!].nes");
-  // test_rom = mn_rom_file("MegaPack/USA/Micro Machines (U).nes"); // read OAMDATA write palette mid-scanline
-  // test_rom = mn_rom_file("GoodNES/USA/Marble Madness (U) [!].nes"); // PPUSTATUS timings
+  // test_rom = mn_rom_file("MegaPack/USA/Micro Machines (U).nes");
+  // test_rom = mn_rom_file("GoodNES/USA/Marble Madness (U) [!].nes");
   // test_rom = mn_rom_file("GoodNES/USA/Crystalis (U) [!].nes");
   // test_rom = mn_rom_file("GoodNES/USA/Super Mario Bros. + Duck Hunt (U) [!].nes");
   // test_rom = mn_rom_file("GoodNES/USA/Rad Racer (U) [!].nes");

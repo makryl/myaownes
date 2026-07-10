@@ -16,7 +16,7 @@ static const u32 palette[0x40] = {
 
 static const float ppu_tint_accent = 0.75f;
 static const u8 ppu_rw_delay = 4;
-static const u8 ppu_mask_delay = 3;
+static const u8 ppu_mask_delay = 3; // todo
 
 enum : u16
 {
@@ -104,7 +104,8 @@ typedef struct
 
 static struct Ppu
 {
-  u8 oam[0x100];
+  u8 oam1[0x100];
+  u8 oam2[0x20];
   u8 pam[0x20];
 
   u32 cyc;
@@ -118,7 +119,6 @@ static struct Ppu
   u16 t;
   u16 v;
   u8 x;
-  u16 nm;
   u16 nt;
   u8 at;
   u8 lo;
@@ -129,29 +129,30 @@ static struct Ppu
   u16 shift_attr_lo;
   u16 shift_attr_hi;
 
-  PpuSprite sprite[2][8];
-  PpuSprite* sprite_eval;
-  PpuSprite* sprite_render;
-  u8 sprite_eval_count;
-  u8 sprite_render_count;
-  u8 sprite_busy;
+  u8 sprite_count;
+  u8 sprite_copy;
+  u8 sprite_y;
+  u8 sprite_tile;
+  u8 sprite_attr[8];
+  u8 sprite_x[8];
   u8 sprite_shift_lo[8];
   u8 sprite_shift_hi[8];
 
   u16 addr;
+  u8 oam_addr1;
+  u8 oam_addr2;
+  u8 oam_data;
   u8 open_bus;
   u8 reg_bus;
   u8 reg_bus_decay[8];
+  u8 read_buf;
+  u8 read_delay;
+  u8 write_delay;
+  u8 mask_delay; // todo
 
   u8 pipe_fetch_back;
   u8 pipe_fetch_sprite;
   u8 pipe_fetch_unused;
-
-  u8 read_buf;
-  u8 read_delay;
-  u8 write_delay;
-  u8 mask_delay;
-
   u8 pixel;
   u8 color;
 
@@ -160,8 +161,10 @@ static struct Ppu
   bool odd_frame;
   bool suppress_vblank;
   bool check_nmi;
+  bool sprite_eval_done;
   bool sprite_eval_has0;
   bool sprite_render_has0;
+  bool sprite_flip_horiz;
   bool inc_x;
 } ppu;
 
@@ -258,6 +261,18 @@ static void ppu_inc_y()
 
 static u16 ppu_inc_v() { return ppu.v + ((ppu.ctrl & PPU_CTRL_INC_Y) ? 32 : 1); }
 
+static bool ppu_inc_m()
+{
+  ppu.oam_addr1 = (ppu.oam_addr1 & 0xFC) | ((ppu.oam_addr1 + 1) & 3);
+  return (ppu.oam_addr1 & 3) == 0;
+}
+
+static bool ppu_inc_n()
+{
+  ppu.oam_addr1 += 4;
+  return (ppu.oam_addr1 & 0xFC) == 0;
+}
+
 static void ppu_reg_bus_set(u8 val, u8 mask)
 {
   val &= mask;
@@ -295,7 +310,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
       break;
     }
     case PPU_REG_OAMDATA: {
-      u8 val = ppu.oam[ppu.nm & 0xFF]; // todo: eval collision?
+      u8 val = ppu.oam_data;
       if (trace) {
         return val;
       }
@@ -339,10 +354,20 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.mask = val;
       ppu.mask_delay = ppu_mask_delay;
       break;
-    case PPU_REG_OAMADDR: ppu.nm = val; break;
+    case PPU_REG_OAMADDR:
+      ppu.oam_addr1 = val;
+      ppu.oam_data = ppu.oam1[ppu.oam_addr1];
+      break;
     case PPU_REG_OAMDATA:
-      ppu.oam[ppu.nm & 0xFF] = (ppu.nm & 3) == 2 ? (val & 0xE3) : val;
-      ++ppu.nm;
+      if (ppu_render_enabled() && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) && ppu.dot >= PPU_DOT_BEGIN
+          && ppu.dot <= PPU_DOT_SPRITE_END)
+      {
+        ppu_inc_n(); // todo: check correct dots for glitch
+      } else {
+        ppu.oam1[ppu.oam_addr1] = (ppu.oam_addr1 & 3) == 2 ? (val & 0xE3) : val;
+        ++ppu.oam_addr1;
+      }
+      ppu.oam_data = ppu.oam1[ppu.oam_addr1];
       break;
     case PPU_REG_SCROLL:
       if (!ppu.write_latch) {
@@ -376,7 +401,7 @@ static u16 ppu_at_addr() { return 0x23C0 | (ppu.v & 0x0C00) | ((ppu.v >> 4) & 0x
 
 static u8 pipe_step(u8* counter)
 {
-  if (!ppu_render_enabled()) {
+  if (!ppu_render_enabled()) { // todo: should stop immediate?
     return 8;
   }
   u8 step = (ppu.dot - PPU_DOT_BEGIN) % 8;
@@ -452,66 +477,88 @@ static void ppu_fetch_back()
   }
 }
 
-static void ppu_evaluate_sprite_swap()
+static void ppu_clear_sprites()
 {
-  ppu.sprite_render = ppu.sprite_eval;
-  ppu.sprite_render_count = ppu.sprite_eval_count;
-  ppu.sprite_render_has0 = ppu.sprite_eval_has0;
-  memset(ppu.sprite_shift_lo, 0, sizeof(ppu.sprite_shift_lo));
-  memset(ppu.sprite_shift_hi, 0, sizeof(ppu.sprite_shift_hi));
+  if (ppu.dot == PPU_DOT_BEGIN) {
+    ppu.oam_addr2 = 0; // todo: should reset?
+  }
+
+  if (!ppu_render_enabled()) {
+    return;
+  }
+
+  if (ppu.dot & 1) {
+    ppu.oam_data = 0xFF;
+  } else {
+    ppu.oam2[ppu.oam_addr2++] = ppu.oam_data;
+  }
 }
 
 static void ppu_evaluate_sprites()
 {
-  if (ppu.sprite_busy) {
-    --ppu.sprite_busy;
-    return;
-  }
-
-  if (ppu.dot == PPU_DOT_BEGIN) {
-    if (ppu_render_enabled()) {
-      ppu.sprite_eval = ppu.sprite[(ppu.sl & 1) ? 1 : 0];
-      ppu.sprite_eval_count = 0;
-      ppu.sprite_eval_has0 = false;
-      ppu.sprite_busy = 63;
-      memset(ppu.sprite_eval, 0xFF, sizeof(ppu.sprite[0]));
-    } else {
-      ppu.sprite_busy = PPU_DOT_END - PPU_DOT_BEGIN;
-    }
-    return;
-  }
-
   if (ppu.dot == PPU_DOT_SPRITE_EVAL_BEGIN) {
-    ppu.nm = 0;
+    ppu.oam_addr2 = 0; // todo: should reset?
+    ppu.sprite_count = 0;
+    ppu.sprite_copy = 0;
+    ppu.sprite_eval_has0 = false;
+    ppu.sprite_eval_done = false;
+  }
+
+  if (!ppu_render_enabled()) {
     return;
   }
 
-  if (ppu.nm > 0xFF) {
+  if (ppu.dot & 1) {
+    ppu.oam_data = ppu.oam1[ppu.oam_addr1];
     return;
   }
 
-  u16 next_sl = ppu.sl == PPU_SL_PRE_RENDER ? 0 : (ppu.sl + 1);
-  u8 height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
-  u8* oam_ptr = &ppu.oam[ppu.nm];
-  u8 y = *oam_ptr;
-  bool hit = next_sl > y && next_sl <= (y + height);
+  u8 y = ppu.oam_data;
 
-  if (ppu.sprite_eval_count < 8) {
-    if (hit) {
-      memcpy(&ppu.sprite_eval[ppu.sprite_eval_count++], oam_ptr, 4);
-      ppu.sprite_busy += 6;
-      if (oam_ptr == ppu.oam) {
-        ppu.sprite_eval_has0 = true;
+  if (ppu.oam_addr2 < 0x20 && !ppu.sprite_eval_done) {
+    ppu.oam2[ppu.oam_addr2] = ppu.oam_data;
+  } else {
+    ppu.oam_data = ppu.oam2[ppu.oam_addr2 & 0x1F];
+  }
+
+  if (ppu.sprite_copy > 0) {
+    if (ppu.oam_addr2 < 0x20) {
+      ++ppu.oam_addr2;
+    }
+    if (ppu_inc_m()) {
+      if (ppu_inc_n()) {
+        ppu.sprite_eval_done = true;
       }
     }
-  } else {
-    if (hit) {
-      ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
+    if (--ppu.sprite_copy == 0) {
+      ppu.oam_addr1 &= 0xFC; // reset m? (read2004.nes)
     }
-    ppu.nm = (ppu.nm & 0xFFFC) | ((ppu.nm + 1) & 3); // NES bug: increment both m and n: m here, n below.
+    return;
   }
-  ppu.nm += 4;
-  ++ppu.sprite_busy;
+
+  if (!ppu.sprite_eval_done) {
+    u8 height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
+    if (ppu.sl >= y && ppu.sl < (y + height)) {
+      if (ppu.oam_addr1 == 0) {
+        ppu.sprite_eval_has0 = true;
+      }
+      if (ppu.oam_addr2 < 0x20) {
+        ++ppu.oam_addr2;
+      } else {
+        ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
+      }
+      ppu_inc_m();
+      ppu.sprite_copy = 3;
+      ++ppu.sprite_count;
+      return;
+    } else if (ppu.sprite_count == 8) {
+      ppu_inc_m(); // NES bug: increment both m and n.
+    }
+  }
+
+  if (ppu_inc_n()) {
+    ppu.sprite_eval_done = true;
+  }
 }
 
 static void ppu_fetch_sprites()
@@ -522,52 +569,57 @@ static void ppu_fetch_sprites()
   }
 
   if (ppu.dot == PPU_DOT_SPRITE_BEGIN) {
-    ppu_evaluate_sprite_swap();
+    ppu.oam_addr1 = 0;
+    ppu.sprite_render_has0 = ppu.sprite_eval_has0;
   }
 
-  ppu.nm = 0;
-
   u8 i = (ppu.dot - PPU_DOT_SPRITE_BEGIN) / 8;
-  PpuSprite* sprite = i < ppu.sprite_render_count ? &ppu.sprite_render[i] : 0;
 
   switch (step) {
     case 0: {
       ppu_addr(ppu_nt_addr());
+      ppu.oam_data = ppu.oam2[i * 4 + 0]; // todo: fixed addr or use ppu.oam_addr2++?
+      u8 next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
+      ppu.sprite_y = next_sl - ppu.oam_data - 1;
       break;
     }
     case 1: {
       ppu_addr(ppu_nt_addr());
-      ppu.nt = ppu_read(); // unused NT
-
-      if (sprite) {
-        u16 next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
-        u8 sprite_height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
-
-        u16 row = next_sl - sprite->y - 1;
-        if (sprite->attr & PPU_SPRITE_FLIP_VERT) {
-          row = (sprite_height - 1) - row;
-        }
-
-        if (!(ppu.ctrl & PPU_CTRL_SPRITE_SIZE)) { // 8x8
-          u16 table = (ppu.ctrl & PPU_CTRL_SPRITE_NAMETABLE) ? 0x1000 : 0x0000;
-          ppu.nt = table + (sprite->tile << 4) + row;
-        } else {
-          u16 table = (sprite->tile & 1) ? 0x1000 : 0x0000;
-          ppu.nt = table + ((sprite->tile & 0xFE) << 4) + (row >= 8 ? row + 8 : row);
-        }
+      ppu_read(); // unused NT
+      ppu.oam_data = ppu.oam2[i * 4 + 1]; // todo: fixed addr or use ppu.oam_addr2++?
+      ppu.sprite_tile = ppu.oam_data;
+      if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
+        ppu.nt = (ppu.sprite_tile & 1) ? 0x1000 : 0x0000;
       } else {
-        u16 table = (ppu.ctrl & PPU_CTRL_SPRITE_NAMETABLE) ? 0x1000 : 0x0000;
-        ppu.nt = table + (0xFF << 4);
+        ppu.nt = (ppu.ctrl & PPU_CTRL_SPRITE_NAMETABLE) ? 0x1000 : 0x0000;
       }
       break;
     }
     case 2: {
       ppu_addr(ppu_nt_addr());
+      ppu.oam_data = ppu.oam2[i * 4 + 2]; // todo: fixed addr or use ppu.oam_addr2++?
+      ppu.sprite_attr[i] = ppu.oam_data;
+      ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
+      if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
+        u8 height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
+        ppu.sprite_y = (height - 1) - ppu.sprite_y;
+      }
+      if (i < ppu.sprite_count) {
+        if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
+          ppu.nt |= ((ppu.sprite_tile & 0xFE) << 4) + (ppu.sprite_y >= 8 ? ppu.sprite_y + 8 : ppu.sprite_y);
+        } else {
+          ppu.nt |= (ppu.sprite_tile << 4) + ppu.sprite_y;
+        }
+      } else {
+        ppu.nt |= (0xFF << 4);
+      }
       break;
     }
     case 3: {
       ppu_addr(ppu_nt_addr());
       ppu_read(); // ignored NT
+      ppu.oam_data = ppu.oam2[i * 4 + 3]; // todo: fixed addr or use ppu.oam_addr2++?
+      ppu.sprite_x[i] = ppu.oam_data;
       break;
     }
     case 4: {
@@ -587,8 +639,8 @@ static void ppu_fetch_sprites()
       ppu_addr(ppu.nt | 8);
       ppu.hi = ppu_read();
 
-      if (sprite) {
-        if (sprite->attr & PPU_SPRITE_FLIP_HORIZ) {
+      if (i < ppu.sprite_count) {
+        if (ppu.sprite_flip_horiz) {
           ppu.lo = ((ppu.lo & 0xF0) >> 4) | ((ppu.lo & 0x0F) << 4);
           ppu.lo = ((ppu.lo & 0xCC) >> 2) | ((ppu.lo & 0x33) << 2);
           ppu.lo = ((ppu.lo & 0xAA) >> 1) | ((ppu.lo & 0x55) << 1);
@@ -598,6 +650,9 @@ static void ppu_fetch_sprites()
         }
         ppu.sprite_shift_lo[i] = ppu.lo;
         ppu.sprite_shift_hi[i] = ppu.hi;
+      } else {
+        ppu.sprite_shift_lo[i] = 0;
+        ppu.sprite_shift_hi[i] = 0;
       }
       break;
     }
@@ -636,14 +691,21 @@ static void ppu_fetch_unused()
 static void ppu_fetch()
 {
   if (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) {
-    if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END)) {
-      ppu_fetch_back();
-      ppu_evaluate_sprites();
+    if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
+      ppu_clear_sprites();
+    } else if (ppu.dot >= PPU_DOT_SPRITE_EVAL_BEGIN && ppu.dot <= PPU_DOT_END) {
+      if (ppu.sl != PPU_SL_PRE_RENDER) {
+        ppu_evaluate_sprites();
+      }
     } else if (ppu.dot >= PPU_DOT_SPRITE_BEGIN && ppu.dot <= PPU_DOT_SPRITE_END) {
       ppu_fetch_sprites();
-    } else if (ppu.dot >= PPU_DOT_PREFETCH_BEGIN && ppu.dot <= PPU_DOT_PREFETCH_END) {
+    }
+    if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END)
+        || (ppu.dot >= PPU_DOT_PREFETCH_BEGIN && ppu.dot <= PPU_DOT_PREFETCH_END))
+    {
       ppu_fetch_back();
-    } else if (ppu.dot > PPU_DOT_PREFETCH_END) {
+    }
+    if (ppu.dot > PPU_DOT_PREFETCH_END) {
       ppu_fetch_unused();
     }
   }
@@ -668,10 +730,9 @@ static void ppu_render_pixel(u8 x)
   bool sprite_priority = false;
   bool sprite0_hit = false;
   if ((ppu.mask & PPU_MASK_SPRITE) && (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
-    for (u8 i = 0; i < ppu.sprite_render_count; i++) {
-      PpuSprite* sprite = &ppu.sprite_render[i];
-      if (x >= sprite->x && x < (sprite->x + 8)) {
-        u8 offset = x - sprite->x;
+    for (u8 i = 0; i < 8; i++) {
+      if (x >= ppu.sprite_x[i] && x < (ppu.sprite_x[i] + 8)) {
+        u8 offset = x - ppu.sprite_x[i];
         u8 bit_mask = 0x80 >> offset;
 
         u8 p0 = (ppu.sprite_shift_lo[i] & bit_mask) ? 1 : 0;
@@ -679,8 +740,8 @@ static void ppu_render_pixel(u8 x)
         pixel_sprite = p0 | (p1 << 1);
 
         if (pixel_sprite) {
-          pixel_sprite |= 0x10 | ((sprite->attr & 0x03) << 2);
-          sprite_priority = (sprite->attr & PPU_SPRITE_PRIORITY) == 0;
+          pixel_sprite |= 0x10 | ((ppu.sprite_attr[i] & 0x03) << 2);
+          sprite_priority = (ppu.sprite_attr[i] & PPU_SPRITE_PRIORITY) == 0;
           sprite0_hit = (i == 0 && ppu.sprite_render_has0);
           break;
         }

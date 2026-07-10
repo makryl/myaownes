@@ -156,7 +156,7 @@ Rom mn_rom_file(const char* path)
     rom->dendy = false;
 
     rom->prg_ram_size = 8192;
-    rom->chr_ram_size = 8192;
+    rom->chr_ram_size = chr_rom_size == 0 ? 8192 : 0;
 
     rom->has_prg_battery = (h.mapper_flags & NES_FLAG_BATTERY);
     rom->has_chr_battery = false;

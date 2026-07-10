@@ -95,6 +95,8 @@ static TestParams tests[] = {
   { "dmc_dma_during_read4/dma_4016_read.nes", { { 0x441C2F34, 16, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/double_2007_read.nes", { { 0x80B4A112, 16, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/read_write_2007.nes", { { 0xEB956420, 18, 0x00, 0 } } }, //
+  // dmc_tests/* // todo
+  // exram/mmc5exram.nes // todo
   { "dpcmletterbox/dpcmletterbox.nes", { { 0x24EBFE89, 10, 0x00, 0 }, { 0xCAB5C165, 216, 0xA0, 0 } } }, //
   { "full_palette/flowing_palette.nes", { { 0x426913E7, 30, 0, 0 } } }, //
   { "full_palette/full_palette_smooth.nes", { { 0x0C972D06, 30, 0, 0 } } }, //
@@ -178,11 +180,14 @@ static TestParams tests[] = {
   // { 0, 0, "nmi_sync/demo_pal.nes" }, // todo
   { "oam_read/oam_read.nes", { { 0xA35A57E7, 32, 0x00, 0 } } }, //
   { "oam_stress/oam_stress.nes", { { 0x596023FD, 1703, 0x00, 0 } } }, //
+  { "other/midscanline.nes", { { 0x42311477, 20, 0x00, 0 } } }, //
   { "other/nestest.nes",
     { { 0x9E8BA5E6, 10, 0, 0 },
       { 0xDF7DA5E2, 20, 0x08, 0 },
       { 0xD6C2CFA3, 10, 0x04, 0 },
       { 0xDEA9BC46, 20, 0x08, 0 } } }, //
+  { "other/oam3.nes", { { 0x4419951C, 10, 0x00, 0 } } }, //
+  { "other/read2004.nes", { { 0x61473648, 20, 0x00, 0 } } }, //
   // { 0, 0, "pal_apu_tests/*.nes" }, // todo
   { "ppu_open_bus/ppu_open_bus.nes", { { 0x3EB4ABE5, 250, 0x00, 0 } } }, //
   { "ppu_read_buffer/test_ppu_read_buffer.nes", { { 0xD22D42A2, 1307, 0x00, 0 } } }, //

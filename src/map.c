@@ -336,7 +336,9 @@ static void map_nrom_load()
   // map_cpu_read_pages(mapper.eram, 0, 4, 2);
   // map_cpu_write_pages(mapper.eram, 0, 4, 2);
 
-  map_chr_page_8k(0, 0);
+  for (u8 i = 0; i < 8; ++i) { // rom may have < 8k
+    map_chr_page_1k(i, i);
+  }
 
   if (mapper.rom->alt_mirror) {
     map_ppu_nt_four_screen();
@@ -383,7 +385,7 @@ static void map_mmc1_update()
     map_chr_page_4k(chr_page0, 0);
     map_chr_page_4k(chr_page1, 1);
   } else {
-    map_chr_page_8k(chr_page0, 0);
+    map_chr_page_8k(chr_page0 >> 1, 0);
   }
 
   switch (ctrl_prg) {

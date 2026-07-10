@@ -111,12 +111,15 @@ static void cpu_dmc_dma();
 
 static u8 cpu_joy_poll(u16 addr)
 {
+  u8 val;
   cpu.joy_idx = (addr & 1);
   if (cpu.joy_strobe) {
-    return (dev_input(cpu.joy_idx) & 1);
+    val = (dev_input(cpu.joy_idx) & 1);
+  } else {
+    cpu.joy_shift_delay = 2;
+    val = (cpu.joy[cpu.joy_idx] & 1);
   }
-  cpu.joy_shift_delay = 2;
-  return (cpu.joy[cpu.joy_idx] & 1) | (cpu.open_bus & 0xE0);
+  return val | (cpu.open_bus & 0xE0);
 }
 
 static void cpu_joy_shift()
