@@ -1,4 +1,4 @@
-#include "rom.h"
+#include "myanes.h"
 #include "common.h"
 #include <errno.h>
 #include <stdlib.h>
@@ -108,8 +108,8 @@ Rom mn_rom_file(const char* path)
 
   fclose(f);
 
-
   Rom rom = mem;
+  rom->path = path; // carefull with lifetime
   rom->prg_rom = (u8*)mem + sizeof(struct Rom);
   rom->chr_rom = chr_rom_size > 0 ? rom->prg_rom + prg_rom_size : 0;
   rom->prg_rom_size = prg_rom_size;

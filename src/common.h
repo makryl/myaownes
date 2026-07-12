@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+#define MN_TITLE "MyaNES"
 #define MN_TRACE_CPU 0
 #define MN_TRACE_PPU 0
 #define MN_TRACE_APU 0

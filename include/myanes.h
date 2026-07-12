@@ -18,9 +18,31 @@ enum
   MN_INPUT_RIGHT = (1 << 7),
 };
 
+struct Rom
+{
+  const char* path;
+  const u8* prg_rom;
+  const u8* chr_rom;
+  u32 prg_rom_size;
+  u32 chr_rom_size;
+  u32 prg_ram_size;
+  u32 chr_ram_size;
+  u16 mapper;
+  u8 submapper;
+  bool vert_mirror;
+  bool has_prg_battery;
+  bool has_chr_battery;
+  bool has_trainer;
+  bool alt_mirror;
+  bool ntsc;
+  bool pal;
+  bool dendy;
+};
+
 Rom mn_rom_file(const char* path);
 void mn_rom_release(Rom rom);
 void mn_rom_load(Rom rom);
+Rom mn_rom_get();
 void mn_input(u8* joy1, u8* joy2);
 void mn_output(u32* out);
 void mn_power();

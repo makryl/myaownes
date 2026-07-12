@@ -1,5 +1,4 @@
 #include "map.h"
-#include "rom.h"
 #include "cpu.h"
 #include <string.h>
 
@@ -35,6 +34,8 @@ static struct
   bool irq;
 } mapper;
 
+
+Rom mn_rom_get() { return mapper.rom; }
 const u8* mn_prg_ram() { return mapper.prg_ram; }
 const u8* mn_chr_ram() { return mapper.chr_ram; }
 
