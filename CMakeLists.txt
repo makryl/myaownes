@@ -21,7 +21,7 @@ add_library(myanes
   src/ppu.c
   src/rom.c
 )
-target_link_libraries(myanes PUBLIC GLESv2 SDL3-static)
+target_link_libraries(myanes PUBLIC SDL3-static)
 
 add_executable(tests src/tests.c)
 target_link_libraries(tests myanes)

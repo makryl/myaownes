@@ -31,6 +31,9 @@ SDL_AppResult SDL_AppInit(void**, int, char*[])
 {
   memset(&imp, 0, sizeof(imp));
 
+  SDL_SetAppMetadata(MN_TITLE, MN_VERSION, MN_ID);
+  SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
+
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
@@ -90,7 +93,6 @@ SDL_AppResult SDL_AppInit(void**, int, char*[])
     }
     SDL_Log("Mirror: %s %s", rom->vert_mirror ? "vert" : "horiz", rom->alt_mirror ? ", alt (four-screen)" : "");
     SDL_Log("Trainer: %s", rom->has_trainer ? "yes" : "no");
-    SDL_Log("");
   }
 
   return inited ? SDL_APP_CONTINUE : SDL_APP_FAILURE;

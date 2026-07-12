@@ -49,7 +49,17 @@
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-D__EMSCRIPTEN__",
+        "CMAKE_CXX_FLAGS": "-D__EMSCRIPTEN__",
         "CMAKE_EXE_LINKER_FLAGS": "-sSINGLE_FILE -sENVIRONMENT=web"
+      }
+    },
+    {
+      "name": "MinGW",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "x86_64-w64-mingw32-gcc",
+        "CMAKE_CXX_COMPILER": "x86_64-w64-mingw32-g++"
       }
     },
     {
@@ -75,6 +85,18 @@
     {
       "name": "Emscripten-Release",
       "inherits": ["Emscripten", "Release"]
+    },
+    {
+      "name": "MinGW-Debug",
+      "inherits": ["MinGW", "Debug"]
+    },
+    {
+      "name": "MinGW-RelWithDebInfo",
+      "inherits": ["MinGW", "RelWithDebInfo"]
+    },
+    {
+      "name": "MinGW-Release",
+      "inherits": ["MinGW", "Release"]
     }
   ]
 }

@@ -3,6 +3,9 @@
 #include <stdio.h>
 
 #define MN_TITLE "MyaNES"
+#define MN_VERSION "0.0.0"
+#define MN_ID "com.makryl.myanes"
+
 #define MN_TRACE_CPU 0
 #define MN_TRACE_PPU 0
 #define MN_TRACE_APU 0
