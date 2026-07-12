@@ -55,46 +55,45 @@ SDL_AppResult SDL_AppInit(void**, int, char*[])
 
   mn_input(&imp.joy1, &imp.joy2);
 
-  if (!mn_init()) {
-    return SDL_APP_FAILURE;
-  }
+  bool inited = mn_init();
 
   Rom rom = mn_rom_get();
+  if (rom) {
+    const char* name = rom->path;
+    const char* slash = strrchr(rom->path, '/');
+    const char* backslash = strrchr(rom->path, '\\');
+    if (slash || backslash) {
+      name = (slash > backslash ? slash : backslash) + 1;
+    }
 
-  const char* name = rom->path;
-  const char* slash = strrchr(rom->path, '/');
-  const char* backslash = strrchr(rom->path, '\\');
-  if (slash || backslash) {
-    name = (slash > backslash ? slash : backslash) + 1;
+    char title[128] = {};
+    strcat(title, name);
+    strcat(title, " - ");
+    strcat(title, MN_TITLE);
+
+    SDL_SetWindowTitle(imp.window, title);
+
+    SDL_Log("ROM: %s", rom->path);
+    SDL_Log("Region: %s", rom->ntsc ? "NTSC" : rom->pal ? "PAL" : rom->dendy ? "Dendy" : "NOT SUPPORTED!");
+    SDL_Log("Mapper: %d-%d %s", rom->mapper, rom->submapper, rom->mapper_error ? "NOT SUPPORTED!" : "");
+    if (rom->prg_rom_size) {
+      SDL_Log("PRG-ROM: %d KiB", rom->prg_rom_size >> 10);
+    }
+    if (rom->prg_ram_size) {
+      SDL_Log("PRG-RAM: %d KiB %s", rom->prg_ram_size >> 10, rom->has_prg_battery ? "BATTERY" : "");
+    }
+    if (rom->chr_rom_size) {
+      SDL_Log("CHR-ROM: %d KiB", rom->chr_rom_size >> 10);
+    }
+    if (rom->chr_ram_size) {
+      SDL_Log("CHR-RAM: %d KiB %s", rom->chr_ram_size >> 10, rom->has_chr_battery ? "BATTERY" : "");
+    }
+    SDL_Log("Mirror: %s %s", rom->vert_mirror ? "vert" : "horiz", rom->alt_mirror ? ", alt (four-screen)" : "");
+    SDL_Log("Trainer: %s", rom->has_trainer ? "yes" : "no");
+    SDL_Log("");
   }
 
-  char title[128] = {};
-  strcat(title, name);
-  strcat(title, " - ");
-  strcat(title, MN_TITLE);
-
-  SDL_SetWindowTitle(imp.window, title);
-
-  SDL_Log("ROM info");
-  SDL_Log("  File: %s", rom->path);
-  SDL_Log("  Region: %s", rom->ntsc ? "NTSC" : rom->pal ? "PAL" : rom->dendy ? "Dendy" : "unknown");
-  SDL_Log("  Mapper: %d-%d", rom->mapper, rom->submapper);
-  if (rom->prg_rom_size) {
-    SDL_Log("  PRG-ROM: %d KiB", rom->prg_rom_size >> 10);
-  }
-  if (rom->prg_ram_size) {
-    SDL_Log("  PRG-RAM: %d KiB %s", rom->prg_ram_size >> 10, rom->has_prg_battery ? "BATTERY" : "");
-  }
-  if (rom->chr_rom_size) {
-    SDL_Log("  CHR-ROM: %d KiB", rom->chr_rom_size >> 10);
-  }
-  if (rom->chr_ram_size) {
-    SDL_Log("  CHR-RAM: %d KiB %s", rom->chr_ram_size >> 10, rom->has_chr_battery ? "BATTERY" : "");
-  }
-  SDL_Log("  Mirror: %s %s", rom->vert_mirror ? "vert" : "horiz", rom->alt_mirror ? ", alt (four-screen)" : "");
-  SDL_Log("  Trainer: %s", rom->has_trainer ? "yes" : "no");
-
-  return SDL_APP_CONTINUE;
+  return inited ? SDL_APP_CONTINUE : SDL_APP_FAILURE;
 }
 
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)

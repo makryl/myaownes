@@ -862,7 +862,7 @@ static bool map_gxrom_cpu_write(u16 addr, u8 val)
 
 static void map_gxrom_load() { mapper.cpu_write = map_gxrom_cpu_write; }
 
-void mn_rom_load(Rom rom)
+bool mn_rom_load(Rom rom)
 {
   memset(&mapper, 0, sizeof(mapper));
   mapper.rom = rom;
@@ -878,5 +878,7 @@ void mn_rom_load(Rom rom)
     case 12: map_mmc3a_load(); break;
     case 34: map_bnrom_load(); break;
     case 66: map_gxrom_load(); break;
+    default: rom->mapper_error = true; return false;
   }
+  return true;
 }

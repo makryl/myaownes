@@ -37,11 +37,12 @@ struct Rom
   bool ntsc;
   bool pal;
   bool dendy;
+  bool mapper_error;
 };
 
 Rom mn_rom_file(const char* path);
 void mn_rom_release(Rom rom);
-void mn_rom_load(Rom rom);
+bool mn_rom_load(Rom rom);
 Rom mn_rom_get();
 void mn_input(u8* joy1, u8* joy2);
 void mn_output(u32* out);

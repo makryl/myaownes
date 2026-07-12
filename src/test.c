@@ -34,7 +34,10 @@ bool mn_init()
     return false;
   }
 
-  mn_rom_load(test_rom);
+  if (!mn_rom_load(test_rom)) {
+    return false;
+  }
+
   mn_power();
 
   return true;
