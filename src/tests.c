@@ -410,7 +410,7 @@ int main(int, char**)
       ++errors;
     }
   }
-  printf("%4s | %8d | TOTAL ERRORS\n", errors ? "FAIL" : "OK", errors);
+  printf("%4s | %-3d/%4d | TOTAL ERRORS\n", errors ? "FAIL" : "OK", errors, count);
 
   return 0;
 }
