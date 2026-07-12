@@ -188,10 +188,10 @@ u16 ppu_sl() { return ppu.sl; }
 bool ppu_vblank() { return ppu.sl >= PPU_SL_VBLANK && ppu.sl < PPU_SL_PRE_RENDER; }
 
 #if MN_TRACE_PPU
-#define trace_ppu(fmt, ...)                                                                                     \
+#define ppu_trace(fmt, ...)                                                                                     \
   tracef("PPU c=%02X m=%02X s=%02X v=%04X t=%04X x=%02X w=%d o=%02X sl=%-3d dot=%-3d cpu_cyc=%-10d  " fmt "\n", \
          ppu.ctrl, ppu.mask, ppu.status, ppu.v, ppu.t, ppu.x, ppu.write_latch, ppu.oam_data, ppu.sl, ppu.dot,   \
-         cpu_cyc(), __VA_ARGS__);
+         cpu_cyc() __VA_OPT__(, ) __VA_ARGS__);
 #else
 #define trace_ppu(fmt, ...) (void)0
 #endif

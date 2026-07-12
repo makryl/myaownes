@@ -22,9 +22,12 @@ bool mn_init()
   // test_rom = mn_rom_file("GoodNES/USA/Marble Madness (U) [!].nes");
   // test_rom = mn_rom_file("GoodNES/USA/Crystalis (U) [!].nes");
   // test_rom = mn_rom_file("GoodNES/USA/Super Mario Bros. + Duck Hunt (U) [!].nes");
+  // test_rom = mn_rom_file("GoodNES/USA/Super Mario Bros. 3 (U) (V1.1) [!].nes");
   // test_rom = mn_rom_file("GoodNES/USA/Rad Racer (U) [!].nes");
   // test_rom = mn_rom_file("GoodNES/USA/Legend of Zelda, The (U) (V1.1) [!].nes");
   // test_rom = mn_rom_file("GoodNES/Japan/Fire Emblem Gaiden (J) [!].nes");
+  // test_rom = mn_rom_file("GoodNES/USA/Kirby's Adventure (U) (V1.1) [!].nes");
+  // test_rom = mn_rom_file("GoodNES/USA/Elite (U) (Proto) [!].nes"); // PAL?
 
   if (!test_rom) {
     return false;

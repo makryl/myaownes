@@ -81,13 +81,44 @@ static struct Apu
   bool dec_noise;
 } apu;
 
-#if MN_TRACE_APU
+static u8 apu_get_status()
+{
+  u8 status = 0;
+  if (apu.pulse1_len > 0) {
+    status |= APU_STATUS_PULSE1;
+  }
+  if (apu.pulse2_len > 0) {
+    status |= APU_STATUS_PULSE2;
+  }
+  if (apu.triangle_len > 0) {
+    status |= APU_STATUS_TRIANGLE;
+  }
+  if (apu.noise_len > 0) {
+    status |= APU_STATUS_NOISE;
+  }
+  if (apu.dmc_len > 0) {
+    status |= APU_STATUS_DMC;
+  }
+  if (!apu.frame_irq_disabled && apu.frame_irq) {
+    status |= APU_STATUS_FRAME_IRQ;
+  }
+  if (apu.dmc_irq_enabled && apu.dmc_irq) {
+    status |= APU_STATUS_DMC_IRQ;
+  }
+  return status;
+}
+
+#if MN_TRACE_APU // todo: keep only apu_trace
+#define apu_trace(fmt, ...)                                                                                     \
+  tracef("APU phase=%s cpu_cyc=%-10d apu_half_cyc=%-10d status=%02X  " fmt "\n", cpu_cyc() & 1 ? "PUT" : "GET", \
+         cpu_cyc(), apu.cyc, apu_get_status() __VA_OPT__(, ) __VA_ARGS__)
 #define apu_trace_dmc(fmt, ...)                                                      \
   tracef(fmt                                                                         \
          " | %s | CPU CYC:%10d | APU HALF CYC:%10d | dmc_len:%d | dmc_has_buf:%d | " \
          "dmc_out_bit:%d\n" __VA_OPT__(, ) __VA_ARGS__,                              \
          cpu_cyc() & 1 ? "PUT" : "GET", cpu_cyc(), apu.cyc, apu.dmc_len, apu.dmc_has_buf, apu.dmc_out_bit)
 #else
+#define apu_trace(fmt, ...) (void)0
 #define apu_trace_dmc(fmt, ...) (void)0
 #endif
 
@@ -136,28 +167,7 @@ void apu_bus_read(u16 addr, u8* val, bool trace)
 {
   switch (addr & 0x1F) {
     case 0x15: {
-      u8 status = 0;
-      if (apu.pulse1_len > 0) {
-        status |= APU_STATUS_PULSE1;
-      }
-      if (apu.pulse2_len > 0) {
-        status |= APU_STATUS_PULSE2;
-      }
-      if (apu.triangle_len > 0) {
-        status |= APU_STATUS_TRIANGLE;
-      }
-      if (apu.noise_len > 0) {
-        status |= APU_STATUS_NOISE;
-      }
-      if (apu.dmc_len > 0) {
-        status |= APU_STATUS_DMC;
-      }
-      if (!apu.frame_irq_disabled && apu.frame_irq) {
-        status |= APU_STATUS_FRAME_IRQ;
-      }
-      if (apu.dmc_irq_enabled && apu.dmc_irq) {
-        status |= APU_STATUS_DMC_IRQ;
-      }
+      u8 status = apu_get_status();
       if (!trace) {
         apu.frame_irq = false;
         // apu_trace_dmc("APU READ $4015=%02X  ", status);
@@ -343,16 +353,19 @@ void apu_tick()
 
   if (apu.cyc == apu.step1 + 1 || apu.cyc == apu.step2 + 1 || apu.cyc == apu.step3 + 1 || apu.cyc == last_step + 1) {
     apu_update_env();
+    apu_trace("env");
   }
   if (apu.cyc == apu.step2 || apu.cyc == last_step) {
     apu_update_len_get();
   }
   if (apu.cyc == apu.step2 + 1 || apu.cyc == last_step + 1) {
     apu_update_len_put();
+    apu_trace("len");
   }
   if (apu.cyc == last_step || apu.cyc == last_step + 1 || apu.cyc == last_step + 2) {
     if (!apu.mode5) {
       apu.frame_irq = true;
+      apu_trace("frame irq");
     }
   }
   if (apu.cyc == last_step + 2) {
