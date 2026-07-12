@@ -16,7 +16,7 @@ static const u32 palette[0x40] = {
 
 static const float ppu_tint_accent = 0.75f;
 static const u8 ppu_rw_delay = 4;
-static const u8 ppu_mask_delay = 3; // todo
+static const u8 ppu_mask_delay = 2;
 
 enum : u16
 {
@@ -148,7 +148,7 @@ static struct Ppu
   u8 read_buf;
   u8 read_delay;
   u8 write_delay;
-  u8 mask_delay; // todo
+  u8 mask_delay;
 
   u8 pipe_fetch_back;
   u8 pipe_fetch_sprite;
@@ -156,7 +156,7 @@ static struct Ppu
   u8 pixel;
   u8 color;
 
-  bool rendering;
+  bool render_enabled;
   bool write_latch;
   bool odd_frame;
   bool suppress_vblank;
@@ -188,10 +188,10 @@ u16 ppu_sl() { return ppu.sl; }
 bool ppu_vblank() { return ppu.sl >= PPU_SL_VBLANK && ppu.sl < PPU_SL_PRE_RENDER; }
 
 #if MN_TRACE_PPU
-#define trace_ppu(fmt, ...)                                                                                 \
-  tracef("PPU  " fmt "  C:%02X M:%02X S:%02X O:%02X V:%04X T:%04X X:%02X W:%d R:%02X PPU:%3d,%3d CYC:%d\n", \
-         __VA_ARGS__, ppu.ctrl, ppu.mask, ppu.status, ppu.oam_addr, ppu.v, ppu.t, ppu.x, ppu.write_latch,   \
-         ppu.read_buf, ppu.sl, ppu.dot, cpu_cyc());
+#define trace_ppu(fmt, ...)                                                                                     \
+  tracef("PPU c=%02X m=%02X s=%02X v=%04X t=%04X x=%02X w=%d o=%02X sl=%-3d dot=%-3d cpu_cyc=%-10d  " fmt "\n", \
+         ppu.ctrl, ppu.mask, ppu.status, ppu.v, ppu.t, ppu.x, ppu.write_latch, ppu.oam_data, ppu.sl, ppu.dot,   \
+         cpu_cyc(), __VA_ARGS__);
 #else
 #define trace_ppu(fmt, ...) (void)0
 #endif
@@ -224,8 +224,6 @@ static void ppu_write(u8 val)
     map_ppu_write(ppu.addr, val);
   }
 }
-
-static bool ppu_render_enabled() { return (ppu.mask & PPU_MASK_BACK) || (ppu.mask & PPU_MASK_SPRITE); }
 
 static void ppu_swap_x() { ppu.v = (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
 static void ppu_swap_y() { ppu.v = (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
@@ -323,13 +321,14 @@ u8 ppu_bus_read(u16 addr, bool trace)
         if (trace) {
           return val;
         }
+        ppu_addr(ppu.v);
         ppu_reg_bus_set(val, 0xFF);
       } else {
         u8 val = ppu.pam[ppu_pam_addr(ppu.v)];
         if (trace) {
           return val;
         }
-        ppu.addr = ppu.v & 0x2FFF;
+        ppu_addr(ppu.v & 0x2FFF);
         ppu_reg_bus_set(val, 0x3F);
       }
       if (ppu.read_delay == 0) {
@@ -359,10 +358,10 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.oam_data = ppu.oam1[ppu.oam_addr1];
       break;
     case PPU_REG_OAMDATA:
-      if (ppu_render_enabled() && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) && ppu.dot >= PPU_DOT_BEGIN
+      if (ppu.render_enabled && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) && ppu.dot >= PPU_DOT_BEGIN
           && ppu.dot <= PPU_DOT_SPRITE_END)
       {
-        ppu_inc_n(); // todo: check correct dots for glitch
+        ppu_inc_n(); // NES bug: inc n on active sprite rendering
       } else {
         ppu.oam1[ppu.oam_addr1] = (ppu.oam_addr1 & 3) == 2 ? (val & 0xE3) : val;
         ++ppu.oam_addr1;
@@ -389,6 +388,7 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.write_latch = !ppu.write_latch;
       break;
     case PPU_REG_DATA:
+      ppu_addr(ppu.v);
       if (ppu.write_delay == 0) {
         ppu.write_delay = ppu_rw_delay;
       }
@@ -399,35 +399,16 @@ void ppu_bus_write(u16 addr, u8 val)
 static u16 ppu_nt_addr() { return 0x2000 | (ppu.v & 0x0FFF); }
 static u16 ppu_at_addr() { return 0x23C0 | (ppu.v & 0x0C00) | ((ppu.v >> 4) & 0x38) | ((ppu.v >> 2) & 7); }
 
-static u8 pipe_step(u8* counter)
-{
-  if (!ppu_render_enabled()) { // todo: should stop immediate?
-    return 8;
-  }
-  u8 step = (ppu.dot - PPU_DOT_BEGIN) % 8;
-  if (step == 0) {
-    *counter = ppu_render_enabled() ? 8 : 0;
-  }
-  if (*counter == 0) {
-    return 8;
-  }
-  --*counter;
-  return step;
-}
+static u8 pipe_step() { return (ppu.dot - PPU_DOT_BEGIN) % 8; }
 
 static void ppu_fetch_back()
 {
-  u8 step = pipe_step(&ppu.pipe_fetch_back);
-  if (step == 8) {
-    return;
-  }
-
   ppu.shift_tile_lo <<= 1;
   ppu.shift_tile_hi <<= 1;
   ppu.shift_attr_lo <<= 1;
   ppu.shift_attr_hi <<= 1;
 
-  switch (step) {
+  switch (pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
       break;
@@ -479,33 +460,21 @@ static void ppu_fetch_back()
 
 static void ppu_clear_sprites()
 {
-  if (ppu.dot == PPU_DOT_BEGIN) {
-    ppu.oam_addr2 = 0; // todo: should reset?
-  }
-
-  if (!ppu_render_enabled()) {
-    return;
-  }
-
   if (ppu.dot & 1) {
     ppu.oam_data = 0xFF;
   } else {
-    ppu.oam2[ppu.oam_addr2++] = ppu.oam_data;
+    ppu.oam2[(ppu.dot - PPU_DOT_BEGIN) >> 1] = ppu.oam_data;
   }
 }
 
 static void ppu_evaluate_sprites()
 {
   if (ppu.dot == PPU_DOT_SPRITE_EVAL_BEGIN) {
-    ppu.oam_addr2 = 0; // todo: should reset?
+    ppu.oam_addr2 = 0;
     ppu.sprite_count = 0;
     ppu.sprite_copy = 0;
     ppu.sprite_eval_has0 = false;
     ppu.sprite_eval_done = false;
-  }
-
-  if (!ppu_render_enabled()) {
-    return;
   }
 
   if (ppu.dot & 1) {
@@ -531,7 +500,7 @@ static void ppu_evaluate_sprites()
       }
     }
     if (--ppu.sprite_copy == 0) {
-      ppu.oam_addr1 &= 0xFC; // reset m? (read2004.nes)
+      ppu.oam_addr1 &= 0xFC; // todo: why reset m? (read2004.nes)
     }
     return;
   }
@@ -563,11 +532,6 @@ static void ppu_evaluate_sprites()
 
 static void ppu_fetch_sprites()
 {
-  u8 step = pipe_step(&ppu.pipe_fetch_sprite);
-  if (step == 8) {
-    return;
-  }
-
   if (ppu.dot == PPU_DOT_SPRITE_BEGIN) {
     ppu.oam_addr1 = 0;
     ppu.sprite_render_has0 = ppu.sprite_eval_has0;
@@ -575,10 +539,10 @@ static void ppu_fetch_sprites()
 
   u8 i = (ppu.dot - PPU_DOT_SPRITE_BEGIN) / 8;
 
-  switch (step) {
+  switch (pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[i * 4 + 0]; // todo: fixed addr or use ppu.oam_addr2++?
+      ppu.oam_data = ppu.oam2[i * 4 + 0];
       u8 next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
       ppu.sprite_y = next_sl - ppu.oam_data - 1;
       break;
@@ -586,7 +550,7 @@ static void ppu_fetch_sprites()
     case 1: {
       ppu_addr(ppu_nt_addr());
       ppu_read(); // unused NT
-      ppu.oam_data = ppu.oam2[i * 4 + 1]; // todo: fixed addr or use ppu.oam_addr2++?
+      ppu.oam_data = ppu.oam2[i * 4 + 1];
       ppu.sprite_tile = ppu.oam_data;
       if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
         ppu.nt = (ppu.sprite_tile & 1) ? 0x1000 : 0x0000;
@@ -597,7 +561,7 @@ static void ppu_fetch_sprites()
     }
     case 2: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[i * 4 + 2]; // todo: fixed addr or use ppu.oam_addr2++?
+      ppu.oam_data = ppu.oam2[i * 4 + 2];
       ppu.sprite_attr[i] = ppu.oam_data;
       ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
       if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
@@ -618,7 +582,7 @@ static void ppu_fetch_sprites()
     case 3: {
       ppu_addr(ppu_nt_addr());
       ppu_read(); // ignored NT
-      ppu.oam_data = ppu.oam2[i * 4 + 3]; // todo: fixed addr or use ppu.oam_addr2++?
+      ppu.oam_data = ppu.oam2[i * 4 + 3];
       ppu.sprite_x[i] = ppu.oam_data;
       break;
     }
@@ -661,8 +625,7 @@ static void ppu_fetch_sprites()
 
 static void ppu_fetch_unused()
 {
-  u8 step = pipe_step(&ppu.pipe_fetch_unused);
-  switch (step) {
+  switch (pipe_step()) {
     case 0: { // 337
       ppu_addr(ppu_nt_addr());
       break;
@@ -690,7 +653,7 @@ static void ppu_fetch_unused()
 
 static void ppu_fetch()
 {
-  if (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) {
+  if (ppu.render_enabled && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER)) {
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
       ppu_clear_sprites();
     } else if (ppu.dot >= PPU_DOT_SPRITE_EVAL_BEGIN && ppu.dot <= PPU_DOT_END) {
@@ -708,6 +671,9 @@ static void ppu_fetch()
     if (ppu.dot > PPU_DOT_PREFETCH_END) {
       ppu_fetch_unused();
     }
+  }
+  if (ppu.dot == PPU_DOT_PREFETCH_BEGIN) {
+    ppu.oam_data = ppu.oam1[ppu.oam_addr1]; // restore oam data from oam2 to oam1
   }
 }
 
@@ -762,7 +728,7 @@ static void ppu_render_pixel(u8 x)
 
 static void ppu_render_palette()
 {
-  u8 pixel = ppu_render_enabled() ? ppu.pixel : (ppu.v >= 0x3F00 ? ppu.v : 0);
+  u8 pixel = ppu.render_enabled ? ppu.pixel : ((ppu.v & 0x3FFF) >= 0x3F00 ? ppu.v : 0);
   ppu.color = ppu.pam[ppu_pam_addr(pixel)] & 0x3F;
 }
 
@@ -860,7 +826,7 @@ void ppu_tick()
   }
 
   bool swap_v = false;
-  if (ppu_render_enabled()) {
+  if (ppu.render_enabled) {
     if ((ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) && ppu.dot == PPU_DOT_SWAP_X) {
       ppu_swap_x();
       swap_v = true;
@@ -891,7 +857,17 @@ void ppu_tick()
   ppu.suppress_vblank = false;
   ppu.check_nmi = false;
 
-  if (ppu.odd_frame && ppu.sl == PPU_SL_PRE_RENDER && ppu.dot == PPU_DOT_LAST - 2 && ppu_render_enabled()) {
+  if (ppu.mask_delay > 0) {
+    if (--ppu.mask_delay == 0) {
+      bool was_enabled = ppu.render_enabled;
+      ppu.render_enabled = (ppu.mask & PPU_MASK_BACK) || (ppu.mask & PPU_MASK_SPRITE);
+      if (was_enabled && !ppu.render_enabled) {
+        ppu.oam_data = ppu.oam1[ppu.oam_addr1]; // restore oam data from oam2 to oam1
+      }
+    }
+  }
+
+  if (ppu.odd_frame && ppu.sl == PPU_SL_PRE_RENDER && ppu.dot == PPU_DOT_LAST - 1 && ppu.render_enabled) {
     ++ppu.dot;
   }
 
