@@ -272,10 +272,6 @@ static TestParams tests[] = {
   { "vbl_nmi_timing/7.nmi_timing.nes", { { 0xE5553CE0, 109, 0x00, 0 } } }, //
 };
 
-static u8 pixels[256 * 240 * 4] = {};
-static u8 joy1 = 0;
-static u8 joy2 = 0;
-
 u32 calc_crc(const u8* data, u32 size)
 {
   u32 crc = 0xFFFFFFFF;
@@ -288,7 +284,7 @@ u32 calc_crc(const u8* data, u32 size)
   return crc ^ 0xFFFFFFFF;
 }
 
-void save_tga(const char* img_path, const u8* pixels, u16 width, u16 height)
+void save_tga(const char* img_path, const void* pixels, u16 width, u16 height)
 {
   FILE* f = fopen(img_path, "wb");
   if (!f) {
@@ -322,7 +318,7 @@ void save_test_step_img(const char* rom_path, u8 step)
       img_path[i] = '/';
     }
   }
-  save_tga(img_path, pixels, 256, 240);
+  save_tga(img_path, mn_output(), 256, 240);
 }
 
 u32 run_test_step(TestStep step)
@@ -333,12 +329,11 @@ u32 run_test_step(TestStep step)
   for (u32 i = 0; i < step.frames; ++i) {
     mn_frame(step.joy1, 0);
   }
-  return calc_crc(pixels, sizeof(pixels));
+  return calc_crc((u8*)mn_output(), 256 * 240 * 4);
 }
 
 bool run_test_steps(TestParams params, u32* out_hash)
 {
-  memset(pixels, 0, sizeof(pixels));
   Rom rom = mn_rom_file(params.path);
   mn_rom_set(rom);
 
