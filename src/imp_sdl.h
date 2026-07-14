@@ -1,6 +1,6 @@
 #pragma once
 
-#include "myanes.h"
+#include "myaownes.h"
 #include "common.h"
 
 #define SDL_MAIN_USE_CALLBACKS

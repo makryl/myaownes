@@ -1,6 +1,6 @@
 #pragma once
 
-#include "myanes.h"
+#include "myaownes.h"
 
 bool map_ready();
 void map_cpu_cyc();

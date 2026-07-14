@@ -1,6 +1,6 @@
 #pragma once
 
-#include "myanes.h"
+#include "myaownes.h"
 
 void dev_power();
 u8 dev_input(u8 idx);

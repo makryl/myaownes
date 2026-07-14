@@ -1,5 +1,5 @@
 #include "dev.h"
-#include "myanes.h"
+#include "myaownes.h"
 #include "cpu.h"
 #include "ppu.h"
 #include "apu.h"

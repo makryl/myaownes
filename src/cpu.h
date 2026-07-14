@@ -1,6 +1,6 @@
 #pragma once
 
-#include "myanes.h"
+#include "myaownes.h"
 
 void cpu_power();
 void cpu_reset();

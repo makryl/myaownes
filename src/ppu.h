@@ -1,6 +1,6 @@
 #pragma once
 
-#include "myanes.h"
+#include "myaownes.h"
 
 void ppu_power();
 void ppu_reset();
