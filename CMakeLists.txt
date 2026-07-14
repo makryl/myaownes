@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(myanes_workspace LANGUAGES C)
-
-set(CMAKE_C_STANDARD 23)
-add_compile_options(-Wall -Wextra)
+project(myaownes_workspace LANGUAGES C)
 
 set(SDL_STATIC ON)
 set(SDL_SHARED OFF)
@@ -11,9 +8,10 @@ set(SDL_TEST_LIBRARY OFF)
 set(SDL_TESTS OFF)
 add_subdirectory(external/SDL3-3.4.8 EXCLUDE_FROM_ALL)
 
-include_directories(include)
+set(CMAKE_C_STANDARD 23)
+add_compile_options(-Wall -Wextra)
 
-add_library(myanes
+add_library(myaownes-static
   src/apu.c
   src/cpu.c
   src/dev.c
@@ -21,26 +19,18 @@ add_library(myanes
   src/ppu.c
   src/rom.c
 )
-target_link_libraries(myanes PUBLIC SDL3-static)
+target_include_directories(myaownes-static PUBLIC include)
+target_link_libraries(myaownes-static PUBLIC SDL3-static)
 
-add_executable(tests src/tests.c)
-target_link_libraries(tests myanes)
+add_executable(tests EXCLUDE_FROM_ALL src/tests.c)
+target_link_libraries(tests myaownes-static)
 
-function (target_emscripten name html js)
-  if (EMSCRIPTEN)
-    set_target_properties(${name} PROPERTIES
-      RUNTIME_OUTPUT_NAME ${name}
-      SUFFIX .html
-      LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${html};${CMAKE_CURRENT_SOURCE_DIR}/${js}"
-    )
-    target_link_options(${name} PRIVATE
-      --shell-file=${CMAKE_CURRENT_SOURCE_DIR}/${html}
-      --pre-js=${CMAKE_CURRENT_SOURCE_DIR}/${js}
-    )
-    install(TARGETS ${name} DESTINATION "./")
-  endif()
-endfunction()
+add_executable(myaownes src/main.c)
+target_link_libraries(myaownes myaownes-static)
 
-add_executable(myanestest src/test.c)
-target_link_libraries(myanestest myanes)
-target_emscripten(myanestest src/index.html src/index.js)
+if (EMSCRIPTEN)
+  em_add_link_deps(myaownes --pre-js src/index.js)
+  em_add_link_deps(myaownes --shell-file src/index.html)
+endif()
+
+install(TARGETS myaownes)

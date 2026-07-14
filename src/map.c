@@ -1,5 +1,6 @@
 #include "map.h"
 #include "cpu.h"
+#include "dev.h"
 #include <string.h>
 
 static const size_t MAP_CPU_PAGE_SHIFT = 12; // 4kb
@@ -34,11 +35,10 @@ static struct
   bool irq;
 } mapper;
 
-
 Rom mn_rom_get() { return mapper.rom; }
 const u8* mn_prg_ram() { return mapper.prg_ram; }
 const u8* mn_chr_ram() { return mapper.chr_ram; }
-
+bool map_ready() { return mapper.rom && !mapper.rom->mapper_error; }
 static void map_cpu_irq() { cpu_irq(mapper.apu_irq || mapper.irq); }
 
 void map_apu_irq(bool enabled)
@@ -862,12 +862,14 @@ static bool map_gxrom_cpu_write(u16 addr, u8 val)
 
 static void map_gxrom_load() { mapper.cpu_write = map_gxrom_cpu_write; }
 
-bool mn_rom_load(Rom rom)
+bool mn_rom_set(Rom rom)
 {
   memset(&mapper, 0, sizeof(mapper));
   mapper.rom = rom;
+  rom->mapper_error = false;
   map_nrom_load();
   switch (rom->mapper) {
+    case 0: break;
     case 1: map_mmc1_load(); break;
     case 2: map_uxrom_load(); break;
     case 3: map_cxrom_load(); break;
@@ -880,5 +882,6 @@ bool mn_rom_load(Rom rom)
     case 66: map_gxrom_load(); break;
     default: rom->mapper_error = true; return false;
   }
+  dev_power();
   return true;
 }

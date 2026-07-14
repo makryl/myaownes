@@ -2,6 +2,7 @@
 
 #include "myanes.h"
 
+bool map_ready();
 void map_cpu_cyc();
 void map_cpu_read(u16 addr, u8* val, bool trace);
 void map_cpu_write(u16 addr, u8 val);

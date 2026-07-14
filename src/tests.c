@@ -327,12 +327,11 @@ void save_test_step_img(const char* rom_path, u8 step)
 
 u32 run_test_step(TestStep step)
 {
-  joy1 = step.joy1;
   if (step.reset) {
     mn_reset();
   }
   for (u32 i = 0; i < step.frames; ++i) {
-    mn_frame();
+    mn_frame(step.joy1, 0);
   }
   return calc_crc(pixels, sizeof(pixels));
 }
@@ -341,8 +340,7 @@ bool run_test_steps(TestParams params, u32* out_hash)
 {
   memset(pixels, 0, sizeof(pixels));
   Rom rom = mn_rom_file(params.path);
-  mn_rom_load(rom);
-  mn_power();
+  mn_rom_set(rom);
 
   bool result = true;
   for (u8 i = 0; i < 32; ++i) {
@@ -399,9 +397,6 @@ bool run_test(TestParams params)
 int main(int, char**)
 {
   chdir("../../tmp/nes-test-roms");
-
-  mn_input(&joy1, &joy2);
-  mn_output((u32*)pixels);
 
   u32 count = sizeof(tests) / sizeof(tests[0]);
   u32 errors = 0;

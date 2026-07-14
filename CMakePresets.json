@@ -39,8 +39,7 @@
       "name": "Clang",
       "hidden": true,
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
+        "CMAKE_C_COMPILER": "clang"
       }
     },
     {
@@ -48,8 +47,8 @@
       "hidden": true,
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
+        "CMAKE_EXECUTABLE_SUFFIX_C": ".html",
         "CMAKE_C_FLAGS": "-D__EMSCRIPTEN__",
-        "CMAKE_CXX_FLAGS": "-D__EMSCRIPTEN__",
         "CMAKE_EXE_LINKER_FLAGS": "-sSINGLE_FILE -sENVIRONMENT=web"
       }
     },
@@ -63,16 +62,28 @@
       }
     },
     {
-      "name": "Desktop-Debug",
+      "name": "Clang-Debug",
       "inherits": ["Clang", "Debug"]
     },
     {
-      "name": "Desktop-RelWithDebInfo",
+      "name": "Clang-RelWithDebInfo",
       "inherits": ["Clang", "RelWithDebInfo"]
     },
     {
-      "name": "Desktop-Release",
+      "name": "Clang-Release",
       "inherits": ["Clang", "Release"]
+    },
+    {
+      "name": "Linux-Debug",
+      "inherits": ["Debug"]
+    },
+    {
+      "name": "Linux-RelWithDebInfo",
+      "inherits": ["RelWithDebInfo"]
+    },
+    {
+      "name": "Linux-Release",
+      "inherits": ["Release"]
     },
     {
       "name": "Emscripten-Debug",

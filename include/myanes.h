@@ -42,12 +42,12 @@ struct Rom
 
 Rom mn_rom_file(const char* path);
 void mn_rom_release(Rom rom);
-bool mn_rom_load(Rom rom);
+bool mn_rom_set(Rom rom);
 Rom mn_rom_get();
-void mn_input(u8* joy1, u8* joy2);
-void mn_output(u32* out);
+u32* mn_output();
+void mn_output_rect(bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh);
 void mn_power();
 void mn_reset();
-void mn_frame();
+void mn_frame(u8 joy1, u8 joy2);
 const u8* mn_prg_ram();
 const u8* mn_chr_ram();
