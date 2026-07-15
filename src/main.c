@@ -15,6 +15,7 @@ bool imp_init()
   // test = "nes-test-roms/tvpassfail/tv.nes";
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
+  // test = "GoodNES/USA/Contra (U) [!].nes";
   // test = "GoodNES/Japan/Fire Emblem Gaiden (J) [!].nes"; // mapper?
 
   // test = "GoodNES/USA/Battletoads (U) [!].nes";

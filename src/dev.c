@@ -47,17 +47,29 @@ u8 dev_input(u8 idx) { return dev.joy[idx]; }
 void dev_output(u16 idx, u32 color) { dev.out[idx] = color; }
 u32* mn_output() { return dev.out; }
 
-void mn_output_rect(bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh)
+static float dev_aspect_scale(bool a) { return (256.0f / 240.0f) * (a ? (8.0f / 7.0f) : 1.0f); }
+static float dev_aspect_overscan(bool a) { return a ? (4.0f / 3.0f) : (256.0f / 224.0f); }
+static float dev_aspect_target(bool a, bool o) { return o ? dev_aspect_overscan(a) : dev_aspect_scale(a); }
+
+void mn_output_size(bool auto_aspect, bool overscan, float scale, int* dw, int* dh)
 {
-  const float aspect = (256.0f * 8.0f) / (240.0f * 7.0f);
-  float src_aspect = sw / sh;
-  float target_aspect = overscan ? (4.0f / 3.0f) : aspect;
-  if (target_aspect <= src_aspect) {
-    *dh = overscan ? (sh * (240.0f * 7.0f * 4.0f) / (256.0f * 8.0f * 3.0f)) : sh;
-    *dw = *dh * aspect;
+  float h = (overscan ? 224.0f : 240.0f) * scale;
+  float w = h * dev_aspect_target(auto_aspect, overscan);
+  *dw = (int)(w + 0.5f);
+  *dh = (int)(h + 0.5f);
+}
+
+void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh)
+{
+  float aspect_scale = dev_aspect_scale(auto_aspect);
+  float aspect_target = dev_aspect_target(auto_aspect, overscan);
+  float aspect_output = sw / sh;
+  if (aspect_target <= aspect_output) {
+    *dh = sh * aspect_target / aspect_scale;
+    *dw = *dh * aspect_scale;
   } else {
     *dw = sw;
-    *dh = *dw / aspect;
+    *dh = *dw / aspect_scale;
   }
   *dx = (sw - *dw) / 2.0f;
   *dy = (sh - *dh) / 2.0f;
