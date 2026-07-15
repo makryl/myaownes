@@ -28,6 +28,7 @@ static struct
   u8 joy2;
   u8 scale;
   u8 fast_forward_speed;
+  u8 turbo;
   int width;
   int height;
   Uint64 last_time;
@@ -40,6 +41,10 @@ static struct
   bool fast_forward;
   bool auto_aspect;
   bool overscan;
+  bool joy1_turbo_a;
+  bool joy1_turbo_b;
+  bool joy2_turbo_a;
+  bool joy2_turbo_b;
 } imp;
 
 static void imp_draw_help()
@@ -343,6 +348,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           break;
         case SDLK_J: imp.joy1 |= MN_INPUT_B; break;
         case SDLK_K: imp.joy1 |= MN_INPUT_A; break;
+        case SDLK_U: imp.joy1_turbo_b = true; break;
+        case SDLK_I: imp.joy1_turbo_a = true; break;
         case SDLK_SPACE:
         case SDLK_F: imp.joy1 |= MN_INPUT_SELECT; break;
         case SDLK_RETURN:
@@ -366,6 +373,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           break;
         case SDLK_KP_1: imp.joy2 |= MN_INPUT_B; break;
         case SDLK_KP_2: imp.joy2 |= MN_INPUT_A; break;
+        case SDLK_KP_4: imp.joy2_turbo_b = true; break;
+        case SDLK_KP_5: imp.joy2_turbo_a = true; break;
       }
       break;
     case SDL_EVENT_KEY_UP:
@@ -390,6 +399,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           break;
         case SDLK_J: imp.joy1 &= ~MN_INPUT_B; break;
         case SDLK_K: imp.joy1 &= ~MN_INPUT_A; break;
+        case SDLK_U: imp.joy1_turbo_b = false; break;
+        case SDLK_I: imp.joy1_turbo_a = false; break;
         case SDLK_SPACE:
         case SDLK_F: imp.joy1 &= ~MN_INPUT_SELECT; break;
         case SDLK_RETURN:
@@ -413,6 +424,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           break;
         case SDLK_KP_1: imp.joy2 &= ~MN_INPUT_B; break;
         case SDLK_KP_2: imp.joy2 &= ~MN_INPUT_A; break;
+        case SDLK_KP_4: imp.joy2_turbo_b = false; break;
+        case SDLK_KP_5: imp.joy2_turbo_a = false; break;
       }
       break;
   }
@@ -440,6 +453,20 @@ SDL_AppResult SDL_AppIterate(void*)
 
   if (imp.curr_time >= imp.frame_time) {
     while (imp.curr_time >= imp.frame_time) {
+      if (++imp.turbo & 1) {
+        if (imp.joy1_turbo_a) {
+          imp.joy1 ^= MN_INPUT_A;
+        }
+        if (imp.joy1_turbo_b) {
+          imp.joy1 ^= MN_INPUT_B;
+        }
+        if (imp.joy2_turbo_a) {
+          imp.joy2 ^= MN_INPUT_A;
+        }
+        if (imp.joy2_turbo_b) {
+          imp.joy2 ^= MN_INPUT_B;
+        }
+      }
       mn_frame(imp.joy1, imp.joy2);
       imp.curr_time -= imp.frame_time;
     }
