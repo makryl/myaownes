@@ -20,7 +20,10 @@ static struct
   SDL_FRect rect;
   const char* dir;
   const char* popup_text;
+  int width;
+  int height;
   Rom rom;
+  char path[512];
   char rom_info[6][15];
   u8 joy1_mask;
   u8 joy2_mask;
@@ -29,8 +32,7 @@ static struct
   u8 scale;
   u8 fast_forward_speed;
   u8 turbo;
-  int width;
-  int height;
+  u8 slot;
   Uint64 last_time;
   Uint64 curr_time;
   Uint64 max_frame_time;
@@ -68,7 +70,7 @@ static void imp_draw_help()
   SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Quit       F10   [_m____m_]    ");
   SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Fullscreen F11                 ");
   SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Screenshot F12  %s ", imp.rom_info[0]);
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Save slot  1-9  %s ", imp.rom_info[1]);
+  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Save slot  0-9  %s ", imp.rom_info[1]);
   SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " F-forward  Tab  %s ", imp.rom_info[2]);
   SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Pause      Esc  %s ", imp.rom_info[3]);
   SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Scale      -/+  %s ", imp.rom_info[4]);
@@ -124,9 +126,9 @@ static void imp_rom_update()
     return;
   }
 
-  const char* name = rom->path;
-  const char* slash = strrchr(rom->path, '/');
-  const char* backslash = strrchr(rom->path, '\\');
+  const char* name = imp.path;
+  const char* slash = strrchr(imp.path, '/');
+  const char* backslash = strrchr(imp.path, '\\');
   if (slash || backslash) {
     name = (slash > backslash ? slash : backslash) + 1;
   }
@@ -153,6 +155,24 @@ static void imp_rom_update()
            rom->chr_ram_size >> 10);
 
   imp_update_frame_time();
+}
+
+static void imp_save()
+{
+  char path[512] = {};
+  snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
+  if (mn_save(path)) {
+    imp_popup("Saved", 2);
+  }
+}
+
+static void imp_load()
+{
+  char path[512] = {};
+  snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
+  if (mn_load(path)) {
+    imp_popup("Loaded", 2);
+  }
 }
 
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
@@ -228,7 +248,8 @@ static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
   if (mn_rom_get()) {
     mn_rom_release(mn_rom_get());
   }
-  imp.rom = mn_rom_file(files[0]);
+  snprintf(imp.path, sizeof(imp.path), "%s", files[0]);
+  imp.rom = mn_rom_file(imp.path);
   mn_rom_set(imp.rom);
   imp_rom_update();
   imp.help = false;
@@ -263,7 +284,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           break;
         case SDLK_F3: mn_rom_set(mn_rom_get()); break;
         case SDLK_F4: mn_reset(); break;
-        case SDLK_F5: break; // todo quick save
+        case SDLK_F5: imp_save(); break;
         case SDLK_F6:
           imp.auto_aspect = !imp.auto_aspect;
           imp_update_size();
@@ -274,7 +295,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           imp_update_size();
           imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 1);
           break;
-        case SDLK_F8: break; // todo quick load
+        case SDLK_F8: imp_load(); break;
         case SDLK_F10: return SDL_APP_SUCCESS;
         case SDLK_F11:
           Uint32 flags = SDL_GetWindowFlags(imp.window);
@@ -329,7 +350,46 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           imp.fast_forward = true;
           imp_popup(">>", 0.5);
           break;
-
+        case SDLK_0:
+          imp.slot = 0;
+          imp_popup("Slot 0", 2);
+          break;
+        case SDLK_1:
+          imp.slot = 1;
+          imp_popup("Slot 1", 2);
+          break;
+        case SDLK_2:
+          imp.slot = 2;
+          imp_popup("Slot 2", 2);
+          break;
+        case SDLK_3:
+          imp.slot = 3;
+          imp_popup("Slot 3", 2);
+          break;
+        case SDLK_4:
+          imp.slot = 4;
+          imp_popup("Slot 4", 2);
+          break;
+        case SDLK_5:
+          imp.slot = 5;
+          imp_popup("Slot 5", 2);
+          break;
+        case SDLK_6:
+          imp.slot = 6;
+          imp_popup("Slot 6", 2);
+          break;
+        case SDLK_7:
+          imp.slot = 7;
+          imp_popup("Slot 7", 2);
+          break;
+        case SDLK_8:
+          imp.slot = 8;
+          imp_popup("Slot 8", 2);
+          break;
+        case SDLK_9:
+          imp.slot = 9;
+          imp_popup("Slot 9", 2);
+          break;
         case SDLK_W:
           imp.joy1_mask |= MN_INPUT_UP;
           imp.joy1 = (imp.joy1 & ~MN_INPUT_DOWN) | MN_INPUT_UP;

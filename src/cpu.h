@@ -2,6 +2,8 @@
 
 #include "myaownes.h"
 
+u32 cpu_size();
+void* cpu_data();
 void cpu_power();
 void cpu_reset();
 void cpu_nmi(bool enabled);

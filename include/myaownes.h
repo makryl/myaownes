@@ -20,7 +20,6 @@ enum
 
 struct Rom
 {
-  const char* path;
   const u8* prg_rom;
   const u8* chr_rom;
   u32 prg_rom_size;
@@ -50,5 +49,7 @@ void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* d
 void mn_power();
 void mn_reset();
 void mn_frame(u8 joy1, u8 joy2);
-const u8* mn_prg_ram();
-const u8* mn_chr_ram();
+bool mn_save(const char* path);
+bool mn_load(const char* path);
+bool mn_sram_save(const char* path);
+bool mn_sram_load(const char* path);

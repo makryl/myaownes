@@ -73,6 +73,9 @@ static struct Cpu
   bool suppress_poll;
 } cpu;
 
+u32 cpu_size() { return sizeof(cpu); }
+void* cpu_data() { return &cpu; }
+
 u32 cpu_cyc() { return cpu.cyc; }
 
 void cpu_reset() { cpu.reset = true; }

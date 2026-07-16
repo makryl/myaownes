@@ -32,6 +32,7 @@ bool imp_init()
 
   if (test) {
     chdir("../../tmp");
+    strcpy(imp.path, test);
     mn_rom_set(mn_rom_file(test));
   }
 

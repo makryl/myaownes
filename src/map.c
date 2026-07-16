@@ -26,24 +26,29 @@ static struct
   const u8* ppu_read_page[16];
   u8* ppu_write_page[16];
 
-  u8 vram[0x1000];
-  u8 eram[0x2000]; // used also for mapper registers. <0x4020 never accessed from CPU, even if mapped.
   u8 prg_ram[0x100000];
   u8 chr_ram[0x100000];
-
-  bool apu_irq;
-  bool irq;
 } mapper;
 
+static struct
+{
+  u8 vram[0x1000];
+  u8 eram[0x2000]; // used also for mapper registers. <0x4020 never accessed from CPU, even if mapped.
+  bool apu_irq;
+  bool irq;
+} map;
+
 Rom mn_rom_get() { return mapper.rom; }
-const u8* mn_prg_ram() { return mapper.prg_ram; }
-const u8* mn_chr_ram() { return mapper.chr_ram; }
+u32 map_size() { return sizeof(map); }
+void* map_data() { return &map; }
+void* map_prg_ram() { return mapper.prg_ram; }
+void* map_chr_ram() { return mapper.chr_ram; }
 bool map_ready() { return mapper.rom && !mapper.rom->mapper_error; }
-static void map_cpu_irq() { cpu_irq(mapper.apu_irq || mapper.irq); }
+static void map_cpu_irq() { cpu_irq(map.apu_irq || map.irq); }
 
 void map_apu_irq(bool enabled)
 {
-  mapper.apu_irq = enabled;
+  map.apu_irq = enabled;
   map_cpu_irq();
 }
 
@@ -289,42 +294,42 @@ static void map_ppu_nt_page(int page, u8* src)
 
 static void map_ppu_nt_single_low()
 {
-  map_ppu_nt_page(0x8, mapper.vram);
-  map_ppu_nt_page(0x9, mapper.vram);
-  map_ppu_nt_page(0xA, mapper.vram);
-  map_ppu_nt_page(0xB, mapper.vram);
+  map_ppu_nt_page(0x8, map.vram);
+  map_ppu_nt_page(0x9, map.vram);
+  map_ppu_nt_page(0xA, map.vram);
+  map_ppu_nt_page(0xB, map.vram);
 }
 
 static void map_ppu_nt_single_high()
 {
-  map_ppu_nt_page(0x8, mapper.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0x9, mapper.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xA, mapper.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xB, mapper.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0x8, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0x9, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0xA, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE);
 }
 
 static void map_ppu_nt_vert_mirror()
 {
-  map_ppu_nt_page(0x8, mapper.vram);
-  map_ppu_nt_page(0x9, mapper.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xA, mapper.vram);
-  map_ppu_nt_page(0xB, mapper.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0x8, map.vram);
+  map_ppu_nt_page(0x9, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0xA, map.vram);
+  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE);
 }
 
 static void map_ppu_nt_horiz_mirror()
 {
-  map_ppu_nt_page(0x8, mapper.vram);
-  map_ppu_nt_page(0x9, mapper.vram);
-  map_ppu_nt_page(0xA, mapper.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xB, mapper.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0x8, map.vram);
+  map_ppu_nt_page(0x9, map.vram);
+  map_ppu_nt_page(0xA, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE);
 }
 
 static void map_ppu_nt_four_screen()
 {
-  map_ppu_nt_page(0x8, mapper.vram + MAP_PPU_PAGE_SIZE * 0);
-  map_ppu_nt_page(0x9, mapper.vram + MAP_PPU_PAGE_SIZE * 1);
-  map_ppu_nt_page(0xA, mapper.vram + MAP_PPU_PAGE_SIZE * 2);
-  map_ppu_nt_page(0xB, mapper.vram + MAP_PPU_PAGE_SIZE * 3);
+  map_ppu_nt_page(0x8, map.vram + MAP_PPU_PAGE_SIZE * 0);
+  map_ppu_nt_page(0x9, map.vram + MAP_PPU_PAGE_SIZE * 1);
+  map_ppu_nt_page(0xA, map.vram + MAP_PPU_PAGE_SIZE * 2);
+  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE * 3);
 }
 
 static void map_nrom_load()
@@ -362,7 +367,7 @@ typedef struct
 
 static void map_mmc1_update()
 {
-  MapMMC1* reg = (MapMMC1*)mapper.eram;
+  MapMMC1* reg = (MapMMC1*)map.eram;
   u8 ctrl_nt = reg->ctrl & 3;
   u8 ctrl_prg = (reg->ctrl >> 2) & 3;
   u8 ctrl_chr = reg->ctrl >> 4;
@@ -405,7 +410,7 @@ static void map_mmc1_update()
 
 static bool map_mmc1_cpu_write(u16 addr, u8 val)
 {
-  MapMMC1* reg = (MapMMC1*)mapper.eram;
+  MapMMC1* reg = (MapMMC1*)map.eram;
   if (addr < 0x8000) {
     return false;
   }
@@ -423,7 +428,7 @@ static bool map_mmc1_cpu_write(u16 addr, u8 val)
     reg->shift |= (val & 1) << 4;
     if (last) {
       u8 idx = (addr >> 13) & 3;
-      mapper.eram[idx] = reg->shift & 0x1F;
+      map.eram[idx] = reg->shift & 0x1F;
       reg->shift = 0x10;
       map_mmc1_update();
     }
@@ -433,22 +438,24 @@ static bool map_mmc1_cpu_write(u16 addr, u8 val)
 
 static void map_mmc1_cpu_cyc()
 {
-  MapMMC1* reg = (MapMMC1*)mapper.eram;
+  MapMMC1* reg = (MapMMC1*)map.eram;
   if (reg->delay > 0) {
     --reg->delay;
   }
 }
 
-static void map_mmc1_load()
+static void map_mmc1_load(bool init)
 {
-  MapMMC1* reg = (MapMMC1*)mapper.eram;
+  MapMMC1* reg = (MapMMC1*)map.eram;
   mapper.cpu_write = map_mmc1_cpu_write;
   mapper.cpu_cyc = map_mmc1_cpu_cyc;
-  reg->ctrl = 0x0F;
-  reg->chr0 = 0x00;
-  reg->chr1 = 0x01;
-  reg->prg = 0x00;
-  reg->shift = 0x10;
+  if (init) {
+    reg->ctrl = 0x0F;
+    reg->chr0 = 0x00;
+    reg->chr1 = 0x01;
+    reg->prg = 0x00;
+    reg->shift = 0x10;
+  }
   map_mmc1_update();
 }
 
@@ -499,7 +506,7 @@ typedef struct
 
 static void map_mmc3_update()
 {
-  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  MapMMC3* reg = (MapMMC3*)map.eram;
   if (reg->ctrl & 0x80) {
     map_chr_page_1k(reg->chr2, 0);
     map_chr_page_1k(reg->chr3, 1);
@@ -530,14 +537,14 @@ static void map_mmc3_update()
 
 static bool map_mmc3_cpu_write(u16 addr, u8 val)
 {
-  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  MapMMC3* reg = (MapMMC3*)map.eram;
   switch (addr & 0xE001) {
     case 0x8000:
       reg->ctrl = val;
       map_mmc3_update();
       return true;
     case 0x8001:
-      mapper.eram[reg->ctrl & 7] = val;
+      map.eram[reg->ctrl & 7] = val;
       map_mmc3_update();
       return true;
     case 0xA000:
@@ -554,7 +561,7 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
     case 0xC001: reg->reload = 1; return true;
     case 0xE000:
       reg->enabled = 0;
-      mapper.irq = false;
+      map.irq = false;
       map_cpu_irq();
       return true;
     case 0xE001: reg->enabled = 1; return true;
@@ -564,7 +571,7 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
 
 static void map_mmc3_ppu_addr(u16 addr)
 {
-  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  MapMMC3* reg = (MapMMC3*)map.eram;
   if (addr & 0x1000) {
     if (reg->filter == 0) {
       if (reg->counter == 0 || reg->reload) {
@@ -573,7 +580,7 @@ static void map_mmc3_ppu_addr(u16 addr)
         --reg->counter;
       }
       if (reg->counter == 0 && reg->enabled && (reg->reload || !reg->alt_irq || reg->latch)) {
-        mapper.irq = true;
+        map.irq = true;
         map_cpu_irq();
       }
       reg->reload = 0;
@@ -586,7 +593,7 @@ static void map_mmc3_ppu_addr(u16 addr)
 
 static void map_mmc3_cpu_cyc()
 {
-  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  MapMMC3* reg = (MapMMC3*)map.eram;
   if (reg->filter > 0 && reg->filter < 5) {
     --reg->filter;
   }
@@ -603,7 +610,7 @@ static void map_mmc3_load()
 static void map_mmc3a_load()
 {
   map_mmc3_load();
-  MapMMC3* reg = (MapMMC3*)mapper.eram;
+  MapMMC3* reg = (MapMMC3*)map.eram;
   reg->alt_irq = true;
 }
 
@@ -862,15 +869,14 @@ static bool map_gxrom_cpu_write(u16 addr, u8 val)
 
 static void map_gxrom_load() { mapper.cpu_write = map_gxrom_cpu_write; }
 
-bool mn_rom_set(Rom rom)
+bool map_rom_load(Rom rom, bool init)
 {
-  memset(&mapper, 0, sizeof(mapper));
   mapper.rom = rom;
   rom->mapper_error = false;
   map_nrom_load();
   switch (rom->mapper) {
     case 0: break;
-    case 1: map_mmc1_load(); break;
+    case 1: map_mmc1_load(init); break;
     case 2: map_uxrom_load(); break;
     case 3: map_cxrom_load(); break;
     case 4: map_mmc3_load(); break;
@@ -881,6 +887,16 @@ bool mn_rom_set(Rom rom)
     case 34: map_bnrom_load(); break;
     case 66: map_gxrom_load(); break;
     default: rom->mapper_error = true; return false;
+  }
+  return true;
+}
+
+bool mn_rom_set(Rom rom)
+{
+  memset(&mapper, 0, sizeof(mapper));
+  memset(&map, 0, sizeof(map));
+  if (!map_rom_load(rom, true)) {
+    return false;
   }
   dev_power();
   return true;

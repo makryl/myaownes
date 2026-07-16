@@ -2,6 +2,8 @@
 
 #include "myaownes.h"
 
+u32 ppu_size();
+void* ppu_data();
 void ppu_power();
 void ppu_reset();
 u8 ppu_bus_read(u16 addr, bool trace);

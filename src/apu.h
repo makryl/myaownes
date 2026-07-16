@@ -2,6 +2,8 @@
 
 #include "myaownes.h"
 
+u32 apu_size();
+void* apu_data();
 void apu_power();
 void apu_reset();
 void apu_tick();

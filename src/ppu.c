@@ -168,6 +168,9 @@ static struct Ppu
   bool inc_x;
 } ppu;
 
+u32 ppu_size() { return sizeof(ppu); }
+void* ppu_data() { return &ppu; }
+
 void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
 
 void ppu_reset()

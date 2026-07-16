@@ -81,6 +81,9 @@ static struct Apu
   bool dec_noise;
 } apu;
 
+u32 apu_size() { return sizeof(apu); }
+void* apu_data() { return &apu; }
+
 static u8 apu_get_status()
 {
   u8 status = 0;
