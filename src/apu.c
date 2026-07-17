@@ -4,7 +4,7 @@
 #include "common.h"
 #include <string.h>
 
-enum : u16
+enum
 {
   APU_STEP_NTSC = 3728,
   APU_STEP_PAL = 8313,
@@ -21,38 +21,37 @@ enum : u8
   APU_STATUS_DMC_IRQ = (1 << 7),
 };
 
-static const u8 apu_channel_len[32] = { 10, 254, 20, 2,  40, 4,  80, 6,  160, 8,  60, 10, 14, 12, 26, 14,
-                                        12, 16,  24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
+static const uint apu_channel_len[32] = { 10, 254, 20, 2,  40, 4,  80, 6,  160, 8,  60, 10, 14, 12, 26, 14,
+                                          12, 16,  24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
 
-static const u16 apu_dmc_period[16] = { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
+static const uint apu_dmc_period[16] = { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
 
-static struct Apu
+MN_CACHE_LINE static struct Apu
 {
-  u16 cyc;
+  uint cyc;
 
-  u16 step1;
-  u16 step2;
-  u16 step3;
-  u16 step4;
-  u16 step5;
+  uint step1;
+  uint step2;
+  uint step3;
+  uint step4;
+  uint step5;
 
-  u16 dmc_timer;
+  uint cyc_reset;
+
+  uint pulse1_len;
+  uint pulse2_len;
+  uint triangle_len;
+  uint noise_len;
+
+  uint dmc_timer;
+  uint dmc_sample_len;
+  uint dmc_len;
+  uint dmc_start;
+  uint dmc_period;
+  uint dmc_out_bit;
   u16 dmc_sample_addr;
-  u16 dmc_sample_len;
   u16 dmc_addr;
-  u16 dmc_len;
-
-  u8 cyc_reset;
-
-  u8 pulse1_len;
-  u8 pulse2_len;
-  u8 triangle_len;
-  u8 noise_len;
-
-  u8 dmc_start;
-  u8 dmc_period;
   u8 dmc_buf;
-  u8 dmc_out_bit;
   u8 dmc_out;
 
   bool mode5;
@@ -81,7 +80,7 @@ static struct Apu
   bool dec_noise;
 } apu;
 
-u32 apu_size() { return sizeof(apu); }
+uint apu_size() { return sizeof(apu); }
 void* apu_data() { return &apu; }
 
 static u8 apu_get_status()
@@ -352,7 +351,7 @@ void apu_tick()
     }
   }
 
-  u16 last_step = (apu.mode5 ? apu.step5 : apu.step4);
+  uint last_step = (apu.mode5 ? apu.step5 : apu.step4);
 
   if (apu.cyc == apu.step1 + 1 || apu.cyc == apu.step2 + 1 || apu.cyc == apu.step3 + 1 || apu.cyc == last_step + 1) {
     apu_update_env();

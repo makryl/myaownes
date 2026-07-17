@@ -30,16 +30,20 @@ static struct
   u8 joy1;
   u8 joy2;
   u8 scale;
-  u8 fast_forward_speed;
   u8 turbo;
   u8 slot;
   Uint64 last_time;
   Uint64 curr_time;
   Uint64 max_frame_time;
-  Uint64 frame_time;
+  Uint64 target_frame_time;
+  Uint64 real_frame_time;
   Uint64 popup_time;
+  Uint64 fps_time;
+  Uint64 fps_count;
+  Uint64 fps_value;
   bool pause;
   bool help;
+  bool fps;
   bool fast_forward;
   bool auto_aspect;
   bool overscan;
@@ -86,9 +90,9 @@ static void imp_draw_help()
   SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Select       F   Space          ");
 }
 
-static void imp_draw_popup(Uint64 time_diff)
+static void imp_draw_popup()
 {
-  imp.popup_time -= imp.popup_time > time_diff ? time_diff : imp.popup_time;
+  imp.popup_time -= imp.popup_time > imp.real_frame_time ? imp.real_frame_time : imp.popup_time;
   SDL_FRect fill = { 16, 16, strlen(imp.popup_text) * 8 + 3, 11 };
   SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xC0);
   SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
@@ -100,19 +104,19 @@ static void imp_draw_popup(Uint64 time_diff)
 static void imp_popup(const char* text, float time)
 {
   imp.popup_text = text;
-  imp.popup_time = imp.max_frame_time * time;
+  imp.popup_time = SDL_GetPerformanceFrequency() * time;
 }
 
 static void imp_update_frame_time()
 {
-  imp.max_frame_time = SDL_GetPerformanceFrequency();
-  imp.frame_time = imp.max_frame_time / 60ULL; // todo: PAL
+  imp.max_frame_time = SDL_GetPerformanceFrequency() / 5;
+  imp.target_frame_time = SDL_GetPerformanceFrequency() / 60; // todo: PAL
 }
 
 static void imp_update_size()
 {
-  int width;
-  int height;
+  uint width;
+  uint height;
   mn_output_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
   SDL_SetWindowSize(imp.window, width, height);
 }
@@ -134,25 +138,25 @@ static void imp_rom_update()
   }
 
   char title[128] = {};
-  snprintf(title, sizeof(title), "%s - MyaowNES", name);
+  SDL_snprintf(title, sizeof(title), "%s - MyaowNES", name);
 
   SDL_SetWindowTitle(imp.window, title);
 
   memset(imp.rom_info, 0, sizeof(imp.rom_info));
-  snprintf(imp.rom_info[0], sizeof(imp.rom_info[0]), "%-5s %1s%03d-%03d",
-           rom->ntsc    ? "NTSC"
-           : rom->pal   ? "PAL"
-           : rom->dendy ? "Dendy"
-                        : "Error",
-           rom->mapper_error ? "!" : " ", rom->mapper, rom->submapper);
-  snprintf(imp.rom_info[1], sizeof(imp.rom_info[0]), "%-5s %-3s %4s", rom->vert_mirror ? "Vert" : "Horiz",
-           rom->alt_mirror ? "Alt" : "", rom->has_trainer ? "TR" : "");
-  snprintf(imp.rom_info[2], sizeof(imp.rom_info[0]), "PRG-ROM %5dK", rom->prg_rom_size >> 10);
-  snprintf(imp.rom_info[3], sizeof(imp.rom_info[0]), "PRG-%-4s %4dK", rom->has_prg_battery ? "SRAM" : "RAM",
-           rom->prg_ram_size >> 10);
-  snprintf(imp.rom_info[4], sizeof(imp.rom_info[0]), "CHR-ROM %5dK", rom->chr_rom_size >> 10);
-  snprintf(imp.rom_info[5], sizeof(imp.rom_info[0]), "CHR-%-4s %4dK", rom->has_chr_battery ? "SRAM" : "RAM",
-           rom->chr_ram_size >> 10);
+  SDL_snprintf(imp.rom_info[0], sizeof(imp.rom_info[0]), "%-5s %1s%03d-%03d",
+               rom->ntsc    ? "NTSC"
+               : rom->pal   ? "PAL"
+               : rom->dendy ? "Dendy"
+                            : "Error",
+               rom->mapper_error ? "!" : " ", rom->mapper, rom->submapper);
+  SDL_snprintf(imp.rom_info[1], sizeof(imp.rom_info[0]), "%-5s %-3s %4s", rom->vert_mirror ? "Vert" : "Horiz",
+               rom->alt_mirror ? "Alt" : "", rom->has_trainer ? "TR" : "");
+  SDL_snprintf(imp.rom_info[2], sizeof(imp.rom_info[0]), "PRG-ROM %5dK", rom->prg_rom_size >> 10);
+  SDL_snprintf(imp.rom_info[3], sizeof(imp.rom_info[0]), "PRG-%-4s %4dK", rom->has_prg_battery ? "SRAM" : "RAM",
+               rom->prg_ram_size >> 10);
+  SDL_snprintf(imp.rom_info[4], sizeof(imp.rom_info[0]), "CHR-ROM %5dK", rom->chr_rom_size >> 10);
+  SDL_snprintf(imp.rom_info[5], sizeof(imp.rom_info[0]), "CHR-%-4s %4dK", rom->has_chr_battery ? "SRAM" : "RAM",
+               rom->chr_ram_size >> 10);
 
   imp_update_frame_time();
 }
@@ -160,7 +164,7 @@ static void imp_rom_update()
 static void imp_save()
 {
   char path[512] = {};
-  snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
+  SDL_snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
   if (mn_save(path)) {
     imp_popup("Saved", 2);
   }
@@ -169,7 +173,7 @@ static void imp_save()
 static void imp_load()
 {
   char path[512] = {};
-  snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
+  SDL_snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
   if (mn_load(path)) {
     imp_popup("Loaded", 2);
   }
@@ -181,7 +185,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   imp.scale = 4;
   imp.auto_aspect = true;
   imp.overscan = true;
-  imp.fast_forward_speed = 4;
 
   for (int i = 0; i < argc; ++i) {
     if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
@@ -193,7 +196,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
       SDL_Log("-s, --scale <n>          Viewport scale. Default: 4");
       SDL_Log("-a, --no-aspect          Disable auto aspect ratio");
       SDL_Log("-o, --no-overscan        Disable overscan");
-      SDL_Log("-f, --fast-forward <n>   Fast forward speed. Default: 4");
       return SDL_APP_SUCCESS;
     } else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--dir") == 0) {
       imp.dir = argv[++i];
@@ -203,8 +205,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
       imp.auto_aspect = false;
     } else if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--no-overscan") == 0) {
       imp.overscan = false;
-    } else if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--fast-forward") == 0) {
-      imp.fast_forward_speed = SDL_strtol(argv[++i], nullptr, 10);
     } else if (i > 0) {
       imp.rom = mn_rom_file(argv[i]);
       mn_rom_set(imp.rom);
@@ -216,8 +216,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
     return SDL_APP_FAILURE;
   }
 
-  int width;
-  int height;
+  uint width;
+  uint height;
   mn_output_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
   if (!SDL_CreateWindowAndRenderer("MyaowNES", width, height, SDL_WINDOW_RESIZABLE, &imp.window, &imp.renderer)) {
     SDL_Log("%s", SDL_GetError());
@@ -248,7 +248,7 @@ static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
   if (mn_rom_get()) {
     mn_rom_release(mn_rom_get());
   }
-  snprintf(imp.path, sizeof(imp.path), "%s", files[0]);
+  SDL_snprintf(imp.path, sizeof(imp.path), "%s", files[0]);
   imp.rom = mn_rom_file(imp.path);
   mn_rom_set(imp.rom);
   imp_rom_update();
@@ -349,7 +349,9 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_TAB:
           imp.fast_forward = true;
           imp_popup(">>", 0.5);
+          SDL_SetRenderVSync(imp.renderer, 0);
           break;
+        case SDLK_GRAVE: imp.fps = !imp.fps; break;
         case SDLK_0:
           imp.slot = 0;
           imp_popup("Slot 0", 2);
@@ -439,7 +441,10 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       break;
     case SDL_EVENT_KEY_UP:
       switch (event->key.key) {
-        case SDLK_TAB: imp.fast_forward = false; break;
+        case SDLK_TAB:
+          imp.fast_forward = false;
+          SDL_SetRenderVSync(imp.renderer, 1);
+          break;
 
         case SDLK_W:
           imp.joy1_mask &= ~MN_INPUT_UP;
@@ -498,37 +503,44 @@ SDL_AppResult SDL_AppIterate(void*)
   if (imp.last_time == 0) {
     imp.last_time = time;
   }
-  Uint64 time_diff = time - imp.last_time;
-  Uint64 game_diff = time_diff;
-  if (game_diff > imp.max_frame_time) {
-    game_diff = imp.max_frame_time;
-  }
+  imp.real_frame_time = time - imp.last_time;
+  Uint64 game_diff = imp.real_frame_time;
   if (imp.pause) {
     game_diff = 0;
   } else if (imp.fast_forward) {
-    game_diff *= imp.fast_forward_speed;
+    game_diff = imp.target_frame_time;
   }
   imp.curr_time += game_diff;
   imp.last_time = time;
 
-  if (imp.curr_time >= imp.frame_time) {
-    while (imp.curr_time >= imp.frame_time) {
-      if (++imp.turbo & 1) {
-        if (imp.joy1_turbo_a) {
-          imp.joy1 ^= MN_INPUT_A;
-        }
-        if (imp.joy1_turbo_b) {
-          imp.joy1 ^= MN_INPUT_B;
-        }
-        if (imp.joy2_turbo_a) {
-          imp.joy2 ^= MN_INPUT_A;
-        }
-        if (imp.joy2_turbo_b) {
-          imp.joy2 ^= MN_INPUT_B;
-        }
+  if (imp.curr_time >= imp.target_frame_time) {
+    if (imp.fps) {
+      ++imp.fps_count;
+    }
+    if (++imp.turbo & 1) {
+      if (imp.joy1_turbo_a) {
+        imp.joy1 ^= MN_INPUT_A;
       }
-      mn_frame(imp.joy1, imp.joy2);
-      imp.curr_time -= imp.frame_time;
+      if (imp.joy1_turbo_b) {
+        imp.joy1 ^= MN_INPUT_B;
+      }
+      if (imp.joy2_turbo_a) {
+        imp.joy2 ^= MN_INPUT_A;
+      }
+      if (imp.joy2_turbo_b) {
+        imp.joy2 ^= MN_INPUT_B;
+      }
+    }
+    mn_frame(imp.joy1, imp.joy2);
+    imp.curr_time -= imp.curr_time > imp.target_frame_time ? imp.target_frame_time : imp.curr_time;
+  }
+
+  if (imp.fps) {
+    imp.fps_time += imp.real_frame_time;
+    if (imp.fps_time > SDL_GetPerformanceFrequency()) {
+      imp.fps_value = imp.fps_count;
+      imp.fps_time -= SDL_GetPerformanceFrequency();
+      imp.fps_count = 0;
     }
   }
 
@@ -537,7 +549,11 @@ SDL_AppResult SDL_AppIterate(void*)
   if (imp.help) {
     imp_draw_help();
   } else if (imp.popup_time > 0) {
-    imp_draw_popup(time_diff);
+    imp_draw_popup();
+  }
+  if (imp.fps) {
+    SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0x88, 0xFF, 0xFF);
+    SDL_RenderDebugTextFormat(imp.renderer, 256 - 18 - 4 * 8, 18, "%4d", (int)imp.fps_value);
   }
 
   SDL_SetRenderTarget(imp.renderer, nullptr);

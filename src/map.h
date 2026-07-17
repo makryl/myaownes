@@ -2,7 +2,7 @@
 
 #include "myaownes.h"
 
-u32 map_size();
+uint map_size();
 void* map_data();
 void* map_prg_ram();
 void* map_chr_ram();

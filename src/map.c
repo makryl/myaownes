@@ -1,6 +1,7 @@
 #include "map.h"
 #include "cpu.h"
 #include "dev.h"
+#include "common.h"
 #include <string.h>
 
 static const size_t MAP_CPU_PAGE_SHIFT = 12; // 4kb
@@ -10,10 +11,8 @@ static const size_t MAP_PPU_PAGE_SHIFT = 10; // 1kb
 static const size_t MAP_PPU_PAGE_SIZE = 1 << MAP_PPU_PAGE_SHIFT;
 static const size_t MAP_PPU_PAGE_MASK = MAP_PPU_PAGE_SIZE - 1;
 
-static struct
+MN_CACHE_LINE static struct
 {
-  Rom rom;
-
   void (*cpu_cyc)();
   bool (*cpu_read)(u16, u8*, bool);
   bool (*cpu_write)(u16, u8);
@@ -26,20 +25,22 @@ static struct
   const u8* ppu_read_page[16];
   u8* ppu_write_page[16];
 
-  u8 prg_ram[0x100000];
-  u8 chr_ram[0x100000];
+  Rom rom;
+
+  MN_CACHE_LINE u8 prg_ram[0x100000];
+  MN_CACHE_LINE u8 chr_ram[0x100000];
 } mapper;
 
-static struct
+MN_CACHE_LINE static struct
 {
-  u8 vram[0x1000];
-  u8 eram[0x2000]; // used also for mapper registers. <0x4020 never accessed from CPU, even if mapped.
   bool apu_irq;
   bool irq;
+  MN_CACHE_LINE u8 vram[0x1000];
+  MN_CACHE_LINE u8 eram[0x2000]; // used for mapper registers. <0x4020 never accessed from CPU, even if mapped.
 } map;
 
 Rom mn_rom_get() { return mapper.rom; }
-u32 map_size() { return sizeof(map); }
+uint map_size() { return sizeof(map); }
 void* map_data() { return &map; }
 void* map_prg_ram() { return mapper.prg_ram; }
 void* map_chr_ram() { return mapper.chr_ram; }
@@ -107,47 +108,47 @@ void map_ppu_write(u16 addr, u8 val)
   }
 }
 
-static const u8* map_cpu_read_pages(const u8* src, u16 src_page, u8 dst_page, u8 pages)
+static const u8* map_cpu_read_pages(const u8* src, uint src_page, uint dst_page, uint pages)
 {
-  const u8* next = 0;
-  for (int i = 0; i < pages; ++i) {
+  const u8* next = nullptr;
+  for (uint i = 0; i < pages; ++i) {
     next = src ? src + MAP_CPU_PAGE_SIZE * (src_page + i) : 0;
     mapper.cpu_read_page[dst_page + i] = next;
   }
   return next;
 }
 
-static u8* map_cpu_write_pages(u8* src, u16 src_page, u8 dst_page, u8 pages)
+static u8* map_cpu_write_pages(u8* src, uint src_page, uint dst_page, uint pages)
 {
-  u8* next = 0;
-  for (int i = 0; i < pages; ++i) {
+  u8* next = nullptr;
+  for (uint i = 0; i < pages; ++i) {
     next = src ? src + MAP_CPU_PAGE_SIZE * (src_page + i) : 0;
     mapper.cpu_write_page[dst_page + i] = next;
   }
   return next;
 }
 
-static const u8* map_ppu_read_pages(const u8* src, u16 src_page, u8 dst_page, u8 pages)
+static const u8* map_ppu_read_pages(const u8* src, uint src_page, uint dst_page, uint pages)
 {
-  const u8* next = 0;
-  for (int i = 0; i < pages; ++i) {
+  const u8* next = nullptr;
+  for (uint i = 0; i < pages; ++i) {
     next = src ? src + MAP_PPU_PAGE_SIZE * (src_page + i) : 0;
     mapper.ppu_read_page[dst_page + i] = next;
   }
   return next;
 }
 
-static u8* map_ppu_write_pages(u8* src, u16 src_page, u8 dst_page, u8 pages)
+static u8* map_ppu_write_pages(u8* src, uint src_page, uint dst_page, uint pages)
 {
-  u8* next = 0;
-  for (int i = 0; i < pages; ++i) {
+  u8* next = nullptr;
+  for (uint i = 0; i < pages; ++i) {
     next = src ? src + MAP_PPU_PAGE_SIZE * (src_page + i) : 0;
     mapper.ppu_write_page[dst_page + i] = next;
   }
   return next;
 }
 
-static u32 map_page_mask(u32 n)
+static uint map_page_mask(uint n)
 {
   --n;
   n |= n >> 1;
@@ -158,9 +159,9 @@ static u32 map_page_mask(u32 n)
   return n;
 }
 
-static u16 map_page_clamp(u16 page, u32 size, u8 shift)
+static uint map_page_clamp(uint page, uint size, u8 shift)
 {
-  u32 pages = (size >> shift);
+  uint pages = (size >> shift);
   page &= map_page_mask(pages);
   if (page >= pages) {
     page %= pages;
@@ -168,65 +169,65 @@ static u16 map_page_clamp(u16 page, u32 size, u8 shift)
   return page;
 }
 
-static void map_prg_rom_page_4k(u16 sp, u8 dp)
+static void map_prg_rom_page_4k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 0);
   map_cpu_read_pages(mapper.rom->prg_rom, sp, dp, 1);
   map_cpu_write_pages(0, sp, dp, 1);
 }
 
-static void map_prg_rom_page_8k(u16 sp, u8 dp)
+static void map_prg_rom_page_8k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 1);
   map_cpu_read_pages(mapper.rom->prg_rom, sp * 2, dp * 2, 2);
   map_cpu_write_pages(0, sp * 2, dp * 2, 2);
 }
 
-static void map_prg_rom_page_16k(u16 sp, u8 dp)
+static void map_prg_rom_page_16k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 2);
   map_cpu_read_pages(mapper.rom->prg_rom, sp * 4, dp * 4, 4);
   map_cpu_write_pages(0, sp * 4, dp * 4, 4);
 }
 
-static void map_prg_rom_page_32k(u16 sp, u8 dp)
+static void map_prg_rom_page_32k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 3);
   map_cpu_read_pages(mapper.rom->prg_rom, sp * 8, dp * 8, 8);
   map_cpu_write_pages(0, sp * 8, dp * 8, 8);
 }
 
-static void map_prg_ram_page_4k(u16 sp, u8 dp)
+static void map_prg_ram_page_4k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 0);
   map_cpu_read_pages(mapper.prg_ram, sp, dp, 1);
   map_cpu_write_pages(mapper.prg_ram, sp, dp, 1);
 }
 
-static void map_prg_ram_page_8k(u16 sp, u8 dp)
+static void map_prg_ram_page_8k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 1);
   map_cpu_read_pages(mapper.prg_ram, sp * 2, dp * 2, 2);
   map_cpu_write_pages(mapper.prg_ram, sp * 2, dp * 2, 2);
 }
 
-static void map_prg_ram_page_16k(u16 sp, u8 dp)
+static void map_prg_ram_page_16k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 2);
   map_cpu_read_pages(mapper.prg_ram, sp * 4, dp * 4, 4);
   map_cpu_write_pages(mapper.prg_ram, sp * 4, dp * 4, 4);
 }
 
-static void map_prg_ram_page_32k(u16 sp, u8 dp)
+static void map_prg_ram_page_32k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 3);
   map_cpu_read_pages(mapper.prg_ram, sp * 8, dp * 8, 8);
   map_cpu_write_pages(mapper.prg_ram, sp * 8, dp * 8, 8);
 }
 
-static void map_chr_page_1k(u16 sp, u8 dp)
+static void map_chr_page_1k(uint sp, uint dp)
 {
-  u32 rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 0));
+  uint rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 0));
   if (sp < rom_pages || mapper.rom->chr_ram_size == 0) {
     sp = map_page_clamp(sp, mapper.rom->chr_rom_size, MAP_PPU_PAGE_SHIFT + 0);
     map_ppu_read_pages(mapper.rom->chr_rom, sp, dp, 1);
@@ -239,9 +240,9 @@ static void map_chr_page_1k(u16 sp, u8 dp)
   }
 }
 
-static void map_chr_page_2k(u16 sp, u8 dp)
+static void map_chr_page_2k(uint sp, uint dp)
 {
-  u32 rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 1));
+  uint rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 1));
   if (sp < rom_pages || mapper.rom->chr_ram_size == 0) {
     sp = map_page_clamp(sp, mapper.rom->chr_rom_size, MAP_PPU_PAGE_SHIFT + 1);
     map_ppu_read_pages(mapper.rom->chr_rom, sp * 2, dp * 2, 2);
@@ -254,9 +255,9 @@ static void map_chr_page_2k(u16 sp, u8 dp)
   }
 }
 
-static void map_chr_page_4k(u16 sp, u8 dp)
+static void map_chr_page_4k(uint sp, uint dp)
 {
-  u32 rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 2));
+  uint rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 2));
   if (sp < rom_pages || mapper.rom->chr_ram_size == 0) {
     sp = map_page_clamp(sp, mapper.rom->chr_rom_size, MAP_PPU_PAGE_SHIFT + 2);
     map_ppu_read_pages(mapper.rom->chr_rom, sp * 4, dp * 4, 4);
@@ -269,9 +270,9 @@ static void map_chr_page_4k(u16 sp, u8 dp)
   }
 }
 
-static void map_chr_page_8k(u16 sp, u8 dp)
+static void map_chr_page_8k(uint sp, uint dp)
 {
-  u32 rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 3));
+  uint rom_pages = (mapper.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + 3));
   if (sp < rom_pages || mapper.rom->chr_ram_size == 0) {
     sp = map_page_clamp(sp, mapper.rom->chr_rom_size, MAP_PPU_PAGE_SHIFT + 3);
     map_ppu_read_pages(mapper.rom->chr_rom, sp * 8, dp * 8, 8);
@@ -284,7 +285,7 @@ static void map_chr_page_8k(u16 sp, u8 dp)
   }
 }
 
-static void map_ppu_nt_page(int page, u8* src)
+static void map_ppu_nt_page(uint page, u8* src)
 {
   mapper.ppu_read_page[page] = src;
   mapper.ppu_write_page[page] = src;
@@ -342,7 +343,7 @@ static void map_nrom_load()
   // map_cpu_read_pages(mapper.eram, 0, 4, 2);
   // map_cpu_write_pages(mapper.eram, 0, 4, 2);
 
-  for (u8 i = 0; i < 8; ++i) { // rom may have < 8k
+  for (uint i = 0; i < 8; ++i) { // rom may have < 8k
     map_chr_page_1k(i, i);
   }
 
@@ -427,7 +428,7 @@ static bool map_mmc1_cpu_write(u16 addr, u8 val)
     reg->shift >>= 1;
     reg->shift |= (val & 1) << 4;
     if (last) {
-      u8 idx = (addr >> 13) & 3;
+      uint idx = (addr >> 13) & 3;
       map.eram[idx] = reg->shift & 0x1F;
       reg->shift = 0x10;
       map_mmc1_update();

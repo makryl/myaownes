@@ -1,7 +1,6 @@
 #include "cpu.h"
 #include "ppu.h"
 #include "apu.h"
-#include "dev.h"
 #include "map.h"
 #include "common.h"
 #include <string.h>
@@ -25,7 +24,7 @@ enum : u8
   CPU_FLAG_NEGATIVE = (1 << 7),
 };
 
-enum : u8
+enum
 {
   CPU_ADDR_IMP = 0,
   CPU_ADDR_IMM,
@@ -42,13 +41,15 @@ enum : u8
   CPU_ADDR_ZPY,
 };
 
-static struct Cpu
+MN_CACHE_LINE static struct Cpu
 {
-  u8 ram[0x0800];
-  u32 cyc;
-  u16 itr;
+  uint cyc;
+  uint joy_idx;
+  uint joy_shift_delay;
+  uint dmc_dma_delay;
   u16 oam_dma_addr;
   u16 dmc_dma_addr;
+  u16 itr;
   u16 addr;
   u16 pc;
   u8 s;
@@ -56,10 +57,8 @@ static struct Cpu
   u8 a;
   u8 x;
   u8 y;
-  u8 joy[2];
-  u8 joy_idx;
-  u8 joy_shift_delay;
-  u8 dmc_dma_delay;
+  u8 joy_pending[2];
+  u8 joy_val[2];
   u8 open_bus;
   bool reset;
   bool nmi;
@@ -71,12 +70,14 @@ static struct Cpu
   bool page_crossed;
   bool write;
   bool suppress_poll;
+
+  MN_CACHE_LINE u8 ram[0x0800];
 } cpu;
 
-u32 cpu_size() { return sizeof(cpu); }
+uint cpu_size() { return sizeof(cpu); }
 void* cpu_data() { return &cpu; }
 
-u32 cpu_cyc() { return cpu.cyc; }
+uint cpu_cyc() { return cpu.cyc; }
 
 void cpu_reset() { cpu.reset = true; }
 void cpu_nmi(bool enabled) { cpu.nmi = enabled; }
@@ -112,15 +113,21 @@ void cpu_dmc(u16 addr)
 
 static void cpu_dmc_dma();
 
+void cpu_input(u8 joy1, u8 joy2)
+{
+  cpu.joy_pending[0] = joy1;
+  cpu.joy_pending[1] = joy2;
+}
+
 static u8 cpu_joy_poll(u16 addr)
 {
   u8 val;
   cpu.joy_idx = (addr & 1);
   if (cpu.joy_strobe) {
-    val = (dev_input(cpu.joy_idx) & 1);
+    val = (cpu.joy_pending[cpu.joy_idx] & 1);
   } else {
     cpu.joy_shift_delay = 2;
-    val = (cpu.joy[cpu.joy_idx] & 1);
+    val = (cpu.joy_val[cpu.joy_idx] & 1);
   }
   return val | (cpu.open_bus & 0xE0);
 }
@@ -129,7 +136,7 @@ static void cpu_joy_shift()
 {
   if (cpu.joy_shift_delay > 0) {
     if (--cpu.joy_shift_delay == 0) {
-      cpu.joy[cpu.joy_idx] = (cpu.joy[cpu.joy_idx] >> 1) | 0x80;
+      cpu.joy_val[cpu.joy_idx] = (cpu.joy_val[cpu.joy_idx] >> 1) | 0x80;
     }
   }
 }
@@ -138,8 +145,8 @@ static void cpu_joy_strobe(u8 val)
 {
   cpu.joy_strobe = (val & 1);
   if (cpu.joy_strobe) {
-    cpu.joy[0] = dev_input(0);
-    cpu.joy[1] = dev_input(1);
+    cpu.joy_val[0] = cpu.joy_pending[0];
+    cpu.joy_val[1] = cpu.joy_pending[1];
   }
 }
 
@@ -433,7 +440,7 @@ static void cpu_op_EOR(u8 am) { cpu_eor(cpu_read(am)); }
 
 static void cpu_adc(u8 val)
 {
-  u16 res = (u16)cpu.a + (u16)val + (u16)(cpu.p & CPU_FLAG_CARRY);
+  uint res = (uint)cpu.a + (uint)val + (uint)(cpu.p & CPU_FLAG_CARRY);
   cpu_flag_carry(res > 0xFF);
   cpu_flag_overflow((~(cpu.a ^ val) & (cpu.a ^ (u8)res)) & 0x80);
   cpu.a = cpu_flag_zn((u8)res);
@@ -707,7 +714,7 @@ static void cpu_oam_dma()
 {
   cpu_read_addr(cpu.addr); // halt
   cpu_dma_align();
-  for (u16 i = 0; i < 256; ++i) {
+  for (uint i = 0; i < 256; ++i) {
     u8 val = cpu_read_addr(cpu.oam_dma_addr | i);
     cpu_write_addr(0x2004, val);
   }

@@ -23,8 +23,8 @@ typedef struct
 
 typedef struct
 {
-  u32 hash;
-  u32 frames;
+  uint hash;
+  uint frames;
   u8 joy1;
   bool reset;
 } TestStep;
@@ -272,19 +272,19 @@ static TestParams tests[] = {
   { "vbl_nmi_timing/7.nmi_timing.nes", { { 0xE5553CE0, 109, 0x00, 0 } } }, //
 };
 
-u32 calc_crc(const u8* data, u32 size)
+uint calc_crc(const u8* data, uint size)
 {
-  u32 crc = 0xFFFFFFFF;
-  for (u32 i = 0; i < size; ++i) {
+  uint crc = 0xFFFFFFFF;
+  for (uint i = 0; i < size; ++i) {
     crc ^= data[i];
-    for (u32 j = 0; j < 8; j++) {
+    for (uint j = 0; j < 8; j++) {
       crc = (crc >> 1) ^ ((crc & 1) ? 0xEDB88320 : 0);
     }
   }
   return crc ^ 0xFFFFFFFF;
 }
 
-void save_tga(const char* img_path, const void* pixels, u16 width, u16 height)
+void save_tga(const char* img_path, const void* pixels, uint width, uint height)
 {
   FILE* f = fopen(img_path, "wb");
   if (!f) {
@@ -310,8 +310,8 @@ void save_test_step_img(const char* rom_path, u8 step)
 {
   char img_path[512] = {};
   sprintf(img_path, "screenshots/%s.%d.tga", rom_path, step);
-  size_t img_path_len = strlen(img_path);
-  for (size_t i = 0; i <= img_path_len; i++) {
+  uint img_path_len = strlen(img_path);
+  for (uint i = 0; i <= img_path_len; i++) {
     if (img_path[i] == '/') {
       img_path[i] = 0;
       mkdir(img_path, 0777);
@@ -321,28 +321,28 @@ void save_test_step_img(const char* rom_path, u8 step)
   save_tga(img_path, mn_output(), 256, 240);
 }
 
-u32 run_test_step(TestStep step)
+uint run_test_step(TestStep step)
 {
   if (step.reset) {
     mn_reset();
   }
-  for (u32 i = 0; i < step.frames; ++i) {
+  for (uint i = 0; i < step.frames; ++i) {
     mn_frame(step.joy1, 0);
   }
   return calc_crc((u8*)mn_output(), 256 * 240 * 4);
 }
 
-bool run_test_steps(TestParams params, u32* out_hash)
+bool run_test_steps(TestParams params, uint* out_hash)
 {
   Rom rom = mn_rom_file(params.path);
   mn_rom_set(rom);
 
   bool result = true;
-  for (u8 i = 0; i < 32; ++i) {
+  for (uint i = 0; i < 32; ++i) {
     if (i > 0 && params.steps[i].frames == 0) {
       break;
     }
-    u32 hash = run_test_step(params.steps[i]);
+    uint hash = run_test_step(params.steps[i]);
     if (out_hash) {
       *out_hash = hash;
     }
@@ -366,8 +366,8 @@ bool run_test(TestParams params)
     }
     run_test_steps(params, &params.steps[0].hash);
 
-    u32 frames_pass = params.steps[0].frames;
-    u32 frames_fail = 0;
+    uint frames_pass = params.steps[0].frames;
+    uint frames_fail = 0;
     do {
       params.steps[0].frames = (frames_pass + frames_fail) / 2;
       if (run_test_steps(params, 0)) {
@@ -382,7 +382,7 @@ bool run_test(TestParams params)
     printf("  { \"%s\", { { 0x%08X, %d, 0x%02X, %d } } }, //\n", params.path, params.steps[0].hash,
            params.steps[0].frames, params.steps[0].joy1, params.steps[0].reset);
   } else {
-    u32 hash = 0;
+    uint hash = 0;
     result = run_test_steps(params, &hash);
     printf("%4s | %08X | %s\n", result ? "OK" : "FAIL", hash, params.path);
   }
@@ -393,9 +393,9 @@ int main(int, char**)
 {
   chdir("../../tmp/nes-test-roms");
 
-  u32 count = sizeof(tests) / sizeof(tests[0]);
-  u32 errors = 0;
-  for (u32 i = 0; i < count; ++i) {
+  uint count = sizeof(tests) / sizeof(tests[0]);
+  uint errors = 0;
+  for (uint i = 0; i < count; ++i) {
     if (!run_test(tests[i])) {
       ++errors;
     }

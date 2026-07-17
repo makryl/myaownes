@@ -1,6 +1,6 @@
 #pragma once
 
-typedef unsigned int u32;
+typedef unsigned int uint;
 typedef unsigned short u16;
 typedef unsigned char u8;
 typedef signed char i8;
@@ -22,12 +22,12 @@ struct Rom
 {
   const u8* prg_rom;
   const u8* chr_rom;
-  u32 prg_rom_size;
-  u32 chr_rom_size;
-  u32 prg_ram_size;
-  u32 chr_ram_size;
-  u16 mapper;
-  u8 submapper;
+  uint prg_rom_size;
+  uint chr_rom_size;
+  uint prg_ram_size;
+  uint chr_ram_size;
+  uint mapper;
+  uint submapper;
   bool vert_mirror;
   bool has_prg_battery;
   bool has_chr_battery;
@@ -43,8 +43,8 @@ Rom mn_rom_file(const char* path);
 void mn_rom_release(Rom rom);
 bool mn_rom_set(Rom rom);
 Rom mn_rom_get();
-u32* mn_output();
-void mn_output_size(bool auto_aspect, bool overscan, float scale, int* dw, int* dh);
+uint* mn_output();
+void mn_output_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh);
 void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh);
 void mn_power();
 void mn_reset();

@@ -40,14 +40,8 @@ enum : u8
   NES_TV_DENDY,
 };
 
-static const u32 PRG_PAGE_SIZE = 0x4000;
-static const u32 CHR_PAGE_SIZE = 0x2000;
-
-static struct
-{
-  u32 out[256 * 240];
-  u8 joy[2];
-} dev;
+static const uint PRG_PAGE_SIZE = 0x4000;
+static const uint CHR_PAGE_SIZE = 0x2000;
 
 void dev_power()
 {
@@ -68,8 +62,7 @@ void mn_frame(u8 joy1, u8 joy2)
   if (!map_ready()) {
     return;
   }
-  dev.joy[0] = joy1;
-  dev.joy[1] = joy2;
+  cpu_input(joy1, joy2);
   bool vblank_before;
   do {
     vblank_before = ppu_vblank();
@@ -80,20 +73,16 @@ void mn_frame(u8 joy1, u8 joy2)
 #endif
 }
 
-u8 dev_input(u8 idx) { return dev.joy[idx]; }
-void dev_output(u16 idx, u32 color) { dev.out[idx] = color; }
-u32* mn_output() { return dev.out; }
-
 static float dev_aspect_scale(bool a) { return (256.0f / 240.0f) * (a ? (8.0f / 7.0f) : 1.0f); }
 static float dev_aspect_overscan(bool a) { return a ? (4.0f / 3.0f) : (256.0f / 224.0f); }
 static float dev_aspect_target(bool a, bool o) { return o ? dev_aspect_overscan(a) : dev_aspect_scale(a); }
 
-void mn_output_size(bool auto_aspect, bool overscan, float scale, int* dw, int* dh)
+void mn_output_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh)
 {
   float h = (overscan ? 224.0f : 240.0f) * scale;
   float w = h * dev_aspect_target(auto_aspect, overscan);
-  *dw = (int)(w + 0.5f);
-  *dh = (int)(h + 0.5f);
+  *dw = (uint)(w + 0.5f);
+  *dh = (uint)(h + 0.5f);
 }
 
 void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh)
@@ -269,12 +258,12 @@ Rom mn_rom_file(const char* path)
 
   bool is_v2 = (h.mapper_sig2 & 0x0C) == 0x08;
 
-  u32 prg_rom_size = 0;
-  u32 chr_rom_size = 0;
+  uint prg_rom_size = 0;
+  uint chr_rom_size = 0;
 
   if (is_v2) {
-    u8 prg_ext = h.prg_chr_ext & 0x0F;
-    u8 chr_ext = h.prg_chr_ext >> 4;
+    uint prg_ext = h.prg_chr_ext & 0x0F;
+    uint chr_ext = h.prg_chr_ext >> 4;
     if (prg_ext == 0x0F) {
       prg_rom_size = (1ull << (h.prg_pages >> 2)) * ((h.prg_pages & 0x03) * 2 + 1);
     } else {
@@ -290,7 +279,7 @@ Rom mn_rom_file(const char* path)
     chr_rom_size = h.chr_pages * CHR_PAGE_SIZE;
   }
 
-  u32 total_rom_size = prg_rom_size + chr_rom_size;
+  uint total_rom_size = prg_rom_size + chr_rom_size;
   void* mem = malloc(sizeof(struct Rom) + total_rom_size);
   if (!mem) {
     errorf("no memory (%d) for %s", (int)total_rom_size, path);
@@ -327,15 +316,15 @@ Rom mn_rom_file(const char* path)
     rom->pal = (h.tv_system == NES_TV_PAL) || (h.tv_system == NES_TV_MULTI);
     rom->dendy = (h.tv_system == NES_TV_DENDY) || (h.tv_system == NES_TV_MULTI);
 
-    u8 prg_ram_shift = h.prg_ram_size & 0x0F;
-    u8 prg_sram_shift = h.prg_ram_size >> 4;
-    u8 chr_ram_shift = h.chr_ram_size & 0x0F;
-    u8 chr_sram_shift = h.chr_ram_size >> 4;
+    uint prg_ram_shift = h.prg_ram_size & 0x0F;
+    uint prg_sram_shift = h.prg_ram_size >> 4;
+    uint chr_ram_shift = h.chr_ram_size & 0x0F;
+    uint chr_sram_shift = h.chr_ram_size >> 4;
 
-    u32 prg_ram_size = (prg_ram_shift > 0) ? 64 << prg_ram_shift : 0;
-    u32 prg_sram_size = (prg_sram_shift > 0) ? 64 << prg_sram_shift : 0;
-    u32 chr_ram_size = (chr_ram_shift > 0) ? 64 << chr_ram_shift : 0;
-    u32 chr_sram_size = (chr_sram_shift > 0) ? 64 << chr_sram_shift : 0;
+    uint prg_ram_size = (prg_ram_shift > 0) ? 64 << prg_ram_shift : 0;
+    uint prg_sram_size = (prg_sram_shift > 0) ? 64 << prg_sram_shift : 0;
+    uint chr_ram_size = (chr_ram_shift > 0) ? 64 << chr_ram_shift : 0;
+    uint chr_sram_size = (chr_sram_shift > 0) ? 64 << chr_sram_shift : 0;
 
     if ((h.mapper_flags & NES_FLAG_BATTERY) && prg_sram_size == 0 && chr_sram_size == 0) {
       prg_sram_size = 8192;

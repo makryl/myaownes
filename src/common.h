@@ -29,3 +29,5 @@
 #else
 #define errorf(...) ((void)0)
 #endif
+
+#define MN_CACHE_LINE alignas(64)
