@@ -4,12 +4,15 @@
 #include "common.h"
 #include <string.h>
 
-static const size_t MAP_CPU_PAGE_SHIFT = 12; // 4kb
-static const size_t MAP_CPU_PAGE_SIZE = 1 << MAP_CPU_PAGE_SHIFT;
-static const size_t MAP_CPU_PAGE_MASK = MAP_CPU_PAGE_SIZE - 1;
-static const size_t MAP_PPU_PAGE_SHIFT = 10; // 1kb
-static const size_t MAP_PPU_PAGE_SIZE = 1 << MAP_PPU_PAGE_SHIFT;
-static const size_t MAP_PPU_PAGE_MASK = MAP_PPU_PAGE_SIZE - 1;
+enum
+{
+  MAP_CPU_PAGE_SHIFT = 12, // 4kb
+  MAP_CPU_PAGE_SIZE = 1 << MAP_CPU_PAGE_SHIFT,
+  MAP_CPU_PAGE_MASK = MAP_CPU_PAGE_SIZE - 1,
+  MAP_PPU_PAGE_SHIFT = 10, // 1kb
+  MAP_PPU_PAGE_SIZE = 1 << MAP_PPU_PAGE_SHIFT,
+  MAP_PPU_PAGE_MASK = MAP_PPU_PAGE_SIZE - 1,
+};
 
 MN_CACHE_LINE static struct
 {
@@ -26,9 +29,6 @@ MN_CACHE_LINE static struct
   u8* ppu_write_page[16];
 
   Rom rom;
-
-  MN_CACHE_LINE u8 prg_ram[0x100000];
-  MN_CACHE_LINE u8 chr_ram[0x100000];
 } mapper;
 
 MN_CACHE_LINE static struct
@@ -42,8 +42,6 @@ MN_CACHE_LINE static struct
 Rom mn_rom_get() { return mapper.rom; }
 uint map_size() { return sizeof(map); }
 void* map_data() { return &map; }
-void* map_prg_ram() { return mapper.prg_ram; }
-void* map_chr_ram() { return mapper.chr_ram; }
 bool map_ready() { return mapper.rom && !mapper.rom->mapper_error; }
 static void map_cpu_irq() { cpu_irq(map.apu_irq || map.irq); }
 
@@ -200,29 +198,29 @@ static void map_prg_rom_page_32k(uint sp, uint dp)
 static void map_prg_ram_page_4k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 0);
-  map_cpu_read_pages(mapper.prg_ram, sp, dp, 1);
-  map_cpu_write_pages(mapper.prg_ram, sp, dp, 1);
+  map_cpu_read_pages(mapper.rom->prg_ram, sp, dp, 1);
+  map_cpu_write_pages(mapper.rom->prg_ram, sp, dp, 1);
 }
 
 static void map_prg_ram_page_8k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 1);
-  map_cpu_read_pages(mapper.prg_ram, sp * 2, dp * 2, 2);
-  map_cpu_write_pages(mapper.prg_ram, sp * 2, dp * 2, 2);
+  map_cpu_read_pages(mapper.rom->prg_ram, sp * 2, dp * 2, 2);
+  map_cpu_write_pages(mapper.rom->prg_ram, sp * 2, dp * 2, 2);
 }
 
 static void map_prg_ram_page_16k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 2);
-  map_cpu_read_pages(mapper.prg_ram, sp * 4, dp * 4, 4);
-  map_cpu_write_pages(mapper.prg_ram, sp * 4, dp * 4, 4);
+  map_cpu_read_pages(mapper.rom->prg_ram, sp * 4, dp * 4, 4);
+  map_cpu_write_pages(mapper.rom->prg_ram, sp * 4, dp * 4, 4);
 }
 
 static void map_prg_ram_page_32k(uint sp, uint dp)
 {
   sp = map_page_clamp(sp, mapper.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 3);
-  map_cpu_read_pages(mapper.prg_ram, sp * 8, dp * 8, 8);
-  map_cpu_write_pages(mapper.prg_ram, sp * 8, dp * 8, 8);
+  map_cpu_read_pages(mapper.rom->prg_ram, sp * 8, dp * 8, 8);
+  map_cpu_write_pages(mapper.rom->prg_ram, sp * 8, dp * 8, 8);
 }
 
 static void map_chr_page_1k(uint sp, uint dp)
@@ -235,8 +233,8 @@ static void map_chr_page_1k(uint sp, uint dp)
   } else {
     sp -= rom_pages;
     sp = map_page_clamp(sp, mapper.rom->chr_ram_size, MAP_PPU_PAGE_SHIFT + 0);
-    map_ppu_read_pages(mapper.chr_ram, sp, dp, 1);
-    map_ppu_write_pages(mapper.chr_ram, sp, dp, 1);
+    map_ppu_read_pages(mapper.rom->chr_ram, sp, dp, 1);
+    map_ppu_write_pages(mapper.rom->chr_ram, sp, dp, 1);
   }
 }
 
@@ -250,8 +248,8 @@ static void map_chr_page_2k(uint sp, uint dp)
   } else {
     sp -= rom_pages;
     sp = map_page_clamp(sp, mapper.rom->chr_ram_size, MAP_PPU_PAGE_SHIFT + 1);
-    map_ppu_read_pages(mapper.chr_ram, sp * 2, dp * 2, 2);
-    map_ppu_write_pages(mapper.chr_ram, sp * 2, dp * 2, 2);
+    map_ppu_read_pages(mapper.rom->chr_ram, sp * 2, dp * 2, 2);
+    map_ppu_write_pages(mapper.rom->chr_ram, sp * 2, dp * 2, 2);
   }
 }
 
@@ -265,8 +263,8 @@ static void map_chr_page_4k(uint sp, uint dp)
   } else {
     sp -= rom_pages;
     sp = map_page_clamp(sp, mapper.rom->chr_ram_size, MAP_PPU_PAGE_SHIFT + 2);
-    map_ppu_read_pages(mapper.chr_ram, sp * 4, dp * 4, 4);
-    map_ppu_write_pages(mapper.chr_ram, sp * 4, dp * 4, 4);
+    map_ppu_read_pages(mapper.rom->chr_ram, sp * 4, dp * 4, 4);
+    map_ppu_write_pages(mapper.rom->chr_ram, sp * 4, dp * 4, 4);
   }
 }
 
@@ -280,8 +278,8 @@ static void map_chr_page_8k(uint sp, uint dp)
   } else {
     sp -= rom_pages;
     sp = map_page_clamp(sp, mapper.rom->chr_ram_size, MAP_PPU_PAGE_SHIFT + 3);
-    map_ppu_read_pages(mapper.chr_ram, sp * 8, dp * 8, 8);
-    map_ppu_write_pages(mapper.chr_ram, sp * 8, dp * 8, 8);
+    map_ppu_read_pages(mapper.rom->chr_ram, sp * 8, dp * 8, 8);
+    map_ppu_write_pages(mapper.rom->chr_ram, sp * 8, dp * 8, 8);
   }
 }
 
@@ -896,9 +894,11 @@ bool mn_rom_set(Rom rom)
 {
   memset(&mapper, 0, sizeof(mapper));
   memset(&map, 0, sizeof(map));
-  if (!map_rom_load(rom, true)) {
-    return false;
+  if (rom) {
+    if (!map_rom_load(rom, true)) {
+      return false;
+    }
+    dev_power();
   }
-  dev_power();
   return true;
 }

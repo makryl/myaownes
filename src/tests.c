@@ -334,7 +334,7 @@ uint run_test_step(TestStep step)
 
 bool run_test_steps(TestParams params, uint* out_hash)
 {
-  Rom rom = mn_rom_file(params.path);
+  Rom rom = mn_rom_load(params.path, nullptr);
   mn_rom_set(rom);
 
   bool result = true;

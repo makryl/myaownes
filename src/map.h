@@ -4,8 +4,6 @@
 
 uint map_size();
 void* map_data();
-void* map_prg_ram();
-void* map_chr_ram();
 bool map_ready();
 void map_cpu_cyc();
 void map_cpu_read(u16 addr, u8* val, bool trace);

@@ -11,6 +11,11 @@
 bool imp_init();
 void imp_quit();
 
+enum
+{
+  IMP_PATH_SIZE = 4096,
+};
+
 static struct
 {
   SDL_Window* window;
@@ -18,20 +23,7 @@ static struct
   SDL_Texture* tex_out;
   SDL_Texture* tex_font;
   SDL_FRect rect;
-  const char* dir;
   const char* popup_text;
-  int width;
-  int height;
-  Rom rom;
-  char path[512];
-  char rom_info[6][15];
-  u8 joy1_mask;
-  u8 joy2_mask;
-  u8 joy1;
-  u8 joy2;
-  u8 scale;
-  u8 turbo;
-  u8 slot;
   Uint64 last_time;
   Uint64 curr_time;
   Uint64 max_frame_time;
@@ -41,6 +33,13 @@ static struct
   Uint64 fps_time;
   Uint64 fps_count;
   Uint64 fps_value;
+  u8 joy1_mask;
+  u8 joy2_mask;
+  u8 joy1;
+  u8 joy2;
+  u8 scale;
+  u8 turbo;
+  u8 slot;
   bool pause;
   bool help;
   bool fps;
@@ -51,6 +50,11 @@ static struct
   bool joy1_turbo_b;
   bool joy2_turbo_a;
   bool joy2_turbo_b;
+  Rom rom;
+  char rom_info[6][15];
+  char rom_path[IMP_PATH_SIZE];
+  char sram_path[IMP_PATH_SIZE];
+  char save_dir[IMP_PATH_SIZE];
 } imp;
 
 static void imp_draw_help()
@@ -78,7 +82,7 @@ static void imp_draw_help()
   SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " F-forward  Tab  %s ", imp.rom_info[2]);
   SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Pause      Esc  %s ", imp.rom_info[3]);
   SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Scale      -/+  %s ", imp.rom_info[4]);
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, "                 %s ", imp.rom_info[5]);
+  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " FPS          `  %s ", imp.rom_info[5]);
   SDL_RenderDebugText(imp.renderer, 0, 8 * i++, "                                ");
   SDL_RenderDebugText(imp.renderer, 0, 8 * i++, "           Joy1    Joy2          ");
   SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " D-pad     WASD  Arrows          ");
@@ -93,7 +97,7 @@ static void imp_draw_help()
 static void imp_draw_popup()
 {
   imp.popup_time -= imp.popup_time > imp.real_frame_time ? imp.real_frame_time : imp.popup_time;
-  SDL_FRect fill = { 16, 16, strlen(imp.popup_text) * 8 + 3, 11 };
+  SDL_FRect fill = { 16, 16, SDL_strlen(imp.popup_text) * 8 + 3, 11 };
   SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xC0);
   SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
   SDL_RenderFillRect(imp.renderer, &fill);
@@ -121,28 +125,47 @@ static void imp_update_size()
   SDL_SetWindowSize(imp.window, width, height);
 }
 
+static const char* imp_rom_name()
+{
+  const char* name = imp.rom_path;
+  const char* slash = SDL_strrchr(imp.rom_path, '/');
+  const char* backslash = SDL_strrchr(imp.rom_path, '\\');
+  if (slash || backslash) {
+    name = (slash > backslash ? slash : backslash) + 1;
+  }
+  return name;
+}
+
+static void imp_save_path(char* dst, const char* ext)
+{
+  dst[0] = 0;
+  SDL_strlcat(dst, imp.save_dir, IMP_PATH_SIZE);
+  SDL_strlcat(dst, imp_rom_name(), IMP_PATH_SIZE);
+  char* dot = SDL_strrchr(dst, '.');
+  if (dot) {
+    *dot = 0;
+  }
+  SDL_strlcat(dst, ext, IMP_PATH_SIZE);
+}
+
 static void imp_rom_update()
 {
-  Rom rom = mn_rom_get();
+  Rom rom = imp.rom;
   if (!rom) {
     imp.help = true;
     imp.pause = true;
     return;
   }
+  imp.help = false;
+  imp.pause = false;
 
-  const char* name = imp.path;
-  const char* slash = strrchr(imp.path, '/');
-  const char* backslash = strrchr(imp.path, '\\');
-  if (slash || backslash) {
-    name = (slash > backslash ? slash : backslash) + 1;
-  }
-
-  char title[128] = {};
-  SDL_snprintf(title, sizeof(title), "%s - MyaowNES", name);
+  char title[256] = {};
+  SDL_strlcat(title, imp_rom_name(), IMP_PATH_SIZE);
+  SDL_strlcat(title, " - MyaowNES", IMP_PATH_SIZE);
 
   SDL_SetWindowTitle(imp.window, title);
 
-  memset(imp.rom_info, 0, sizeof(imp.rom_info));
+  SDL_memset(imp.rom_info, 0, sizeof(imp.rom_info));
   SDL_snprintf(imp.rom_info[0], sizeof(imp.rom_info[0]), "%-5s %1s%03d-%03d",
                rom->ntsc    ? "NTSC"
                : rom->pal   ? "PAL"
@@ -152,64 +175,106 @@ static void imp_rom_update()
   SDL_snprintf(imp.rom_info[1], sizeof(imp.rom_info[0]), "%-5s %-3s %4s", rom->vert_mirror ? "Vert" : "Horiz",
                rom->alt_mirror ? "Alt" : "", rom->has_trainer ? "TR" : "");
   SDL_snprintf(imp.rom_info[2], sizeof(imp.rom_info[0]), "PRG-ROM %5dK", rom->prg_rom_size >> 10);
-  SDL_snprintf(imp.rom_info[3], sizeof(imp.rom_info[0]), "PRG-%-4s %4dK", rom->has_prg_battery ? "SRAM" : "RAM",
+  SDL_snprintf(imp.rom_info[3], sizeof(imp.rom_info[0]), "PRG-%-4s %4dK", rom->prg_has_battery ? "SRAM" : "RAM",
                rom->prg_ram_size >> 10);
   SDL_snprintf(imp.rom_info[4], sizeof(imp.rom_info[0]), "CHR-ROM %5dK", rom->chr_rom_size >> 10);
-  SDL_snprintf(imp.rom_info[5], sizeof(imp.rom_info[0]), "CHR-%-4s %4dK", rom->has_chr_battery ? "SRAM" : "RAM",
+  SDL_snprintf(imp.rom_info[5], sizeof(imp.rom_info[0]), "CHR-%-4s %4dK", rom->chr_has_battery ? "SRAM" : "RAM",
                rom->chr_ram_size >> 10);
+
+  for (uint i = 0; i < 6; ++i) {
+    SDL_Log("%s", imp.rom_info[i]);
+  }
 
   imp_update_frame_time();
 }
 
+static void imp_rom_unload()
+{
+  if (imp.rom) {
+    if ((imp.rom->prg_has_battery || imp.rom->chr_has_battery)) {
+      mn_rom_save(imp.sram_path);
+    }
+    mn_rom_release(imp.rom);
+  }
+}
+
+static void imp_rom_load(const char* path)
+{
+  imp_rom_unload();
+  SDL_strlcpy(imp.rom_path, path, IMP_PATH_SIZE);
+  imp_save_path(imp.sram_path, ".sav");
+  imp.rom = mn_rom_load(imp.rom_path, imp.sram_path);
+  if (imp.rom) {
+    mn_rom_set(imp.rom);
+  }
+}
+
 static void imp_save()
 {
-  char path[512] = {};
-  SDL_snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
-  if (mn_save(path)) {
+  char qs_path[IMP_PATH_SIZE] = {};
+  char ext[5] = ".qs0";
+  ext[3] += imp.slot;
+  imp_save_path(qs_path, ext);
+  if (mn_save(qs_path)) {
     imp_popup("Saved", 2);
   }
 }
 
 static void imp_load()
 {
-  char path[512] = {};
-  SDL_snprintf(path, sizeof(path), "%s.qs%d", imp.path, imp.slot);
-  if (mn_load(path)) {
+  char qs_path[IMP_PATH_SIZE] = {};
+  char ext[5] = ".qs0";
+  ext[3] += imp.slot;
+  imp_save_path(qs_path, ext);
+  if (mn_load(qs_path)) {
     imp_popup("Loaded", 2);
   }
 }
 
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 {
-  memset(&imp, 0, sizeof(imp));
+  SDL_Log("MyaowNES v%s", MN_VERSION);
+
+  SDL_memset(&imp, 0, sizeof(imp));
   imp.scale = 4;
   imp.auto_aspect = true;
   imp.overscan = true;
 
   for (int i = 0; i < argc; ++i) {
-    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+    if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
       SDL_Log("MyaowNES v" MN_VERSION);
       SDL_Log("Usage: myaownes [options] [file]");
       SDL_Log("Options:");
       SDL_Log("-h, --help               Display help");
-      SDL_Log("-d, --dir <path>         Save directory. Default: rom file dir");
+      SDL_Log("-p, --path <path>        Save path");
       SDL_Log("-s, --scale <n>          Viewport scale. Default: 4");
       SDL_Log("-a, --no-aspect          Disable auto aspect ratio");
       SDL_Log("-o, --no-overscan        Disable overscan");
       return SDL_APP_SUCCESS;
-    } else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--dir") == 0) {
-      imp.dir = argv[++i];
-    } else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--scale") == 0) {
+    } else if (SDL_strcmp(argv[i], "-p") == 0 || SDL_strcmp(argv[i], "--path") == 0) {
+      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
+      uint len = SDL_strlen(imp.save_dir);
+      if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
+        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
+      }
+    } else if (SDL_strcmp(argv[i], "-s") == 0 || SDL_strcmp(argv[i], "--scale") == 0) {
       imp.scale = SDL_strtol(argv[++i], nullptr, 10);
-    } else if (strcmp(argv[i], "-a") == 0 || strcmp(argv[i], "--no-aspect") == 0) {
+    } else if (SDL_strcmp(argv[i], "-a") == 0 || SDL_strcmp(argv[i], "--no-aspect") == 0) {
       imp.auto_aspect = false;
-    } else if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--no-overscan") == 0) {
+    } else if (SDL_strcmp(argv[i], "-o") == 0 || SDL_strcmp(argv[i], "--no-overscan") == 0) {
       imp.overscan = false;
     } else if (i > 0) {
-      imp.rom = mn_rom_file(argv[i]);
-      mn_rom_set(imp.rom);
+      imp_rom_load(argv[i]);
     }
   }
+
+  if (SDL_strlen(imp.save_dir) == 0) {
+    char* pref_path = SDL_GetPrefPath(nullptr, "MyaowNES");
+    SDL_strlcpy(imp.save_dir, pref_path, IMP_PATH_SIZE);
+    SDL_free(pref_path);
+  }
+
+  SDL_Log("Save path: %s", imp.save_dir);
 
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     SDL_Log("%s", SDL_GetError());
@@ -245,15 +310,8 @@ static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
   if (!files || !*files) {
     return;
   }
-  if (mn_rom_get()) {
-    mn_rom_release(mn_rom_get());
-  }
-  SDL_snprintf(imp.path, sizeof(imp.path), "%s", files[0]);
-  imp.rom = mn_rom_file(imp.path);
-  mn_rom_set(imp.rom);
+  imp_rom_load(files[0]);
   imp_rom_update();
-  imp.help = false;
-  imp.pause = false;
 }
 
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
@@ -261,11 +319,13 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
   switch (event->type) {
     case SDL_EVENT_QUIT: return SDL_APP_SUCCESS;
     case SDL_EVENT_WINDOW_RESIZED:
-    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-      SDL_GetWindowSizeInPixels(imp.window, &imp.width, &imp.height);
-      mn_output_fit(imp.auto_aspect, imp.overscan, imp.width, imp.height, &imp.rect.x, &imp.rect.y, &imp.rect.w,
-                    &imp.rect.h);
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
+      int width;
+      int height;
+      SDL_GetWindowSizeInPixels(imp.window, &width, &height);
+      mn_output_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
       break;
+    }
     case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
         case SDLK_F1:
@@ -282,7 +342,11 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           SDL_DialogFileFilter filters[] = { { "iNES / NES 2.0 ROMs (*.nes)", "nes" }, { "All Files (*.*)", "*" } };
           SDL_ShowOpenFileDialog(imp_file_dialog_cb, nullptr, imp.window, filters, 2, nullptr, false);
           break;
-        case SDLK_F3: mn_rom_set(mn_rom_get()); break;
+        case SDLK_F3:
+          if (imp.rom) {
+            mn_rom_set(imp.rom);
+          }
+          break;
         case SDLK_F4: mn_reset(); break;
         case SDLK_F5: imp_save(); break;
         case SDLK_F6:
@@ -569,11 +633,7 @@ SDL_AppResult SDL_AppIterate(void*)
 void SDL_AppQuit(void*, SDL_AppResult)
 {
   imp_quit();
-
-  if (mn_rom_get()) {
-    mn_rom_release(mn_rom_get());
-  }
-
+  imp_rom_unload();
   SDL_DestroyTexture(imp.tex_out);
   SDL_DestroyTexture(imp.tex_font);
   SDL_DestroyRenderer(imp.renderer);

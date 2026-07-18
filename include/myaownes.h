@@ -22,6 +22,8 @@ struct Rom
 {
   const u8* prg_rom;
   const u8* chr_rom;
+  u8* prg_ram;
+  u8* chr_ram;
   uint prg_rom_size;
   uint chr_rom_size;
   uint prg_ram_size;
@@ -29,8 +31,8 @@ struct Rom
   uint mapper;
   uint submapper;
   bool vert_mirror;
-  bool has_prg_battery;
-  bool has_chr_battery;
+  bool prg_has_battery;
+  bool chr_has_battery;
   bool has_trainer;
   bool alt_mirror;
   bool ntsc;
@@ -39,7 +41,8 @@ struct Rom
   bool mapper_error;
 };
 
-Rom mn_rom_file(const char* path);
+Rom mn_rom_load(const char* rom_path, const char* sram_path);
+bool mn_rom_save(const char* sram_path);
 void mn_rom_release(Rom rom);
 bool mn_rom_set(Rom rom);
 Rom mn_rom_get();
@@ -51,5 +54,3 @@ void mn_reset();
 void mn_frame(u8 joy1, u8 joy2);
 bool mn_save(const char* path);
 bool mn_load(const char* path);
-bool mn_sram_save(const char* path);
-bool mn_sram_load(const char* path);
