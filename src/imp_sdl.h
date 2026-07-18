@@ -60,6 +60,7 @@ static struct
   char sram_path[IMP_PATH_SIZE];
   char save_dir[IMP_PATH_SIZE];
   char config_path[IMP_PATH_SIZE];
+  char palette_path[IMP_PATH_SIZE];
 } imp;
 
 static void imp_draw_help()
@@ -207,6 +208,7 @@ static void imp_save_config()
   fprintf(f, "overscan %u\n", imp.overscan);
   fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
   fprintf(f, "fps %u\n", imp.fps);
+  fprintf(f, "palette %s\n", imp.palette_path);
   fclose(f);
   imp.dirty_config = false;
 }
@@ -241,6 +243,24 @@ static void imp_load_config()
       uint val;
       fscanf(f, "%u", &val);
       imp.fps = val;
+    } else if (strcmp(key, "palette") == 0) {
+      fscanf(f, " %[^\n]", imp.palette_path);
+      if (strlen(imp.palette_path)) {
+        size_t size = 0;
+        u8* data = SDL_LoadFile(imp.palette_path, &size);
+        if (data && size == 192) {
+          uint palette[64] = {};
+          for (uint i = 0; i < 64; ++i) {
+            u8 r = data[i * 3 + 0];
+            u8 g = data[i * 3 + 1];
+            u8 b = data[i * 3 + 2];
+            palette[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            SDL_Log("0x%08X,", palette[i]);
+          }
+          mn_palette(palette);
+        }
+        SDL_free(data);
+      }
     }
   }
   fclose(f);
