@@ -22,6 +22,10 @@ static struct
   SDL_Renderer* renderer;
   SDL_Texture* tex_out;
   SDL_Texture* tex_font;
+  SDL_Gamepad* gamepad1;
+  SDL_Gamepad* gamepad2;
+  SDL_JoystickID gamepad_id1;
+  SDL_JoystickID gamepad_id2;
   SDL_FRect rect;
   const char* popup_text;
   Uint64 last_time;
@@ -62,6 +66,10 @@ static struct
   char config_path[IMP_PATH_SIZE];
   char palette_path[IMP_PATH_SIZE];
 } imp;
+
+static const char* const imp_save_slot_labels[10] = {
+  "Slot 0", "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5", "Slot 6", "Slot 7", "Slot 8", "Slot 9",
+};
 
 static void imp_draw_help()
 {
@@ -365,7 +373,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   imp_load_config();
 
-  if (!SDL_Init(SDL_INIT_VIDEO)) {
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
@@ -396,6 +404,275 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   return inited ? SDL_APP_CONTINUE : SDL_APP_FAILURE;
 }
 
+static void imp_help()
+{
+  if (imp.help) {
+    imp.help = false;
+    imp.pause = false;
+  } else {
+    imp.help = true;
+    imp.pause = true;
+    imp_draw_help();
+  }
+}
+
+static void imp_open_file()
+{
+  SDL_DialogFileFilter filters[] = { { "iNES / NES 2.0 ROMs (*.nes)", "nes" }, { "All Files (*.*)", "*" } };
+  SDL_ShowOpenFileDialog(imp_file_dialog_cb, nullptr, imp.window, filters, 2, nullptr, false);
+}
+
+static void imp_reload_rom()
+{
+  if (imp.rom) {
+    mn_rom_set(imp.rom);
+  }
+}
+
+static void imp_toggle_aspect()
+{
+  imp.auto_aspect = !imp.auto_aspect;
+  imp.dirty_config = true;
+  imp_update_size();
+  imp_popup(imp.auto_aspect ? "Aspect ON" : "Aspect OFF", 1);
+}
+
+static void imp_toggle_overscan()
+{
+  imp.overscan = !imp.overscan;
+  imp.dirty_config = true;
+  imp_update_size();
+  imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 1);
+}
+
+static void imp_toggle_fullscreen()
+{
+  Uint32 flags = SDL_GetWindowFlags(imp.window);
+  bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+  SDL_SetWindowFullscreen(imp.window, !is_fullscreen);
+}
+
+static void imp_screenshot()
+{
+  SDL_Surface* screenshot = SDL_RenderReadPixels(imp.renderer, nullptr);
+  if (screenshot) {
+    char path[IMP_PATH_SIZE] = {};
+    char ext[32] = "";
+    uint num = 0;
+    SDL_PathInfo info;
+    while (true) {
+      SDL_snprintf(ext, sizeof(ext), ".%d.bmp", num);
+      imp_save_path(path, "Screenshots", ext);
+      if (!SDL_GetPathInfo(path, &info)) {
+        break;
+      }
+      ++num;
+    }
+    SDL_SaveBMP(screenshot, path);
+    SDL_DestroySurface(screenshot);
+  }
+}
+
+static void imp_upscale()
+{
+  if (imp.scale < 8) {
+    ++imp.scale;
+    imp.dirty_config = true;
+  }
+  switch (imp.scale) {
+    case 1: imp_popup("Scale x1", 1); break;
+    case 2: imp_popup("Scale x2", 1); break;
+    case 3: imp_popup("Scale x3", 1); break;
+    case 4: imp_popup("Scale x4", 1); break;
+    case 5: imp_popup("Scale x5", 1); break;
+    case 6: imp_popup("Scale x6", 1); break;
+    case 7: imp_popup("Scale x7", 1); break;
+    case 8: imp_popup("Scale x8", 1); break;
+  }
+  imp_update_size();
+}
+
+static void imp_downscale()
+{
+  if (imp.scale > 1) {
+    --imp.scale;
+    imp.dirty_config = true;
+  }
+  switch (imp.scale) {
+    case 1: imp_popup("Scale x1", 1); break;
+    case 2: imp_popup("Scale x2", 1); break;
+    case 3: imp_popup("Scale x3", 1); break;
+    case 4: imp_popup("Scale x4", 1); break;
+    case 5: imp_popup("Scale x5", 1); break;
+    case 6: imp_popup("Scale x6", 1); break;
+    case 7: imp_popup("Scale x7", 1); break;
+    case 8: imp_popup("Scale x8", 1); break;
+  }
+  imp_update_size();
+}
+
+static void imp_toggle_pause()
+{
+  if (imp.help) {
+    imp.help = false;
+    imp.pause = false;
+  } else {
+    imp.pause = !imp.pause;
+    if (imp.pause) {
+      imp_popup("Pause", 1);
+    }
+  }
+}
+
+static void imp_fast_forward_on()
+{
+  imp.fast_forward = true;
+  imp_popup(">>", 0.5);
+  SDL_SetRenderVSync(imp.renderer, 0);
+}
+
+static void imp_fast_forward_off()
+{
+  imp.fast_forward = false;
+  SDL_SetRenderVSync(imp.renderer, 1);
+}
+
+static void imp_toggle_fps()
+{
+  imp.fps = !imp.fps;
+  imp.dirty_config = true;
+}
+
+static void imp_slot(uint slot)
+{
+  imp.slot = slot;
+  imp_popup(imp_save_slot_labels[imp.slot], 2);
+}
+
+static void imp_slot_next()
+{
+  imp.slot = (imp.slot + 1) % 10;
+  imp_popup(imp_save_slot_labels[imp.slot], 2);
+}
+
+static void imp_joy1_dpad_up_down()
+{
+  imp.joy1_mask |= MN_INPUT_UP;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_DOWN) | MN_INPUT_UP;
+}
+
+static void imp_joy1_dpad_up_up()
+{
+  imp.joy1_mask &= ~MN_INPUT_UP;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_UP) | (imp.joy1_mask & MN_INPUT_DOWN);
+}
+
+static void imp_joy1_dpad_left_down()
+{
+  imp.joy1_mask |= MN_INPUT_LEFT;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT;
+}
+
+static void imp_joy1_dpad_left_up()
+{
+  imp.joy1_mask &= ~MN_INPUT_LEFT;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_LEFT) | (imp.joy1_mask & MN_INPUT_RIGHT);
+}
+
+static void imp_joy1_dpad_down_down()
+{
+  imp.joy1_mask |= MN_INPUT_DOWN;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_UP) | MN_INPUT_DOWN;
+}
+
+static void imp_joy1_dpad_down_up()
+{
+  imp.joy1_mask &= ~MN_INPUT_DOWN;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_DOWN) | (imp.joy1_mask & MN_INPUT_UP);
+}
+
+static void imp_joy1_dpad_right_down()
+{
+  imp.joy1_mask |= MN_INPUT_RIGHT;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT;
+}
+
+static void imp_joy1_dpad_right_up()
+{
+  imp.joy1_mask &= ~MN_INPUT_RIGHT;
+  imp.joy1 = (imp.joy1 & ~MN_INPUT_RIGHT) | (imp.joy1_mask & MN_INPUT_LEFT);
+}
+
+static void imp_joy1_a_down() { imp.joy1 |= MN_INPUT_A; }
+static void imp_joy1_a_up() { imp.joy1 &= ~MN_INPUT_A; }
+static void imp_joy1_b_down() { imp.joy1 |= MN_INPUT_B; }
+static void imp_joy1_b_up() { imp.joy1 &= ~MN_INPUT_B; }
+static void imp_joy1_a_turbo_down() { imp.joy1_turbo_a = true; }
+static void imp_joy1_a_turbo_up() { imp.joy1_turbo_a = false; }
+static void imp_joy1_b_turbo_down() { imp.joy1_turbo_b = true; }
+static void imp_joy1_b_turbo_up() { imp.joy1_turbo_b = false; }
+static void imp_joy1_select_down() { imp.joy1 |= MN_INPUT_SELECT; }
+static void imp_joy1_select_up() { imp.joy1 &= ~MN_INPUT_SELECT; }
+static void imp_joy1_start_down() { imp.joy1 |= MN_INPUT_START; }
+static void imp_joy1_start_up() { imp.joy1 &= ~MN_INPUT_START; }
+
+static void imp_joy2_dpad_up_down()
+{
+  imp.joy2_mask |= MN_INPUT_UP;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_DOWN) | MN_INPUT_UP;
+}
+
+static void imp_joy2_dpad_up_up()
+{
+  imp.joy2_mask &= ~MN_INPUT_UP;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_UP) | (imp.joy2_mask & MN_INPUT_DOWN);
+}
+
+static void imp_joy2_dpad_left_down()
+{
+  imp.joy2_mask |= MN_INPUT_LEFT;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT;
+}
+
+static void imp_joy2_dpad_left_up()
+{
+  imp.joy2_mask &= ~MN_INPUT_LEFT;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | (imp.joy2_mask & MN_INPUT_RIGHT);
+}
+
+static void imp_joy2_dpad_down_down()
+{
+  imp.joy2_mask |= MN_INPUT_DOWN;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_UP) | MN_INPUT_DOWN;
+}
+
+static void imp_joy2_dpad_down_up()
+{
+  imp.joy2_mask &= ~MN_INPUT_DOWN;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_DOWN) | (imp.joy2_mask & MN_INPUT_UP);
+}
+
+static void imp_joy2_dpad_right_down()
+{
+  imp.joy2_mask |= MN_INPUT_RIGHT;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT;
+}
+
+static void imp_joy2_dpad_right_up()
+{
+  imp.joy2_mask &= ~MN_INPUT_RIGHT;
+  imp.joy2 = (imp.joy2 & ~MN_INPUT_RIGHT) | (imp.joy2_mask & MN_INPUT_LEFT);
+}
+
+static void imp_joy2_a_down() { imp.joy2 |= MN_INPUT_A; }
+static void imp_joy2_a_up() { imp.joy2 &= ~MN_INPUT_A; }
+static void imp_joy2_b_down() { imp.joy2 |= MN_INPUT_B; }
+static void imp_joy2_b_up() { imp.joy2 &= ~MN_INPUT_B; }
+static void imp_joy2_a_turbo_down() { imp.joy2_turbo_a = true; }
+static void imp_joy2_a_turbo_up() { imp.joy2_turbo_a = false; }
+static void imp_joy2_b_turbo_down() { imp.joy2_turbo_b = true; }
+static void imp_joy2_b_turbo_up() { imp.joy2_turbo_b = false; }
+
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
 {
   switch (event->type) {
@@ -410,258 +687,168 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     }
     case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
-        case SDLK_F1:
-          if (imp.help) {
-            imp.help = false;
-            imp.pause = false;
-          } else {
-            imp.help = true;
-            imp.pause = true;
-            imp_draw_help();
-          }
-          break;
-        case SDLK_F2:
-          SDL_DialogFileFilter filters[] = { { "iNES / NES 2.0 ROMs (*.nes)", "nes" }, { "All Files (*.*)", "*" } };
-          SDL_ShowOpenFileDialog(imp_file_dialog_cb, nullptr, imp.window, filters, 2, nullptr, false);
-          break;
-        case SDLK_F3:
-          if (imp.rom) {
-            mn_rom_set(imp.rom);
-          }
-          break;
+        case SDLK_F1: imp_help(); break;
+        case SDLK_F2: imp_open_file(); break;
+        case SDLK_F3: imp_reload_rom(); break;
         case SDLK_F4: mn_reset(); break;
         case SDLK_F5: imp_save(); break;
-        case SDLK_F6:
-          imp.auto_aspect = !imp.auto_aspect;
-          imp.dirty_config = true;
-          imp_update_size();
-          imp_popup(imp.auto_aspect ? "Aspect ON" : "Aspect OFF", 1);
-          break;
-        case SDLK_F7:
-          imp.overscan = !imp.overscan;
-          imp.dirty_config = true;
-          imp_update_size();
-          imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 1);
-          break;
+        case SDLK_F6: imp_toggle_aspect(); break;
+        case SDLK_F7: imp_toggle_overscan(); break;
         case SDLK_F8: imp_load(); break;
         case SDLK_F10: return SDL_APP_SUCCESS;
-        case SDLK_F11:
-          Uint32 flags = SDL_GetWindowFlags(imp.window);
-          bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
-          SDL_SetWindowFullscreen(imp.window, !is_fullscreen);
-          break;
-        case SDLK_F12:
-          SDL_Surface* screenshot = SDL_RenderReadPixels(imp.renderer, nullptr);
-          if (screenshot) {
-            char path[IMP_PATH_SIZE] = {};
-            char ext[32] = "";
-            uint num = 0;
-            SDL_PathInfo info;
-            while (true) {
-              SDL_snprintf(ext, sizeof(ext), ".%d.bmp", num);
-              imp_save_path(path, "Screenshots", ext);
-              if (!SDL_GetPathInfo(path, &info)) {
-                break;
-              }
-              ++num;
-            }
-            SDL_SaveBMP(screenshot, path);
-            SDL_DestroySurface(screenshot);
-          }
-          break;
-        case SDLK_EQUALS:
-          if (imp.scale < 8) {
-            ++imp.scale;
-            imp.dirty_config = true;
-          }
-          switch (imp.scale) {
-            case 1: imp_popup("Scale x1", 1); break;
-            case 2: imp_popup("Scale x2", 1); break;
-            case 3: imp_popup("Scale x3", 1); break;
-            case 4: imp_popup("Scale x4", 1); break;
-            case 5: imp_popup("Scale x5", 1); break;
-            case 6: imp_popup("Scale x6", 1); break;
-            case 7: imp_popup("Scale x7", 1); break;
-            case 8: imp_popup("Scale x8", 1); break;
-          }
-          imp_update_size();
-          break;
-        case SDLK_MINUS:
-          if (imp.scale > 1) {
-            --imp.scale;
-            imp.dirty_config = true;
-          }
-          switch (imp.scale) {
-            case 1: imp_popup("Scale x1", 1); break;
-            case 2: imp_popup("Scale x2", 1); break;
-            case 3: imp_popup("Scale x3", 1); break;
-            case 4: imp_popup("Scale x4", 1); break;
-            case 5: imp_popup("Scale x5", 1); break;
-            case 6: imp_popup("Scale x6", 1); break;
-            case 7: imp_popup("Scale x7", 1); break;
-            case 8: imp_popup("Scale x8", 1); break;
-          }
-          imp_update_size();
-          break;
-        case SDLK_ESCAPE:
-          if (imp.help) {
-            imp.help = false;
-            imp.pause = false;
-          } else {
-            imp.pause = !imp.pause;
-            if (imp.pause) {
-              imp_popup("Pause", 1);
-            }
-          }
-          break;
-        case SDLK_TAB:
-          imp.fast_forward = true;
-          imp_popup(">>", 0.5);
-          SDL_SetRenderVSync(imp.renderer, 0);
-          break;
-        case SDLK_GRAVE:
-          imp.fps = !imp.fps;
-          imp.dirty_config = true;
-          break;
+        case SDLK_F11: imp_toggle_fullscreen(); break;
+        case SDLK_F12: imp_screenshot(); break;
+        case SDLK_EQUALS: imp_upscale(); break;
+        case SDLK_MINUS: imp_downscale(); break;
+        case SDLK_ESCAPE: imp_toggle_pause(); break;
+        case SDLK_TAB: imp_fast_forward_on(); break;
+        case SDLK_GRAVE: imp_toggle_fps(); break;
         case SDLK_0:
-          imp.slot = 0;
-          imp_popup("Slot 0", 2);
-          break;
         case SDLK_1:
-          imp.slot = 1;
-          imp_popup("Slot 1", 2);
-          break;
         case SDLK_2:
-          imp.slot = 2;
-          imp_popup("Slot 2", 2);
-          break;
         case SDLK_3:
-          imp.slot = 3;
-          imp_popup("Slot 3", 2);
-          break;
         case SDLK_4:
-          imp.slot = 4;
-          imp_popup("Slot 4", 2);
-          break;
         case SDLK_5:
-          imp.slot = 5;
-          imp_popup("Slot 5", 2);
-          break;
         case SDLK_6:
-          imp.slot = 6;
-          imp_popup("Slot 6", 2);
-          break;
         case SDLK_7:
-          imp.slot = 7;
-          imp_popup("Slot 7", 2);
-          break;
         case SDLK_8:
-          imp.slot = 8;
-          imp_popup("Slot 8", 2);
-          break;
-        case SDLK_9:
-          imp.slot = 9;
-          imp_popup("Slot 9", 2);
-          break;
-        case SDLK_W:
-          imp.joy1_mask |= MN_INPUT_UP;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_DOWN) | MN_INPUT_UP;
-          break;
-        case SDLK_A:
-          imp.joy1_mask |= MN_INPUT_LEFT;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT;
-          break;
-        case SDLK_S:
-          imp.joy1_mask |= MN_INPUT_DOWN;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_UP) | MN_INPUT_DOWN;
-          break;
-        case SDLK_D:
-          imp.joy1_mask |= MN_INPUT_RIGHT;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT;
-          break;
-        case SDLK_J: imp.joy1 |= MN_INPUT_B; break;
-        case SDLK_K: imp.joy1 |= MN_INPUT_A; break;
-        case SDLK_U: imp.joy1_turbo_b = true; break;
-        case SDLK_I: imp.joy1_turbo_a = true; break;
-        case SDLK_SPACE:
-        case SDLK_F: imp.joy1 |= MN_INPUT_SELECT; break;
-        case SDLK_RETURN:
-        case SDLK_H: imp.joy1 |= MN_INPUT_START; break;
+        case SDLK_9: imp_slot(event->key.key - SDLK_0); break;
 
-        case SDLK_UP:
-          imp.joy2_mask |= MN_INPUT_UP;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_DOWN) | MN_INPUT_UP;
-          break;
-        case SDLK_LEFT:
-          imp.joy2_mask |= MN_INPUT_LEFT;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT;
-          break;
-        case SDLK_DOWN:
-          imp.joy2_mask |= MN_INPUT_DOWN;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_UP) | MN_INPUT_DOWN;
-          break;
-        case SDLK_RIGHT:
-          imp.joy2_mask |= MN_INPUT_RIGHT;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT;
-          break;
-        case SDLK_KP_1: imp.joy2 |= MN_INPUT_B; break;
-        case SDLK_KP_2: imp.joy2 |= MN_INPUT_A; break;
-        case SDLK_KP_4: imp.joy2_turbo_b = true; break;
-        case SDLK_KP_5: imp.joy2_turbo_a = true; break;
+        case SDLK_W: imp_joy1_dpad_up_down(); break;
+        case SDLK_A: imp_joy1_dpad_left_down(); break;
+        case SDLK_S: imp_joy1_dpad_down_down(); break;
+        case SDLK_D: imp_joy1_dpad_right_down(); break;
+        case SDLK_J: imp_joy1_b_down(); break;
+        case SDLK_K: imp_joy1_a_down(); break;
+        case SDLK_U: imp_joy1_b_turbo_down(); break;
+        case SDLK_I: imp_joy1_a_turbo_down(); break;
+        case SDLK_SPACE:
+        case SDLK_F: imp_joy1_select_down(); break;
+        case SDLK_RETURN:
+        case SDLK_H: imp_joy1_start_down(); break;
+
+        case SDLK_UP: imp_joy2_dpad_up_down(); break;
+        case SDLK_LEFT: imp_joy2_dpad_left_down(); break;
+        case SDLK_DOWN: imp_joy2_dpad_down_down(); break;
+        case SDLK_RIGHT: imp_joy2_dpad_right_down(); break;
+        case SDLK_KP_1: imp_joy2_b_down(); break;
+        case SDLK_KP_2: imp_joy2_a_down(); break;
+        case SDLK_KP_4: imp_joy2_b_turbo_down(); break;
+        case SDLK_KP_5: imp_joy2_a_turbo_down(); break;
       }
       break;
     case SDL_EVENT_KEY_UP:
       switch (event->key.key) {
-        case SDLK_TAB:
-          imp.fast_forward = false;
-          SDL_SetRenderVSync(imp.renderer, 1);
-          break;
+        case SDLK_TAB: imp_fast_forward_off(); break;
 
-        case SDLK_W:
-          imp.joy1_mask &= ~MN_INPUT_UP;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_UP) | (imp.joy1_mask & MN_INPUT_DOWN);
-          break;
-        case SDLK_A:
-          imp.joy1_mask &= ~MN_INPUT_LEFT;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_LEFT) | (imp.joy1_mask & MN_INPUT_RIGHT);
-          break;
-        case SDLK_S:
-          imp.joy1_mask &= ~MN_INPUT_DOWN;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_DOWN) | (imp.joy1_mask & MN_INPUT_UP);
-          break;
-        case SDLK_D:
-          imp.joy1_mask &= ~MN_INPUT_RIGHT;
-          imp.joy1 = (imp.joy1 & ~MN_INPUT_RIGHT) | (imp.joy1_mask & MN_INPUT_LEFT);
-          break;
-        case SDLK_J: imp.joy1 &= ~MN_INPUT_B; break;
-        case SDLK_K: imp.joy1 &= ~MN_INPUT_A; break;
-        case SDLK_U: imp.joy1_turbo_b = false; break;
-        case SDLK_I: imp.joy1_turbo_a = false; break;
+        case SDLK_W: imp_joy1_dpad_up_up(); break;
+        case SDLK_A: imp_joy1_dpad_left_up(); break;
+        case SDLK_S: imp_joy1_dpad_down_up(); break;
+        case SDLK_D: imp_joy1_dpad_right_up(); break;
+        case SDLK_J: imp_joy1_b_up(); break;
+        case SDLK_K: imp_joy1_a_up(); break;
+        case SDLK_U: imp_joy1_b_turbo_up(); break;
+        case SDLK_I: imp_joy1_a_turbo_up(); break;
         case SDLK_SPACE:
-        case SDLK_F: imp.joy1 &= ~MN_INPUT_SELECT; break;
+        case SDLK_F: imp_joy1_select_up(); break;
         case SDLK_RETURN:
-        case SDLK_H: imp.joy1 &= ~MN_INPUT_START; break;
+        case SDLK_H: imp_joy1_start_up(); break;
 
-        case SDLK_UP:
-          imp.joy2_mask &= ~MN_INPUT_UP;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_UP) | (imp.joy2_mask & MN_INPUT_DOWN);
-          break;
-        case SDLK_LEFT:
-          imp.joy2_mask &= ~MN_INPUT_LEFT;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | (imp.joy2_mask & MN_INPUT_RIGHT);
-          break;
-        case SDLK_DOWN:
-          imp.joy2_mask &= ~MN_INPUT_DOWN;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_DOWN) | (imp.joy2_mask & MN_INPUT_UP);
-          break;
-        case SDLK_RIGHT:
-          imp.joy2_mask &= ~MN_INPUT_RIGHT;
-          imp.joy2 = (imp.joy2 & ~MN_INPUT_RIGHT) | (imp.joy2_mask & MN_INPUT_LEFT);
-          break;
-        case SDLK_KP_1: imp.joy2 &= ~MN_INPUT_B; break;
-        case SDLK_KP_2: imp.joy2 &= ~MN_INPUT_A; break;
-        case SDLK_KP_4: imp.joy2_turbo_b = false; break;
-        case SDLK_KP_5: imp.joy2_turbo_a = false; break;
+        case SDLK_UP: imp_joy2_dpad_up_up(); break;
+        case SDLK_LEFT: imp_joy2_dpad_left_up(); break;
+        case SDLK_DOWN: imp_joy2_dpad_down_up(); break;
+        case SDLK_RIGHT: imp_joy2_dpad_right_up(); break;
+        case SDLK_KP_1: imp_joy2_b_up(); break;
+        case SDLK_KP_2: imp_joy2_a_up(); break;
+        case SDLK_KP_4: imp_joy2_b_turbo_up(); break;
+        case SDLK_KP_5: imp_joy2_a_turbo_up(); break;
+      }
+      break;
+    case SDL_EVENT_GAMEPAD_ADDED:
+      if (!imp.gamepad1) {
+        imp.gamepad1 = SDL_OpenGamepad(event->gdevice.which);
+        imp.gamepad_id1 = event->gdevice.which;
+      } else if (!imp.gamepad2) {
+        imp.gamepad2 = SDL_OpenGamepad(event->gdevice.which);
+        imp.gamepad_id2 = event->gdevice.which;
+      }
+      break;
+    case SDL_EVENT_GAMEPAD_REMOVED:
+      if (event->gdevice.which == imp.gamepad_id1) {
+        SDL_CloseGamepad(imp.gamepad1);
+        imp.gamepad1 = nullptr;
+        imp.gamepad_id1 = 0;
+      } else if (event->gdevice.which == imp.gamepad_id2) {
+        SDL_CloseGamepad(imp.gamepad2);
+        imp.gamepad2 = nullptr;
+        imp.gamepad_id2 = 0;
+      }
+      break;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+      switch (event->gbutton.button) {
+        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_fast_forward_on(); break;
+        case SDL_GAMEPAD_BUTTON_RIGHT_STICK: imp_slot_next(); break;
+        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: imp_save(); break;
+        case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: imp_load(); break;
+      }
+      if (event->gbutton.which == imp.gamepad_id1) {
+        switch (event->gbutton.button) {
+          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy1_dpad_up_down(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy1_dpad_left_down(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy1_dpad_down_down(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy1_dpad_right_down(); break;
+          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy1_b_down(); break;
+          case SDL_GAMEPAD_BUTTON_EAST: imp_joy1_a_down(); break;
+          case SDL_GAMEPAD_BUTTON_WEST: imp_joy1_b_turbo_down(); break;
+          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy1_a_turbo_down(); break;
+          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_down(); break;
+          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_down(); break;
+        }
+      } else if (event->gbutton.which == imp.gamepad_id2) {
+        switch (event->gbutton.button) {
+          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy2_dpad_up_down(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy2_dpad_left_down(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy2_dpad_down_down(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy2_dpad_right_down(); break;
+          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy2_b_down(); break;
+          case SDL_GAMEPAD_BUTTON_EAST: imp_joy2_a_down(); break;
+          case SDL_GAMEPAD_BUTTON_WEST: imp_joy2_b_turbo_down(); break;
+          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy2_a_turbo_down(); break;
+          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_down(); break;
+          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_down(); break;
+        }
+      }
+      break;
+    case SDL_EVENT_GAMEPAD_BUTTON_UP:
+      switch (event->gbutton.button) {
+        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_fast_forward_off(); break;
+      }
+      if (event->gbutton.which == imp.gamepad_id1) {
+        switch (event->gbutton.button) {
+          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy1_dpad_up_up(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy1_dpad_left_up(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy1_dpad_down_up(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy1_dpad_right_up(); break;
+          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy1_b_up(); break;
+          case SDL_GAMEPAD_BUTTON_EAST: imp_joy1_a_up(); break;
+          case SDL_GAMEPAD_BUTTON_WEST: imp_joy1_b_turbo_up(); break;
+          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy1_a_turbo_up(); break;
+          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_up(); break;
+          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_up(); break;
+        }
+      } else if (event->gbutton.which == imp.gamepad_id2) {
+        switch (event->gbutton.button) {
+          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy2_dpad_up_up(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy2_dpad_left_up(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy2_dpad_down_up(); break;
+          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy2_dpad_right_up(); break;
+          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy2_b_up(); break;
+          case SDL_GAMEPAD_BUTTON_EAST: imp_joy2_a_up(); break;
+          case SDL_GAMEPAD_BUTTON_WEST: imp_joy2_b_turbo_up(); break;
+          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy2_a_turbo_up(); break;
+          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_up(); break;
+          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_up(); break;
+        }
       }
       break;
   }
@@ -749,6 +936,12 @@ void SDL_AppQuit(void*, SDL_AppResult)
   imp_quit();
   imp_rom_unload();
   imp_save_config();
+  if (imp.gamepad1) {
+    SDL_CloseGamepad(imp.gamepad1);
+  }
+  if (imp.gamepad2) {
+    SDL_CloseGamepad(imp.gamepad2);
+  }
   SDL_DestroyTexture(imp.tex_out);
   SDL_DestroyTexture(imp.tex_font);
   SDL_DestroyRenderer(imp.renderer);
