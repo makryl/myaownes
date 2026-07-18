@@ -33,15 +33,16 @@ static struct
   Uint64 fps_time;
   Uint64 fps_count;
   Uint64 fps_value;
-  Uint64 auto_save_period;
   Uint64 auto_save_time;
+  Uint64 perf_freq;
+  uint auto_save_period;
+  uint scale;
+  uint turbo;
+  uint slot;
   u8 joy1_mask;
   u8 joy2_mask;
   u8 joy1;
   u8 joy2;
-  u8 scale;
-  u8 turbo;
-  u8 slot;
   bool pause;
   bool help;
   bool fps;
@@ -52,11 +53,13 @@ static struct
   bool joy1_turbo_b;
   bool joy2_turbo_a;
   bool joy2_turbo_b;
+  bool dirty_config;
   Rom rom;
   char rom_info[6][15];
   char rom_path[IMP_PATH_SIZE];
   char sram_path[IMP_PATH_SIZE];
   char save_dir[IMP_PATH_SIZE];
+  char config_path[IMP_PATH_SIZE];
 } imp;
 
 static void imp_draw_help()
@@ -110,13 +113,13 @@ static void imp_draw_popup()
 static void imp_popup(const char* text, float time)
 {
   imp.popup_text = text;
-  imp.popup_time = SDL_GetPerformanceFrequency() * time;
+  imp.popup_time = imp.perf_freq * time;
 }
 
 static void imp_update_frame_time()
 {
-  imp.max_frame_time = SDL_GetPerformanceFrequency() / 5;
-  imp.target_frame_time = SDL_GetPerformanceFrequency() / 60; // todo: PAL
+  imp.max_frame_time = imp.perf_freq / 5;
+  imp.target_frame_time = imp.perf_freq / 60; // todo: PAL
 }
 
 static void imp_update_size()
@@ -190,6 +193,59 @@ static void imp_rom_update()
   imp_update_frame_time();
 }
 
+static void imp_save_config()
+{
+  if (!imp.dirty_config) {
+    return;
+  }
+  FILE* f = fopen(imp.config_path, "w");
+  if (!f) {
+    return;
+  }
+  fprintf(f, "scale %u\n", imp.scale);
+  fprintf(f, "auto_aspect %u\n", imp.auto_aspect);
+  fprintf(f, "overscan %u\n", imp.overscan);
+  fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
+  fprintf(f, "fps %u\n", imp.fps);
+  fclose(f);
+  imp.dirty_config = false;
+}
+
+static void imp_load_config()
+{
+  imp.scale = 2;
+  imp.auto_aspect = true;
+  imp.overscan = true;
+  imp.auto_save_period = 60;
+  imp.fps = false;
+
+  FILE* f = fopen(imp.config_path, "r");
+  if (!f) {
+    return;
+  }
+  char key[32];
+  while (fscanf(f, "%31s", key) == 1) {
+    if (strcmp(key, "scale") == 0) {
+      fscanf(f, "%u", &imp.scale);
+    } else if (strcmp(key, "auto_aspect") == 0) {
+      uint val;
+      fscanf(f, "%u", &val);
+      imp.auto_aspect = val;
+    } else if (strcmp(key, "overscan") == 0) {
+      uint val;
+      fscanf(f, "%u", &val);
+      imp.overscan = val;
+    } else if (strcmp(key, "auto_save_period") == 0) {
+      fscanf(f, "%u", &imp.auto_save_period);
+    } else if (strcmp(key, "fps") == 0) {
+      uint val;
+      fscanf(f, "%u", &val);
+      imp.fps = val;
+    }
+  }
+  fclose(f);
+}
+
 static void imp_rom_unload()
 {
   if (imp.rom) {
@@ -233,25 +289,27 @@ static void imp_load()
   }
 }
 
+static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
+{
+  if (!files || !*files) {
+    return;
+  }
+  imp_rom_load(files[0]);
+  imp_rom_update();
+}
+
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 {
   SDL_Log("MyaowNES v%s", MN_VERSION);
-
   SDL_memset(&imp, 0, sizeof(imp));
-  imp.scale = 4;
-  imp.auto_aspect = true;
-  imp.overscan = true;
 
   for (int i = 0; i < argc; ++i) {
     if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
       SDL_Log("MyaowNES v" MN_VERSION);
       SDL_Log("Usage: myaownes [options] [file]");
       SDL_Log("Options:");
-      SDL_Log("-h, --help               Display help");
-      SDL_Log("-p, --path <path>        Save path");
-      SDL_Log("-s, --scale <n>          Viewport scale. Default: 4");
-      SDL_Log("-a, --no-aspect          Disable auto aspect ratio");
-      SDL_Log("-o, --no-overscan        Disable overscan");
+      SDL_Log("-h, --help         Display help");
+      SDL_Log("-p, --path <path>  Save path");
       return SDL_APP_SUCCESS;
     } else if (SDL_strcmp(argv[i], "-p") == 0 || SDL_strcmp(argv[i], "--path") == 0) {
       SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
@@ -259,12 +317,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
       if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
         SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
       }
-    } else if (SDL_strcmp(argv[i], "-s") == 0 || SDL_strcmp(argv[i], "--scale") == 0) {
-      imp.scale = SDL_strtol(argv[++i], nullptr, 10);
-    } else if (SDL_strcmp(argv[i], "-a") == 0 || SDL_strcmp(argv[i], "--no-aspect") == 0) {
-      imp.auto_aspect = false;
-    } else if (SDL_strcmp(argv[i], "-o") == 0 || SDL_strcmp(argv[i], "--no-overscan") == 0) {
-      imp.overscan = false;
     } else if (i > 0) {
       imp_rom_load(argv[i]);
     }
@@ -278,10 +330,17 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   SDL_Log("Save path: %s", imp.save_dir);
 
+  SDL_strlcat(imp.config_path, imp.save_dir, IMP_PATH_SIZE);
+  SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
+
+  imp_load_config();
+
   if (!SDL_Init(SDL_INIT_VIDEO)) {
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
+
+  imp.perf_freq = SDL_GetPerformanceFrequency();
 
   uint width;
   uint height;
@@ -299,22 +358,12 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
   SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
 
-  imp.auto_save_period = SDL_GetPerformanceFrequency() * 60;
   imp_update_frame_time();
 
   bool inited = imp_init();
   imp_rom_update();
 
   return inited ? SDL_APP_CONTINUE : SDL_APP_FAILURE;
-}
-
-static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
-{
-  if (!files || !*files) {
-    return;
-  }
-  imp_rom_load(files[0]);
-  imp_rom_update();
 }
 
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
@@ -354,11 +403,13 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_F5: imp_save(); break;
         case SDLK_F6:
           imp.auto_aspect = !imp.auto_aspect;
+          imp.dirty_config = true;
           imp_update_size();
           imp_popup(imp.auto_aspect ? "Aspect ON" : "Aspect OFF", 1);
           break;
         case SDLK_F7:
           imp.overscan = !imp.overscan;
+          imp.dirty_config = true;
           imp_update_size();
           imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 1);
           break;
@@ -373,6 +424,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_EQUALS:
           if (imp.scale < 8) {
             ++imp.scale;
+            imp.dirty_config = true;
           }
           switch (imp.scale) {
             case 1: imp_popup("Scale x1", 1); break;
@@ -389,6 +441,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_MINUS:
           if (imp.scale > 1) {
             --imp.scale;
+            imp.dirty_config = true;
           }
           switch (imp.scale) {
             case 1: imp_popup("Scale x1", 1); break;
@@ -418,7 +471,10 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           imp_popup(">>", 0.5);
           SDL_SetRenderVSync(imp.renderer, 0);
           break;
-        case SDLK_GRAVE: imp.fps = !imp.fps; break;
+        case SDLK_GRAVE:
+          imp.fps = !imp.fps;
+          imp.dirty_config = true;
+          break;
         case SDLK_0:
           imp.slot = 0;
           imp_popup("Slot 0", 2);
@@ -604,17 +660,18 @@ SDL_AppResult SDL_AppIterate(void*)
 
   if (imp.fps) {
     imp.fps_time += imp.real_frame_time;
-    if (imp.fps_time > SDL_GetPerformanceFrequency()) {
+    if (imp.fps_time > imp.perf_freq) {
       imp.fps_value = imp.fps_count;
-      imp.fps_time -= SDL_GetPerformanceFrequency();
+      imp.fps_time -= imp.perf_freq;
       imp.fps_count = 0;
     }
   }
 
   imp.auto_save_time += imp.real_frame_time;
-  if (imp.auto_save_time >= imp.auto_save_period) {
-    imp.auto_save_time -= imp.auto_save_period;
+  if (imp.auto_save_time >= imp.auto_save_period * imp.perf_freq) {
+    imp.auto_save_time -= imp.auto_save_period * imp.perf_freq;
     mn_rom_save(imp.sram_path);
+    imp_save_config();
   }
 
   SDL_UpdateTexture(imp.tex_out, nullptr, mn_output(), 256 * 4);
@@ -643,6 +700,7 @@ void SDL_AppQuit(void*, SDL_AppResult)
 {
   imp_quit();
   imp_rom_unload();
+  imp_save_config();
   SDL_DestroyTexture(imp.tex_out);
   SDL_DestroyTexture(imp.tex_font);
   SDL_DestroyRenderer(imp.renderer);

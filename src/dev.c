@@ -213,6 +213,11 @@ bool mn_rom_save(const char* sram_path)
     errorf("no active rom set\n");
     return false;
   }
+  if ((!rom->prg_ram || !rom->prg_ram_size || !rom->prg_has_battery)
+      && (!rom->chr_ram || !rom->chr_ram_size || !rom->chr_has_battery))
+  {
+    return true;
+  }
   FILE* f = fopen(sram_path, "wb");
   if (!f) {
     errorf("can not open for write %s: %s\n", sram_path, strerror(errno));
