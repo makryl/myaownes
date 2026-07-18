@@ -33,6 +33,8 @@ static struct
   Uint64 fps_time;
   Uint64 fps_count;
   Uint64 fps_value;
+  Uint64 auto_save_period;
+  Uint64 auto_save_time;
   u8 joy1_mask;
   u8 joy2_mask;
   u8 joy1;
@@ -297,6 +299,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
   SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
 
+  imp.auto_save_period = SDL_GetPerformanceFrequency() * 60;
   imp_update_frame_time();
 
   bool inited = imp_init();
@@ -606,6 +609,12 @@ SDL_AppResult SDL_AppIterate(void*)
       imp.fps_time -= SDL_GetPerformanceFrequency();
       imp.fps_count = 0;
     }
+  }
+
+  imp.auto_save_time += imp.real_frame_time;
+  if (imp.auto_save_time >= imp.auto_save_period) {
+    imp.auto_save_time -= imp.auto_save_period;
+    mn_rom_save(imp.sram_path);
   }
 
   SDL_UpdateTexture(imp.tex_out, nullptr, mn_output(), 256 * 4);
