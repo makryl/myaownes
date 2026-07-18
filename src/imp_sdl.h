@@ -131,6 +131,14 @@ static void imp_update_size()
   SDL_SetWindowSize(imp.window, width, height);
 }
 
+static void imp_ensure_dir(const char* subdir)
+{
+  char path[IMP_PATH_SIZE] = {};
+  SDL_strlcat(path, imp.save_dir, IMP_PATH_SIZE);
+  SDL_strlcat(path, subdir, IMP_PATH_SIZE);
+  SDL_CreateDirectory(path);
+}
+
 static const char* imp_rom_name()
 {
   const char* name = imp.rom_path;
@@ -142,11 +150,10 @@ static const char* imp_rom_name()
   return name;
 }
 
-static void imp_save_path(char* dst, const char* ext)
+static void imp_save_path(char* dst, const char* subdir, const char* ext)
 {
   dst[0] = 0;
-  SDL_strlcat(dst, imp.save_dir, IMP_PATH_SIZE);
-  SDL_strlcat(dst, imp_rom_name(), IMP_PATH_SIZE);
+  SDL_snprintf(dst, IMP_PATH_SIZE, "%s%s/%s", imp.save_dir, subdir, imp_rom_name());
   char* dot = SDL_strrchr(dst, '.');
   if (dot) {
     *dot = 0;
@@ -280,7 +287,7 @@ static void imp_rom_load(const char* path)
 {
   imp_rom_unload();
   SDL_strlcpy(imp.rom_path, path, IMP_PATH_SIZE);
-  imp_save_path(imp.sram_path, ".sav");
+  imp_save_path(imp.sram_path, "Saves", ".sav");
   imp.rom = mn_rom_load(imp.rom_path, imp.sram_path);
   if (imp.rom) {
     mn_rom_set(imp.rom);
@@ -292,7 +299,7 @@ static void imp_save()
   char qs_path[IMP_PATH_SIZE] = {};
   char ext[5] = ".qs0";
   ext[3] += imp.slot;
-  imp_save_path(qs_path, ext);
+  imp_save_path(qs_path, "Saves", ext);
   if (mn_save(qs_path)) {
     imp_popup("Saved", 2);
   }
@@ -303,7 +310,7 @@ static void imp_load()
   char qs_path[IMP_PATH_SIZE] = {};
   char ext[5] = ".qs0";
   ext[3] += imp.slot;
-  imp_save_path(qs_path, ext);
+  imp_save_path(qs_path, "Saves", ext);
   if (mn_load(qs_path)) {
     imp_popup("Loaded", 2);
   }
@@ -349,6 +356,9 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
 
   SDL_Log("Save path: %s", imp.save_dir);
+
+  imp_ensure_dir("Saves");
+  imp_ensure_dir("Screenshots");
 
   SDL_strlcat(imp.config_path, imp.save_dir, IMP_PATH_SIZE);
   SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
@@ -440,7 +450,25 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
           SDL_SetWindowFullscreen(imp.window, !is_fullscreen);
           break;
-        case SDLK_F12: break; // todo screenshot
+        case SDLK_F12:
+          SDL_Surface* screenshot = SDL_RenderReadPixels(imp.renderer, nullptr);
+          if (screenshot) {
+            char path[IMP_PATH_SIZE] = {};
+            char ext[32] = "";
+            uint num = 0;
+            SDL_PathInfo info;
+            while (true) {
+              SDL_snprintf(ext, sizeof(ext), ".%d.bmp", num);
+              imp_save_path(path, "Screenshots", ext);
+              if (!SDL_GetPathInfo(path, &info)) {
+                break;
+              }
+              ++num;
+            }
+            SDL_SaveBMP(screenshot, path);
+            SDL_DestroySurface(screenshot);
+          }
+          break;
         case SDLK_EQUALS:
           if (imp.scale < 8) {
             ++imp.scale;
