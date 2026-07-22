@@ -273,7 +273,7 @@ static void imp_load_config()
             u8 g = data[i * 3 + 1];
             u8 b = data[i * 3 + 2];
             palette[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
-            SDL_Log("0x%08X,", palette[i]);
+            // SDL_Log("0x%08X,", palette[i]);
           }
           mn_palette(palette);
         }

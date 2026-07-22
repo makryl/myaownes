@@ -25,10 +25,10 @@ static const uint apu_dmc_period_pal[16] = { 398, 354, 316, 298, 266, 236, 210, 
 
 // todo: Dendy 0 2 1 3?
 static const uint apu_duty_table[4][8] = {
-  { 0, 1, 0, 0, 0, 0, 0, 0 },
-  { 0, 1, 1, 0, 0, 0, 0, 0 },
-  { 0, 1, 1, 1, 1, 0, 0, 0 },
-  { 1, 0, 0, 1, 1, 1, 1, 1 },
+  { 0, 0, 0, 0, 0, 0, 0, 1 },
+  { 0, 0, 0, 0, 0, 0, 1, 1 },
+  { 0, 0, 0, 0, 1, 1, 1, 1 },
+  { 1, 1, 1, 1, 1, 1, 0, 0 },
 };
 
 static const uint apu_triangle_table[32] = { 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,  4,  3,  2,  1,  0,
@@ -57,8 +57,8 @@ MN_CACHE_LINE static struct Apu
   int mix_hp_y;
   int mix_lp_y;
   uint mix_accum;
+  uint mix_sample_count;
   uint dither;
-  uint sample_count;
   uint out_size;
 
   uint pulse1_len;
@@ -272,7 +272,7 @@ void apu_reset()
 {
   apu.time_current = 0;
   apu.mix_accum = 0;
-  apu.sample_count = 0;
+  apu.mix_sample_count = 0;
 
   apu.pulse1_len = 0;
   apu.pulse2_len = 0;
@@ -477,9 +477,7 @@ static void apu_pulse1_tick()
 {
   if (apu.pulse1_timer == 0) {
     apu.pulse1_timer = apu.pulse1_period;
-    if (apu.pulse1_len > 0 && apu.pulse1_period >= 8 && apu_pulse1_sweep() < 0x0800) {
-      apu.pulse1_phase = (apu.pulse1_phase - 1) & 7;
-    }
+    apu.pulse1_phase = (apu.pulse1_phase - 1) & 7;
   } else {
     --apu.pulse1_timer;
   }
@@ -489,9 +487,7 @@ static void apu_pulse2_tick()
 {
   if (apu.pulse2_timer == 0) {
     apu.pulse2_timer = apu.pulse2_period;
-    if (apu.pulse2_len > 0 && apu.pulse2_period >= 8 && apu_pulse2_sweep() < 0x0800) {
-      apu.pulse2_phase = (apu.pulse2_phase - 1) & 7;
-    }
+    apu.pulse2_phase = (apu.pulse2_phase - 1) & 7;
   } else {
     --apu.pulse2_timer;
   }
@@ -513,13 +509,11 @@ static void apu_noise_tick()
 {
   if (apu.noise_timer == 0) {
     apu.noise_timer = apu.noise_period_table[apu.noise_period];
-    if (apu.noise_len > 0) {
-      uint bit1 = apu.noise_shift & 1;
-      uint bit2 = (apu.noise_mode) ? ((apu.noise_shift >> 6) & 1) : ((apu.noise_shift >> 1) & 1);
-      uint feedback = bit1 ^ bit2;
-      apu.noise_shift >>= 1;
-      apu.noise_shift |= (feedback << 14);
-    }
+    uint bit1 = apu.noise_shift & 1;
+    uint bit2 = (apu.noise_mode) ? ((apu.noise_shift >> 6) & 1) : ((apu.noise_shift >> 1) & 1);
+    uint feedback = bit1 ^ bit2;
+    apu.noise_shift >>= 1;
+    apu.noise_shift |= (feedback << 14);
   } else {
     --apu.noise_timer;
   }
@@ -556,8 +550,8 @@ static void apu_dmc_tick()
           apu.dmc_val -= 2;
         }
       }
-      apu.dmc_out >>= 1;
     }
+    apu.dmc_out >>= 1;
     --apu.dmc_out_bit;
   }
   --apu.dmc_timer;
@@ -572,6 +566,9 @@ static void apu_dmc_tick()
 
 static uint apu_pulse1_sample()
 {
+  if (apu.pulse1_len == 0 || apu.pulse1_period < 8 || apu_pulse1_sweep() > 0x07FF) {
+    return 0;
+  }
   uint sample = apu_duty_table[apu.pulse1_duty][apu.pulse1_phase];
   uint volume = apu.pulse1_env_const ? apu.pulse1_env_vol : apu.pulse1_env_decay;
   return sample * volume;
@@ -579,6 +576,9 @@ static uint apu_pulse1_sample()
 
 static uint apu_pulse2_sample()
 {
+  if (apu.pulse2_len == 0 || apu.pulse2_period < 8 || apu_pulse2_sweep() > 0x07FF) {
+    return 0;
+  }
   uint sample = apu_duty_table[apu.pulse2_duty][apu.pulse2_phase];
   uint volume = apu.pulse2_env_const ? apu.pulse2_env_vol : apu.pulse2_env_decay;
   return sample * volume;
@@ -586,14 +586,17 @@ static uint apu_pulse2_sample()
 
 static uint apu_triangle_sample() { return apu_triangle_table[apu.triangle_phase]; }
 
-static int apu_noise_sample()
+static uint apu_noise_sample()
 {
-  uint sample = (apu.noise_shift & 1);
+  if (apu.noise_len == 0) {
+    return 0;
+  }
+  uint sample = !(apu.noise_shift & 1);
   uint volume = apu.noise_env_const ? apu.noise_env_vol : apu.noise_env_decay;
   return sample * volume;
 }
 
-static int apu_dmc_sample() { return apu.dmc_val; }
+static uint apu_dmc_sample() { return apu.dmc_val; }
 
 static void apu_update_len_get()
 {
@@ -751,13 +754,13 @@ static void apu_mix()
   uint pulse = apu.pulse_table[apu_pulse1_sample() + apu_pulse2_sample()];
   uint tnd = apu.tnd_table[apu_triangle_sample()][apu_noise_sample()][apu_dmc_sample()];
   apu.mix_accum += pulse + tnd;
-  ++apu.sample_count;
+  ++apu.mix_sample_count;
 
   apu.time_current += (1ULL << 32);
   if (apu.time_current >= apu.time_target) {
     if (apu.out_size <= 1024) {
       // mix_accum already has << 10 in table values, upsample to 15, reserve 1 bit for filters
-      int sample = (apu.mix_accum / apu.sample_count) << 5;
+      int sample = (apu.mix_accum / apu.mix_sample_count) << 5;
       sample = apu_mix_high_pass(sample);
       sample = apu_mix_low_pass(sample);
       sample = apu_mix_dither(sample);
@@ -765,7 +768,7 @@ static void apu_mix()
       apu.out_data[apu.out_size++] = sample;
     }
     apu.mix_accum = 0;
-    apu.sample_count = 0;
+    apu.mix_sample_count = 0;
     apu.time_current -= apu.time_target;
   }
 }

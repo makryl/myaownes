@@ -76,10 +76,10 @@ static TestParams tests[] = {
   { "branch_timing_tests/2.Backward_Branch.nes", { { 0x36D590FE, 15, 0x00, 0 } } }, //
   { "branch_timing_tests/3.Forward_Branch.nes", { { 0x6D0B3B45, 15, 0x00, 0 } } }, //
   { "cpu_dummy_reads/cpu_dummy_reads.nes", { { 0xA942A3CF, 47, 0x00, 0 } } }, //
-  { "cpu_dummy_writes/cpu_dummy_writes_oam.nes", { { 0x0DEC41EF, 331, 0x00, 0 } } }, //
-  { "cpu_dummy_writes/cpu_dummy_writes_ppumem.nes", { { 0x0124227E, 236, 0x00, 0 } } }, //
-  { "cpu_exec_space/test_cpu_exec_space_apu.nes", { { 0xC9890A61, 301, 0x00, 0 } } }, //
-  { "cpu_exec_space/test_cpu_exec_space_ppuio.nes", { { 0x31CA6229, 45, 0x00, 0 } } }, //
+  { "cpu_dummy_writes/cpu_dummy_writes_oam.nes", { { 0x5A174153, 331, 0x00, 0 } } }, //
+  { "cpu_dummy_writes/cpu_dummy_writes_ppumem.nes", { { 0xB9CCCCC0, 236, 0x00, 0 } } }, //
+  { "cpu_exec_space/test_cpu_exec_space_apu.nes", { { 0xACA38C28, 301, 0x00, 0 } } }, //
+  { "cpu_exec_space/test_cpu_exec_space_ppuio.nes", { { 0xB1E7AB62, 45, 0x00, 0 } } }, //
   { "cpu_interrupts_v2/rom_singles/1-cli_latency.nes", { { 0x04E43C3C, 14, 0x00, 0 } } }, //
   { "cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes", { { 0xEA3D7CA3, 105, 0x00, 0 } } }, //
   { "cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes", { { 0xB47C1A9A, 125, 0x00, 0 } } }, //
@@ -97,10 +97,10 @@ static TestParams tests[] = {
   { "dmc_dma_during_read4/read_write_2007.nes", { { 0xEB956420, 18, 0x00, 0 } } }, //
   // dmc_tests/* // todo
   // exram/mmc5exram.nes // todo
-  { "dpcmletterbox/dpcmletterbox.nes", { { 0x24EBFE89, 10, 0x00, 0 }, { 0xCAB5C165, 216, 0xA0, 0 } } }, //
-  { "full_palette/flowing_palette.nes", { { 0x426913E7, 30, 0, 0 } } }, //
-  { "full_palette/full_palette_smooth.nes", { { 0x0C972D06, 30, 0, 0 } } }, //
-  { "full_palette/full_palette.nes", { { 0x29F8072A, 30, 0, 0 } } }, //
+  { "dpcmletterbox/dpcmletterbox.nes", { { 0x4C78B1D5, 10, 0x00, 0 }, { 0x649F38C9, 216, 0xA0, 0 } } }, //
+  { "full_palette/flowing_palette.nes", { { 0xA23B43F2, 30, 0, 0 } } }, //
+  { "full_palette/full_palette_smooth.nes", { { 0xB9E4C8FC, 30, 0, 0 } } }, //
+  { "full_palette/full_palette.nes", { { 0xA6FC042E, 30, 0, 0 } } }, //
   { "instr_misc/rom_singles/01-abs_x_wrap.nes", { { 0x290CAB05, 11, 0x00, 0 } } }, //
   { "instr_misc/rom_singles/02-branch_wrap.nes", { { 0x54041E4A, 12, 0x00, 0 } } }, //
   { "instr_misc/rom_singles/03-dummy_reads.nes", { { 0x4D1E0C1E, 56, 0x00, 0 } } }, //
@@ -144,7 +144,7 @@ static TestParams tests[] = {
   { "instr_timing/rom_singles/1-instr_timing.nes", { { 0xE82C7F11, 1015, 0x00, 0 } } }, //
   { "instr_timing/rom_singles/2-branch_timing.nes", { { 0xB8E3CDB8, 140, 0x00, 0 } } }, //
   { "instr_timing/instr_timing.nes", { { 0x6F1BAA40, 1302, 0, 0 } } }, //
-  { "MMC1_A12/mmc1_a12.nes", { { 0x382587DA, 27, 0x00, 0 } } }, //
+  { "MMC1_A12/mmc1_a12.nes", { { 0xD19AE5E0, 27, 0x00, 0 } } }, //
   { "mmc3_irq_tests/1.Clocking.nes", { { 0xB732D83F, 18, 0x00, 0 } } }, //
   { "mmc3_irq_tests/2.Details.nes", { { 0x3E64BDBE, 23, 0x00, 0 } } }, //
   { "mmc3_irq_tests/3.A12_clocking.nes", { { 0x9A45FD7C, 18, 0x00, 0 } } }, //
@@ -180,17 +180,17 @@ static TestParams tests[] = {
   // { 0, 0, "nmi_sync/demo_pal.nes" }, // todo
   { "oam_read/oam_read.nes", { { 0xA35A57E7, 32, 0x00, 0 } } }, //
   { "oam_stress/oam_stress.nes", { { 0x596023FD, 1703, 0x00, 0 } } }, //
-  { "other/midscanline.nes", { { 0x42311477, 20, 0x00, 0 } } }, //
+  { "other/midscanline.nes", { { 0x80BE54D6, 20, 0x00, 0 } } }, //
   { "other/nestest.nes",
-    { { 0x9E8BA5E6, 10, 0, 0 },
-      { 0xDF7DA5E2, 20, 0x08, 0 },
-      { 0xD6C2CFA3, 10, 0x04, 0 },
-      { 0xDEA9BC46, 20, 0x08, 0 } } }, //
-  { "other/oam3.nes", { { 0x4419951C, 10, 0x00, 0 } } }, //
-  { "other/read2004.nes", { { 0x61473648, 20, 0x00, 0 } } }, //
+    { { 0x4E93D183, 10, 0, 0 },
+      { 0x99F7E65B, 20, 0x08, 0 },
+      { 0xCA5865AF, 10, 0x04, 0 },
+      { 0xB2B3DDF1, 20, 0x08, 0 } } }, //
+  { "other/oam3.nes", { { 0xA87189F4, 10, 0x00, 0 } } }, //
+  { "other/read2004.nes", { { 0x519A9E5E, 20, 0x00, 0 } } }, //
   // { 0, 0, "pal_apu_tests/*.nes" }, // todo
   { "ppu_open_bus/ppu_open_bus.nes", { { 0x3EB4ABE5, 250, 0x00, 0 } } }, //
-  { "ppu_read_buffer/test_ppu_read_buffer.nes", { { 0xD22D42A2, 1307, 0x00, 0 } } }, //
+  { "ppu_read_buffer/test_ppu_read_buffer.nes", { { 0x7239FBBE, 1307, 0x00, 0 } } }, //
   { "ppu_sprite_hit/rom_singles/01-basics.nes", { { 0xE654945D, 43, 0x00, 0 } } }, //
   { "ppu_sprite_hit/rom_singles/02-alignment.nes", { { 0x057D9670, 40, 0x00, 0 } } }, //
   { "ppu_sprite_hit/rom_singles/03-corners.nes", { { 0xEFCA28B7, 25, 0x00, 0 } } }, //
@@ -240,9 +240,9 @@ static TestParams tests[] = {
       { 0x3952B9C7, 10, 0x80, 0 },
       { 0x9C94D0D4, 10, 0, 0 } } }, //
   { "read_joy3/thorough_test.nes", { { 0x6ECF1F4B, 123, 0x00, 0 } } }, //
-  { "scanline/scanline.nes", { { 0xAF352CF3, 80, 0, 0 } } }, // area1 flickering pixels after line
-  { "scanline-a1/scanline.nes", { { 0xAF352CF3, 80, 0, 0 } } }, // same as above
-  { "scrolltest/scroll.nes", { { 0xCE84FBEF, 7, 0, 0 }, { 0x3DD88BC3, 0, 0xA0, 0 } } }, //
+  { "scanline/scanline.nes", { { 0x629D1349, 80, 0, 0 } } }, // area1 flickering pixels after line
+  { "scanline-a1/scanline.nes", { { 0x629D1349, 80, 0, 0 } } }, // same as above
+  { "scrolltest/scroll.nes", { { 0x95F078BC, 7, 0, 0 }, { 0xF0427789, 60, 0xA0, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes", { { 0xF4998922, 139, 0x00, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes", { { 0x42149129, 143, 0x00, 0 } } }, //
   { "sprite_hit_tests_2005.10.05/01.basics.nes", { { 0xAC38F2AD, 33, 0x00, 0 } } }, //
@@ -261,8 +261,8 @@ static TestParams tests[] = {
   { "sprite_overflow_tests/3.Timing.nes", { { 0x39154B5F, 128, 0x00, 0 } } }, //
   { "sprite_overflow_tests/4.Obscure.nes", { { 0xE2E52CC7, 22, 0x00, 0 } } }, //
   { "sprite_overflow_tests/5.Emulator.nes", { { 0xBAFE1B96, 13, 0x00, 0 } } }, //
-  { "stomper/smwstomp.nes", { { 0xD5AE626D, 244, 0, 0 } } }, //
-  // { 0, 0, "tvpassfail/tv.nes" }, // fail square
+  { "stomper/smwstomp.nes", { { 0x01E1CE90, 244, 0, 0 } } }, //
+  // { 0, 0, "tvpassfail/tv.nes" }, // aspect is in sdl impl
   { "vbl_nmi_timing/1.frame_basics.nes", { { 0x509B862D, 176, 0x00, 0 } } }, //
   { "vbl_nmi_timing/2.vbl_timing.nes", { { 0xACDD6906, 154, 0x00, 0 } } }, //
   { "vbl_nmi_timing/3.even_odd_frames.nes", { { 0xF2D9B6C9, 99, 0x00, 0 } } }, //
