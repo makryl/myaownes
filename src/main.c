@@ -13,6 +13,12 @@ bool imp_init()
   // test = "nes-test-roms/ppu_sprite_hit/rom_singles/09-timing.nes";
   // test = "nes-test-roms/ppu_sprite_overflow/rom_singles/03-timing.nes";
   // test = "nes-test-roms/tvpassfail/tv.nes";
+  // test = "nes-test-roms/apu_mixer/square.nes";
+  // test = "nes-test-roms/apu_mixer/triangle.nes";
+  // test = "nes-test-roms/apu_mixer/noise.nes";
+  // test = "nes-test-roms/apu_mixer/dmc.nes";
+  // test = "nes-test-roms/volume_tests/volumes.nes";
+  // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";

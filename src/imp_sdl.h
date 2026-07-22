@@ -24,6 +24,7 @@ static struct
   SDL_Texture* tex_font;
   SDL_Gamepad* gamepad1;
   SDL_Gamepad* gamepad2;
+  SDL_AudioStream* stream;
   SDL_JoystickID gamepad_id1;
   SDL_JoystickID gamepad_id2;
   SDL_FRect rect;
@@ -43,6 +44,7 @@ static struct
   uint scale;
   uint turbo;
   uint slot;
+  uint audio_buffer_size;
   u8 joy1_mask;
   u8 joy2_mask;
   u8 joy1;
@@ -202,8 +204,9 @@ static void imp_rom_update()
   SDL_snprintf(imp.rom_info[5], sizeof(imp.rom_info[0]), "CHR-%-4s %4dK", rom->chr_has_battery ? "SRAM" : "RAM",
                rom->chr_ram_size >> 10);
 
-  for (uint i = 0; i < 6; ++i) {
-    SDL_Log("%s", imp.rom_info[i]);
+  SDL_Log("Rom: %s", imp.rom_info[0]);
+  for (uint i = 1; i < 6; ++i) {
+    SDL_Log("     %s", imp.rom_info[i]);
   }
 
   imp_update_frame_time();
@@ -373,7 +376,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   imp_load_config();
 
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
@@ -389,6 +392,10 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
   SDL_SetRenderVSync(imp.renderer, 1);
 
+  int vsync;
+  SDL_GetRenderVSync(imp.renderer, &vsync);
+  SDL_Log("Video: %s %s", SDL_GetRendererName(imp.renderer), vsync ? "vsync" : "no-vsync");
+
   imp.tex_out = SDL_CreateTexture(imp.renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_TARGET, 256, 240);
   if (!imp.tex_out) {
     SDL_Log("%s", SDL_GetError());
@@ -397,6 +404,18 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
 
   imp_update_frame_time();
+
+  SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, MN_AUDIO_FREQ }; // todo: hz
+  imp.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+  SDL_ResumeAudioStreamDevice(imp.stream);
+  int samples;
+  SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(imp.stream), &spec, &samples);
+  SDL_Log("Audio: %d %s%d%s %d %d", spec.freq,
+          SDL_AUDIO_ISFLOAT(spec.format)      ? "F"
+          : SDL_AUDIO_ISUNSIGNED(spec.format) ? "U"
+                                              : "S",
+          SDL_AUDIO_BITSIZE(spec.format), SDL_AUDIO_ISBIGENDIAN(spec.format) ? "BE" : "LE", spec.channels, samples);
+  imp.audio_buffer_size = samples * sizeof(i16);
 
   bool inited = imp_init();
   imp_rom_update();
@@ -535,6 +554,7 @@ static void imp_fast_forward_off()
 {
   imp.fast_forward = false;
   SDL_SetRenderVSync(imp.renderer, 1);
+  SDL_SetAudioStreamFrequencyRatio(imp.stream, 1.0f);
 }
 
 static void imp_toggle_fps()
@@ -867,6 +887,7 @@ SDL_AppResult SDL_AppIterate(void*)
     game_diff = 0;
   } else if (imp.fast_forward) {
     game_diff = imp.target_frame_time;
+    SDL_SetAudioStreamFrequencyRatio(imp.stream, (float)imp.target_frame_time / imp.real_frame_time);
   }
   imp.curr_time += game_diff;
   imp.last_time = time;
@@ -889,8 +910,24 @@ SDL_AppResult SDL_AppIterate(void*)
         imp.joy2 ^= MN_INPUT_B;
       }
     }
+
     mn_frame(imp.joy1, imp.joy2);
+    uint audio_size = mn_audio_size();
+    uint queued_size = SDL_GetAudioStreamQueued(imp.stream);
+    uint target_size = imp.audio_buffer_size > audio_size ? imp.audio_buffer_size : audio_size;
+    if (queued_size < 3 * target_size) {
+      SDL_PutAudioStreamData(imp.stream, mn_audio_data(), audio_size);
+    }
     imp.curr_time -= imp.curr_time > imp.target_frame_time ? imp.target_frame_time : imp.curr_time;
+
+    if (queued_size + audio_size < target_size) {
+      if (imp.fps) {
+        ++imp.fps_count;
+      }
+      mn_frame(imp.joy1, imp.joy2);
+      SDL_PutAudioStreamData(imp.stream, mn_audio_data(), mn_audio_size());
+      imp.curr_time -= imp.curr_time > imp.target_frame_time ? imp.target_frame_time : imp.curr_time;
+    }
   }
 
   if (imp.fps) {
@@ -942,6 +979,7 @@ void SDL_AppQuit(void*, SDL_AppResult)
   if (imp.gamepad2) {
     SDL_CloseGamepad(imp.gamepad2);
   }
+  SDL_DestroyAudioStream(imp.stream);
   SDL_DestroyTexture(imp.tex_out);
   SDL_DestroyTexture(imp.tex_font);
   SDL_DestroyRenderer(imp.renderer);

@@ -66,6 +66,7 @@ void mn_frame(u8 joy1, u8 joy2)
     return;
   }
   cpu_input(joy1, joy2);
+  apu_reset_out();
   bool vblank_before;
   do {
     vblank_before = ppu_vblank();
