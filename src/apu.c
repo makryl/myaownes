@@ -510,13 +510,12 @@ static void apu_noise_tick()
   if (apu.noise_timer == 0) {
     apu.noise_timer = apu.noise_period_table[apu.noise_period];
     uint bit1 = apu.noise_shift & 1;
-    uint bit2 = (apu.noise_mode) ? ((apu.noise_shift >> 6) & 1) : ((apu.noise_shift >> 1) & 1);
+    uint bit2 = apu.noise_mode ? ((apu.noise_shift >> 6) & 1) : ((apu.noise_shift >> 1) & 1);
     uint feedback = bit1 ^ bit2;
     apu.noise_shift >>= 1;
     apu.noise_shift |= (feedback << 14);
-  } else {
-    --apu.noise_timer;
   }
+  --apu.noise_timer;
 }
 
 static void apu_dmc_tick()
@@ -788,8 +787,8 @@ void apu_tick()
   if (apu.cyc & 1) {
     apu_pulse1_tick();
     apu_pulse2_tick();
-    apu_noise_tick();
   }
+  apu_noise_tick();
   apu_triangle_tick();
   apu_dmc_tick();
   apu_mix();
