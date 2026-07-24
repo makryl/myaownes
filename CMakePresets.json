@@ -32,7 +32,8 @@
       "hidden": true,
       "inherits": ["Base"],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": true
       }
     },
     {

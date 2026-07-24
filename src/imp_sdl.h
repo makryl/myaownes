@@ -45,6 +45,7 @@ static struct
   uint turbo;
   uint slot;
   uint audio_buffer_size;
+  uint fast_forward_scale;
   u8 joy1_mask;
   u8 joy2_mask;
   u8 joy1;
@@ -129,7 +130,7 @@ static void imp_popup(const char* text, float time)
 
 static void imp_update_frame_time()
 {
-  imp.max_frame_time = imp.perf_freq / 5;
+  imp.max_frame_time = imp.perf_freq / 20;
   imp.target_frame_time = imp.perf_freq / 60; // todo: PAL
 }
 
@@ -226,6 +227,7 @@ static void imp_save_config()
   fprintf(f, "overscan %u\n", imp.overscan);
   fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
   fprintf(f, "fps %u\n", imp.fps);
+  fprintf(f, "fast_forward_scale %u\n", imp.fps);
   fprintf(f, "palette %s\n", imp.palette_path);
   fclose(f);
   imp.dirty_config = false;
@@ -238,6 +240,7 @@ static void imp_load_config()
   imp.overscan = true;
   imp.auto_save_period = 60;
   imp.fps = false;
+  imp.fast_forward_scale = 4;
 
   FILE* f = fopen(imp.config_path, "r");
   if (!f) {
@@ -261,6 +264,8 @@ static void imp_load_config()
       uint val;
       fscanf(f, "%u", &val);
       imp.fps = val;
+    } else if (strcmp(key, "fast_forward_scale") == 0) {
+      fscanf(f, "%u", &imp.fast_forward_scale);
     } else if (strcmp(key, "palette") == 0) {
       fscanf(f, " %[^\n]", imp.palette_path);
       if (strlen(imp.palette_path)) {
@@ -375,6 +380,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
 
   imp_load_config();
+
+  SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
     SDL_Log("%s", SDL_GetError());
@@ -546,14 +553,12 @@ static void imp_toggle_pause()
 static void imp_fast_forward_on()
 {
   imp.fast_forward = true;
-  imp_popup(">>", 0.5);
-  SDL_SetRenderVSync(imp.renderer, 0);
+  SDL_SetAudioStreamFrequencyRatio(imp.stream, imp.fast_forward_scale);
 }
 
 static void imp_fast_forward_off()
 {
   imp.fast_forward = false;
-  SDL_SetRenderVSync(imp.renderer, 1);
   SDL_SetAudioStreamFrequencyRatio(imp.stream, 1.0f);
 }
 
@@ -806,8 +811,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
       switch (event->gbutton.button) {
-        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_fast_forward_on(); break;
-        case SDL_GAMEPAD_BUTTON_RIGHT_STICK: imp_slot_next(); break;
+        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_slot_next(); break;
+        case SDL_GAMEPAD_BUTTON_RIGHT_STICK: imp_fast_forward_on(); break;
         case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: imp_save(); break;
         case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: imp_load(); break;
       }
@@ -882,17 +887,24 @@ SDL_AppResult SDL_AppIterate(void*)
     imp.last_time = time;
   }
   imp.real_frame_time = time - imp.last_time;
-  Uint64 game_diff = imp.real_frame_time;
-  if (imp.pause) {
-    game_diff = 0;
-  } else if (imp.fast_forward) {
-    game_diff = imp.target_frame_time;
-    SDL_SetAudioStreamFrequencyRatio(imp.stream, (float)imp.target_frame_time / imp.real_frame_time);
-  }
-  imp.curr_time += game_diff;
   imp.last_time = time;
 
-  if (imp.curr_time >= imp.target_frame_time) {
+  Uint64 game_frame_time = imp.real_frame_time;
+  if (game_frame_time > imp.max_frame_time) {
+    game_frame_time = imp.max_frame_time;
+  }
+  if (imp.pause) {
+    game_frame_time = 0;
+  } else if (imp.fast_forward) {
+    game_frame_time *= imp.fast_forward_scale;
+    imp_popup(">>", 0.5);
+  }
+  imp.curr_time += game_frame_time;
+
+  uint queued_size = SDL_GetAudioStreamQueued(imp.stream);
+
+  uint limit = imp.fast_forward ? imp.fast_forward_scale : 2;
+  for (uint i = 0; i < limit && (imp.curr_time >= imp.target_frame_time || queued_size < imp.audio_buffer_size); ++i) {
     if (imp.fps) {
       ++imp.fps_count;
     }
@@ -912,21 +924,13 @@ SDL_AppResult SDL_AppIterate(void*)
     }
 
     mn_frame(imp.joy1, imp.joy2);
+    imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
+
     uint audio_size = mn_audio_size();
-    uint queued_size = SDL_GetAudioStreamQueued(imp.stream);
     uint target_size = imp.audio_buffer_size > audio_size ? imp.audio_buffer_size : audio_size;
     if (queued_size < 3 * target_size) {
       SDL_PutAudioStreamData(imp.stream, mn_audio_data(), audio_size);
-    }
-    imp.curr_time -= imp.curr_time > imp.target_frame_time ? imp.target_frame_time : imp.curr_time;
-
-    if (queued_size + audio_size < target_size) {
-      if (imp.fps) {
-        ++imp.fps_count;
-      }
-      mn_frame(imp.joy1, imp.joy2);
-      SDL_PutAudioStreamData(imp.stream, mn_audio_data(), mn_audio_size());
-      imp.curr_time -= imp.curr_time > imp.target_frame_time ? imp.target_frame_time : imp.curr_time;
+      queued_size += audio_size;
     }
   }
 
@@ -955,7 +959,7 @@ SDL_AppResult SDL_AppIterate(void*)
   }
   if (imp.fps) {
     SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0x88, 0xFF, 0xFF);
-    SDL_RenderDebugTextFormat(imp.renderer, 256 - 18 - 4 * 8, 18, "%4d", (int)imp.fps_value);
+    SDL_RenderDebugTextFormat(imp.renderer, 256 - 0 - 4 * 8, 12, "%4d", (int)imp.fps_value);
   }
 
   SDL_SetRenderTarget(imp.renderer, nullptr);
