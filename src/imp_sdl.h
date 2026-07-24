@@ -28,10 +28,10 @@ static struct
   SDL_JoystickID gamepad_id1;
   SDL_JoystickID gamepad_id2;
   SDL_FRect rect;
+  SDL_FRect ui_offset;
   const char* popup_text;
   Uint64 last_time;
   Uint64 curr_time;
-  Uint64 max_frame_time;
   Uint64 target_frame_time;
   Uint64 real_frame_time;
   Uint64 popup_time;
@@ -76,50 +76,50 @@ static const char* const imp_save_slot_labels[10] = {
 
 static void imp_draw_help()
 {
-  SDL_FRect fill = { 0, 0, 256, 240 };
+  float x = imp.ui_offset.x;
+  float y = imp.ui_offset.y;
+  SDL_FRect fill = { x, y, 256, 240 };
   SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xC0);
   SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
   SDL_RenderFillRect(imp.renderer, &fill);
 
   u8 i = 2;
-  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0x80, 0xFF, 0xFF);
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Help        F1        MyaowNES ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Open        F2          v" MN_VERSION " ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Reload      F3                 ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Reset       F4    /\\____/\\     ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Quick save  F5                 ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Aspect      F6   |  o..o  |    ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Overscan    F7   |-[ + oo]|    ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Quick load  F8   |        |    ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, "                                ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Quit       F10   [_m____m_]    ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Fullscreen F11                 ");
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Screenshot F12  %s ", imp.rom_info[0]);
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Save slot  0-9  %s ", imp.rom_info[1]);
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " F-forward  Tab  %s ", imp.rom_info[2]);
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Pause      Esc  %s ", imp.rom_info[3]);
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " Scale      -/+  %s ", imp.rom_info[4]);
-  SDL_RenderDebugTextFormat(imp.renderer, 0, 8 * i++, " FPS          `  %s ", imp.rom_info[5]);
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, "                                ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, "           Joy1    Joy2          ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " D-pad     WASD  Arrows          ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " B            J   NUM_1          ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " A            K   NUM_2          ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " B turbo      U   NUM_4          ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " A turbo      I   NUM_5          ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Start        H   Enter          ");
-  SDL_RenderDebugText(imp.renderer, 0, 8 * i++, " Select       F   Space          ");
+  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Help        F1        MyaowNES ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Open        F2          v" MN_VERSION " ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Reload      F3                 ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Reset       F4    /\\____/\\     ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick save  F5                 ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Aspect      F6   |  o..o  |    ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Overscan    F7   |-[ + oo]|    ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick load  F8   |        |    ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, "                                ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quit       F10   [_m____m_]    ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Fullscreen F11                 ");
+  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Screenshot F12  %s ", imp.rom_info[0]);
+  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Save slot  0-9  %s ", imp.rom_info[1]);
+  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " F-forward  Tab  %s ", imp.rom_info[2]);
+  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Pause      Esc  %s ", imp.rom_info[3]);
+  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Scale      -/+  %s ", imp.rom_info[4]);
+  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " FPS          `  %s ", imp.rom_info[5]);
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, "                                ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, "           Joy1    Joy2          ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " D-pad     WASD  Arrows          ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " B            J   NUM_1          ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " A            K   NUM_2          ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " B turbo      U   NUM_4          ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " A turbo      I   NUM_5          ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Start        H   Enter          ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Select       F   Space          ");
 }
 
 static void imp_draw_popup()
 {
   imp.popup_time -= imp.popup_time > imp.real_frame_time ? imp.real_frame_time : imp.popup_time;
-  SDL_FRect fill = { 16, 16, SDL_strlen(imp.popup_text) * 8 + 3, 11 };
-  SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xC0);
-  SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
-  SDL_RenderFillRect(imp.renderer, &fill);
-  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0x88, 0xFF, 0xFF);
-  SDL_RenderDebugText(imp.renderer, 18, 18, imp.popup_text);
+  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0, 0x80, 0xFF);
+  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 2, imp.ui_offset.y + 13, imp.popup_text);
+  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
+  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 1, imp.ui_offset.y + 12, imp.popup_text);
 }
 
 static void imp_popup(const char* text, float time)
@@ -130,7 +130,6 @@ static void imp_popup(const char* text, float time)
 
 static void imp_update_frame_time()
 {
-  imp.max_frame_time = imp.perf_freq / 20;
   imp.target_frame_time = imp.perf_freq / 60; // todo: PAL
 }
 
@@ -227,7 +226,7 @@ static void imp_save_config()
   fprintf(f, "overscan %u\n", imp.overscan);
   fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
   fprintf(f, "fps %u\n", imp.fps);
-  fprintf(f, "fast_forward_scale %u\n", imp.fps);
+  fprintf(f, "fast_forward_scale %u\n", imp.fast_forward_scale);
   fprintf(f, "palette %s\n", imp.palette_path);
   fclose(f);
   imp.dirty_config = false;
@@ -382,6 +381,11 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   imp_load_config();
 
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+#ifdef __EMSCRIPTEN__
+  SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
+#else
+  SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
+#endif
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
     SDL_Log("%s", SDL_GetError());
@@ -393,17 +397,17 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   uint width;
   uint height;
   mn_output_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
+
   if (!SDL_CreateWindowAndRenderer("MyaowNES", width, height, SDL_WINDOW_RESIZABLE, &imp.window, &imp.renderer)) {
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
-  SDL_SetRenderVSync(imp.renderer, 1);
 
   int vsync;
   SDL_GetRenderVSync(imp.renderer, &vsync);
   SDL_Log("Video: %s %s", SDL_GetRendererName(imp.renderer), vsync ? "vsync" : "no-vsync");
 
-  imp.tex_out = SDL_CreateTexture(imp.renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_TARGET, 256, 240);
+  imp.tex_out = SDL_CreateTexture(imp.renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
   if (!imp.tex_out) {
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
@@ -412,7 +416,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   imp_update_frame_time();
 
-  SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, MN_AUDIO_FREQ }; // todo: hz
+  SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, MN_AUDIO_FREQ };
   imp.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
   SDL_ResumeAudioStreamDevice(imp.stream);
   int samples;
@@ -698,18 +702,24 @@ static void imp_joy2_a_turbo_up() { imp.joy2_turbo_a = false; }
 static void imp_joy2_b_turbo_down() { imp.joy2_turbo_b = true; }
 static void imp_joy2_b_turbo_up() { imp.joy2_turbo_b = false; }
 
+static void imp_window_resize()
+{
+  int width;
+  int height;
+  SDL_GetWindowSizeInPixels(imp.window, &width, &height);
+  mn_output_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
+  imp.ui_offset.w = imp.rect.w / 256;
+  imp.ui_offset.h = imp.rect.h / 240;
+  imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
+  imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
+}
+
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
 {
   switch (event->type) {
     case SDL_EVENT_QUIT: return SDL_APP_SUCCESS;
     case SDL_EVENT_WINDOW_RESIZED:
-    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
-      int width;
-      int height;
-      SDL_GetWindowSizeInPixels(imp.window, &width, &height);
-      mn_output_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
-      break;
-    }
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: imp_window_resize(); break;
     case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
         case SDLK_F1: imp_help(); break;
@@ -890,9 +900,6 @@ SDL_AppResult SDL_AppIterate(void*)
   imp.last_time = time;
 
   Uint64 game_frame_time = imp.real_frame_time;
-  if (game_frame_time > imp.max_frame_time) {
-    game_frame_time = imp.max_frame_time;
-  }
   if (imp.pause) {
     game_frame_time = 0;
   } else if (imp.fast_forward) {
@@ -901,10 +908,14 @@ SDL_AppResult SDL_AppIterate(void*)
   }
   imp.curr_time += game_frame_time;
 
+  uint max_time = imp.target_frame_time * ((imp.fast_forward ? imp.fast_forward_scale : 1) + 1);
+  if (imp.curr_time > max_time) {
+    imp.curr_time = max_time;
+  }
+
   uint queued_size = SDL_GetAudioStreamQueued(imp.stream);
 
-  uint limit = imp.fast_forward ? imp.fast_forward_scale : 2;
-  for (uint i = 0; i < limit && (imp.curr_time >= imp.target_frame_time || queued_size < imp.audio_buffer_size); ++i) {
+  while (!imp.pause && (imp.curr_time >= imp.target_frame_time || queued_size < imp.audio_buffer_size)) {
     if (imp.fps) {
       ++imp.fps_count;
     }
@@ -950,23 +961,28 @@ SDL_AppResult SDL_AppIterate(void*)
     imp_save_config();
   }
 
+  SDL_SetRenderScale(imp.renderer, 1, 1);
+  SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xFF);
+  SDL_RenderClear(imp.renderer);
+
   SDL_UpdateTexture(imp.tex_out, nullptr, mn_output(), 256 * 4);
-  SDL_SetRenderTarget(imp.renderer, imp.tex_out);
+  SDL_RenderTexture(imp.renderer, imp.tex_out, nullptr, &imp.rect);
+
+  SDL_SetRenderScale(imp.renderer, imp.ui_offset.w, imp.ui_offset.h);
   if (imp.help) {
     imp_draw_help();
   } else if (imp.popup_time > 0) {
     imp_draw_popup();
   }
   if (imp.fps) {
-    SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0x88, 0xFF, 0xFF);
-    SDL_RenderDebugTextFormat(imp.renderer, 256 - 0 - 4 * 8, 12, "%4d", (int)imp.fps_value);
+    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0, 0x80, 0xFF);
+    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8, imp.ui_offset.y + 13, "%4d",
+                              (int)imp.fps_value);
+    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
+    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8 - 1, imp.ui_offset.y + 12, "%4d",
+                              (int)imp.fps_value);
   }
 
-  SDL_SetRenderTarget(imp.renderer, nullptr);
-  SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xFF);
-  SDL_RenderClear(imp.renderer);
-
-  SDL_RenderTexture(imp.renderer, imp.tex_out, nullptr, &imp.rect);
   SDL_RenderPresent(imp.renderer);
 
   return SDL_APP_CONTINUE;

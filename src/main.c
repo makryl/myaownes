@@ -17,6 +17,10 @@ bool imp_init()
   // test = "nes-test-roms/apu_mixer/triangle.nes";
   // test = "nes-test-roms/apu_mixer/noise.nes";
   // test = "nes-test-roms/apu_mixer/dmc.nes";
+  // test = "nes-test-roms/dmc_tests/buffer_retained.nes";
+  // test = "nes-test-roms/dmc_tests/latency.nes";
+  // test = "nes-test-roms/dmc_tests/status_irq.nes";
+  // test = "nes-test-roms/dmc_tests/status.nes";
   // test = "nes-test-roms/volume_tests/volumes.nes";
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
 

@@ -36,10 +36,6 @@ typedef struct
 } TestParams;
 
 static TestParams tests[] = {
-  // { 0, 0, "apu_mixer/dmc.nes" }, // todo
-  // { 0, 0, "apu_mixer/noise.nes" }, // todo
-  // { 0, 0, "apu_mixer/square.nes" }, // todo
-  // { 0, 0, "apu_mixer/triangle.nes" }, // todo
   { "apu_reset/4015_cleared.nes", { { 0x03085F30, 20, 0, 0 }, { 0x68020FC4, 20, 0, 1 } } }, //
   { "apu_reset/4017_timing.nes", { { 0x65F6087F, 20, 0, 0 }, { 0x499911CA, 20, 0, 1 } } }, //
   { "apu_reset/4017_written.nes", { { 0x03085F30, 20, 0, 0 }, { 0x8BECFD90, 20, 0, 1 }, { 0x2421E3A9, 20, 0, 1 } } },
@@ -95,7 +91,6 @@ static TestParams tests[] = {
   { "dmc_dma_during_read4/dma_4016_read.nes", { { 0x441C2F34, 16, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/double_2007_read.nes", { { 0x80B4A112, 16, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/read_write_2007.nes", { { 0xEB956420, 18, 0x00, 0 } } }, //
-  // dmc_tests/* // todo
   // exram/mmc5exram.nes // todo
   { "dpcmletterbox/dpcmletterbox.nes", { { 0x4C78B1D5, 10, 0x00, 0 }, { 0x649F38C9, 216, 0xA0, 0 } } }, //
   { "full_palette/flowing_palette.nes", { { 0xA23B43F2, 30, 0, 0 } } }, //
