@@ -228,9 +228,14 @@ static uint apu_pulse2_sweep()
   }
 }
 
+static bool apu_sweep_mute(uint current_period, uint target_period)
+{
+  return current_period < 8 || target_period > 0x07FF;
+}
+
 static uint apu_pulse1_sample()
 {
-  if (apu.pulse1_len == 0 || apu.pulse1_period < 8 || apu_pulse1_sweep() > 0x07FF) {
+  if (apu.pulse1_len == 0 || apu_sweep_mute(apu.pulse1_period, apu_pulse1_sweep())) {
     return 0;
   }
   uint sample = apu_duty_table[apu.pulse1_duty][apu.pulse1_phase];
@@ -240,7 +245,7 @@ static uint apu_pulse1_sample()
 
 static uint apu_pulse2_sample()
 {
-  if (apu.pulse2_len == 0 || apu.pulse2_period < 8 || apu_pulse2_sweep() > 0x07FF) {
+  if (apu.pulse2_len == 0 || apu_sweep_mute(apu.pulse2_period, apu_pulse2_sweep())) {
     return 0;
   }
   uint sample = apu_duty_table[apu.pulse2_duty][apu.pulse2_phase];
@@ -632,8 +637,11 @@ static void apu_update_len_put()
     --apu.noise_len;
   }
 
-  if (apu.pulse1_sweep_timer == 0 && apu.pulse1_sweep_enabled && apu.pulse1_sweep_shift > 0) {
-    apu.pulse1_period = apu_pulse1_sweep();
+  uint pulse1_sweep = apu_pulse1_sweep();
+  if (apu.pulse1_sweep_timer == 0 && apu.pulse1_sweep_enabled && apu.pulse1_sweep_shift > 0
+      && !apu_sweep_mute(apu.pulse1_period, pulse1_sweep))
+  {
+    apu.pulse1_period = pulse1_sweep;
   }
   if (apu.pulse1_sweep_timer == 0 || apu.pulse1_sweep_reload) {
     apu.pulse1_sweep_timer = apu.pulse1_sweep_period;
@@ -642,8 +650,11 @@ static void apu_update_len_put()
     --apu.pulse1_sweep_timer;
   }
 
-  if (apu.pulse2_sweep_timer == 0 && apu.pulse2_sweep_enabled && apu.pulse2_sweep_shift > 0) {
-    apu.pulse2_period = apu_pulse2_sweep();
+  uint pulse2_sweep = apu_pulse2_sweep();
+  if (apu.pulse2_sweep_timer == 0 && apu.pulse2_sweep_enabled && apu.pulse2_sweep_shift > 0
+      && !apu_sweep_mute(apu.pulse2_period, pulse2_sweep))
+  {
+    apu.pulse2_period = pulse2_sweep;
   }
   if (apu.pulse2_sweep_timer == 0 || apu.pulse2_sweep_reload) {
     apu.pulse2_sweep_timer = apu.pulse2_sweep_period;
