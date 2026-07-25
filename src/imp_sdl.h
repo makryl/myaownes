@@ -128,7 +128,10 @@ static void imp_popup(const char* text, float time)
   imp.popup_time = imp.perf_freq * time;
 }
 
-static void imp_update_frame_time() { imp.target_frame_time = imp.perf_freq / ((imp.rom->tv == MN_TV_NTSC) ? 60 : 50); }
+static void imp_update_frame_time()
+{
+  imp.target_frame_time = imp.perf_freq / ((imp.rom && imp.rom->tv == MN_TV_NTSC) ? 60 : 50);
+}
 
 static void imp_update_size()
 {
@@ -410,8 +413,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
     return SDL_APP_FAILURE;
   }
   SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
-
-  imp_update_frame_time();
 
   SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, MN_AUDIO_FREQ };
   imp.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
