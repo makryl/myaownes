@@ -15,6 +15,28 @@ enum : u8
   APU_STATUS_DMC_IRQ = (1 << 7),
 };
 
+enum
+{
+  APU_STEP1_NTSC = 3728 * 2,
+  APU_STEP2_NTSC = 7456 * 2,
+  APU_STEP3_NTSC = 11185 * 2,
+  APU_STEP4_NTSC = 14914 * 2,
+  APU_STEP5_NTSC = 18640 * 2,
+
+  APU_STEP1_PAL = 4156 * 2,
+  APU_STEP2_PAL = 8313 * 2,
+  APU_STEP3_PAL = 12469 * 2,
+  APU_STEP4_PAL = 16626 * 2,
+  APU_STEP5_PAL = 20782 * 2,
+};
+
+enum
+{
+  APU_FREQ_NTSC = 1789773,
+  APU_FREQ_PAL = 1662607,
+  APU_FREQ_DENDY = 1773448,
+};
+
 static const uint apu_channel_len[32] = { 10, 254, 20, 2,  40, 4,  80, 6,  160, 8,  60, 10, 14, 12, 26, 14,
                                           12, 16,  24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
 
@@ -279,35 +301,38 @@ void apu_power()
   memset(&apu, 0, sizeof(apu));
 
   Rom rom = mn_rom_get();
-
-  if (rom->ntsc) {
-    apu.step1 = 3728 * 2;
-    apu.step2 = 7456 * 2;
-    apu.step3 = 11185 * 2;
-    apu.step4 = 14914 * 2;
-    apu.step5 = 18640 * 2;
-  } else {
-    apu.step1 = 4156 * 2;
-    apu.step2 = 8313 * 2;
-    apu.step3 = 12469 * 2;
-    apu.step4 = 16626 * 2;
-    apu.step5 = 20782 * 2;
-  }
-
-  if (rom->ntsc) {
-    apu.time_target = (1789773ULL << 32) / MN_AUDIO_FREQ;
-  } else if (rom->pal) {
-    apu.time_target = (1662607ULL << 32) / MN_AUDIO_FREQ;
-  } else if (rom->dendy) {
-    apu.time_target = (1773448ULL << 32) / MN_AUDIO_FREQ;
-  }
-
-  if (rom->ntsc || rom->dendy) {
-    memcpy(apu.noise_period_table, apu_noise_period_ntsc, sizeof(apu.noise_period_table));
-    memcpy(apu.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu.dmc_period_table));
-  } else {
-    memcpy(apu.noise_period_table, apu_noise_period_pal, sizeof(apu.noise_period_table));
-    memcpy(apu.dmc_period_table, apu_dmc_period_pal, sizeof(apu.dmc_period_table));
+  switch (rom->tv) {
+    case MN_TV_NTSC:
+    case MN_TV_MULTI:
+      apu.step1 = APU_STEP1_NTSC;
+      apu.step2 = APU_STEP2_NTSC;
+      apu.step3 = APU_STEP3_NTSC;
+      apu.step4 = APU_STEP4_NTSC;
+      apu.step5 = APU_STEP5_NTSC;
+      apu.time_target = ((u64)APU_FREQ_NTSC << 32) / MN_AUDIO_FREQ;
+      memcpy(apu.noise_period_table, apu_noise_period_ntsc, sizeof(apu.noise_period_table));
+      memcpy(apu.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu.dmc_period_table));
+      break;
+    case MN_TV_PAL:
+      apu.step1 = APU_STEP1_PAL;
+      apu.step2 = APU_STEP2_PAL;
+      apu.step3 = APU_STEP3_PAL;
+      apu.step4 = APU_STEP4_PAL;
+      apu.step5 = APU_STEP5_PAL;
+      apu.time_target = ((u64)APU_FREQ_PAL << 32) / MN_AUDIO_FREQ;
+      memcpy(apu.noise_period_table, apu_noise_period_pal, sizeof(apu.noise_period_table));
+      memcpy(apu.dmc_period_table, apu_dmc_period_pal, sizeof(apu.dmc_period_table));
+      break;
+    case MN_TV_DENDY:
+      apu.step1 = APU_STEP1_PAL;
+      apu.step2 = APU_STEP2_PAL;
+      apu.step3 = APU_STEP3_PAL;
+      apu.step4 = APU_STEP4_PAL;
+      apu.step5 = APU_STEP5_PAL;
+      apu.time_target = ((u64)APU_FREQ_DENDY << 32) / MN_AUDIO_FREQ;
+      memcpy(apu.noise_period_table, apu_noise_period_ntsc, sizeof(apu.noise_period_table));
+      memcpy(apu.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu.dmc_period_table));
+      break;
   }
 
   // scale table values to i16 and upscale to << 10, reserving 6 bit for accum sum (~40 samples)

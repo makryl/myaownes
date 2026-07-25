@@ -128,10 +128,7 @@ static void imp_popup(const char* text, float time)
   imp.popup_time = imp.perf_freq * time;
 }
 
-static void imp_update_frame_time()
-{
-  imp.target_frame_time = imp.perf_freq / 60; // todo: PAL
-}
+static void imp_update_frame_time() { imp.target_frame_time = imp.perf_freq / ((imp.rom->tv == MN_TV_NTSC) ? 60 : 50); }
 
 static void imp_update_size()
 {
@@ -190,10 +187,10 @@ static void imp_rom_update()
 
   SDL_memset(imp.rom_info, 0, sizeof(imp.rom_info));
   SDL_snprintf(imp.rom_info[0], sizeof(imp.rom_info[0]), "%-5s %1s%03d-%03d",
-               rom->ntsc    ? "NTSC"
-               : rom->pal   ? "PAL"
-               : rom->dendy ? "Dendy"
-                            : "Error",
+               rom->tv == MN_TV_NTSC    ? "NTSC"
+               : rom->tv == MN_TV_PAL   ? "PAL"
+               : rom->tv == MN_TV_DENDY ? "Dendy"
+                                        : "Error",
                rom->mapper_error ? "!" : " ", rom->mapper, rom->submapper);
   SDL_snprintf(imp.rom_info[1], sizeof(imp.rom_info[0]), "%-5s %-3s %4s", rom->vert_mirror ? "Vert" : "Horiz",
                rom->alt_mirror ? "Alt" : "", rom->has_trainer ? "TR" : "");

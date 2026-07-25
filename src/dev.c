@@ -20,7 +20,7 @@ struct NESHeader
   u8 prg_chr_ext;
   u8 prg_ram_size;
   u8 chr_ram_size;
-  u8 tv_system;
+  u8 tv;
   u8 other[3];
 };
 
@@ -30,14 +30,6 @@ enum : u8
   NES_FLAG_BATTERY = (1 << 1),
   NES_FLAG_TRAINER = (1 << 2),
   NES_FLAG_ALT_MIRROR = (1 << 3),
-};
-
-enum : u8
-{
-  NES_TV_NTSC = 0,
-  NES_TV_PAL,
-  NES_TV_MULTI,
-  NES_TV_DENDY,
 };
 
 enum
@@ -390,15 +382,11 @@ Rom mn_rom_load(const char* rom_path, const char* sram_path)
   if (is_v2) {
     rom->mapper = (h.mapper_flags >> 4) | (h.mapper_sig2 & 0xF0) | ((h.sub_mapper & 0x0F) << 8);
     rom->submapper = (h.sub_mapper >> 4);
-    rom->ntsc = (h.tv_system == NES_TV_NTSC) || (h.tv_system == NES_TV_MULTI);
-    rom->pal = (h.tv_system == NES_TV_PAL) || (h.tv_system == NES_TV_MULTI);
-    rom->dendy = (h.tv_system == NES_TV_DENDY) || (h.tv_system == NES_TV_MULTI);
+    rom->tv = h.tv;
   } else {
     rom->mapper = (h.mapper_flags >> 4) | (h.mapper_sig2 & 0xF0);
     rom->submapper = 0;
-    rom->ntsc = true;
-    rom->pal = false;
-    rom->dendy = false;
+    rom->tv = MN_TV_NTSC;
   }
 
   return rom;

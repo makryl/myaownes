@@ -21,6 +21,14 @@ enum
   MN_INPUT_RIGHT = (1 << 7),
 };
 
+enum
+{
+  MN_TV_NTSC = 0,
+  MN_TV_PAL,
+  MN_TV_MULTI,
+  MN_TV_DENDY,
+};
+
 struct Rom
 {
   const u8* prg_rom;
@@ -33,14 +41,12 @@ struct Rom
   uint chr_ram_size;
   uint mapper;
   uint submapper;
+  uint tv;
   bool vert_mirror;
   bool prg_has_battery;
   bool chr_has_battery;
   bool has_trainer;
   bool alt_mirror;
-  bool ntsc;
-  bool pal;
-  bool dendy;
   bool mapper_error;
 };
 

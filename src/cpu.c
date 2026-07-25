@@ -70,6 +70,7 @@ MN_CACHE_LINE static struct Cpu
   bool page_crossed;
   bool write;
   bool suppress_poll;
+  bool pal;
 
   MN_CACHE_LINE u8 ram[0x0800];
 } cpu;
@@ -101,6 +102,8 @@ static void cpu_poll()
 void cpu_power()
 {
   memset(&cpu, 0, sizeof(cpu));
+  Rom rom = mn_rom_get();
+  cpu.pal = (rom->tv == MN_TV_PAL);
   cpu_reset();
   cpu_poll();
 }
@@ -164,6 +167,9 @@ static void cpu_cyc_end()
 {
   cpu_joy_shift();
   ppu_tick();
+  if (cpu.pal && (cpu.cyc % 5) == 4) {
+    ppu_tick();
+  }
   ++cpu.cyc;
 }
 

@@ -22,14 +22,6 @@ static const uint ppu_mask_delay = 2;
 
 enum
 {
-  PPU_SL_END = 239,
-  PPU_SL_POST_RENDER = 240,
-  PPU_SL_VBLANK = 241,
-  PPU_SL_PRE_RENDER = 261,
-};
-
-enum
-{
   PPU_DOT_ZERO = 0,
   PPU_DOT_BEGIN = 1,
   PPU_DOT_SPRITE_EVAL_BEGIN = 65,
@@ -108,6 +100,9 @@ MN_CACHE_LINE static struct Ppu
   uint read_delay;
   uint write_delay;
   uint mask_delay;
+  uint sl_end;
+  uint sl_vblank;
+  uint sl_pre_render;
 
   u16 addr;
   u16 t;
@@ -156,6 +151,7 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_render_has0;
   bool sprite_flip_horiz;
   bool inc_x;
+  bool ntsc;
 
   MN_CACHE_LINE u8 oam1[0x100];
   MN_CACHE_LINE u8 oam2[0x20];
@@ -170,7 +166,30 @@ void* ppu_data() { return &ppu; }
 uint* mn_output() { return ppu.out; }
 void mn_palette(uint palette[64]) { memcpy(ppu_palette, palette, sizeof(ppu_palette)); }
 
-void ppu_power() { memset(&ppu, 0, sizeof(ppu)); }
+void ppu_power()
+{
+  memset(&ppu, 0, sizeof(ppu));
+  Rom rom = mn_rom_get();
+  switch (rom->tv) {
+    case MN_TV_NTSC:
+    case MN_TV_MULTI:
+      ppu.sl_end = 239;
+      ppu.sl_vblank = 241;
+      ppu.sl_pre_render = 261;
+      ppu.ntsc = true;
+      break;
+    case MN_TV_PAL:
+      ppu.sl_end = 239;
+      ppu.sl_vblank = 241;
+      ppu.sl_pre_render = 311;
+      break;
+    case MN_TV_DENDY:
+      ppu.sl_end = 239;
+      ppu.sl_vblank = 291;
+      ppu.sl_pre_render = 311;
+      break;
+  }
+}
 
 void ppu_reset()
 {
@@ -187,7 +206,7 @@ void ppu_reset()
 uint ppu_cyc() { return ppu.cyc; }
 uint ppu_dot() { return ppu.dot; }
 uint ppu_sl() { return ppu.sl; }
-bool ppu_vblank() { return ppu.sl >= PPU_SL_VBLANK && ppu.sl < PPU_SL_PRE_RENDER; }
+bool ppu_vblank() { return ppu.sl >= ppu.sl_vblank && ppu.sl < ppu.sl_pre_render; }
 
 #if MN_TRACE_PPU
 #define ppu_trace(fmt, ...)                                                                                     \
@@ -360,7 +379,7 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.oam_data = ppu.oam1[ppu.oam_addr1];
       break;
     case PPU_REG_OAMDATA:
-      if (ppu.render_enabled && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) && ppu.dot >= PPU_DOT_BEGIN
+      if (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render) && ppu.dot >= PPU_DOT_BEGIN
           && ppu.dot <= PPU_DOT_SPRITE_END)
       {
         ppu_inc_n(); // NES bug: inc n on active sprite rendering
@@ -546,7 +565,7 @@ static void ppu_fetch_sprites()
     case 0: {
       ppu_addr(ppu_nt_addr());
       ppu.oam_data = ppu.oam2[i * 4 + 0];
-      uint next_sl = (ppu.sl == PPU_SL_PRE_RENDER) ? 0 : (ppu.sl + 1);
+      uint next_sl = (ppu.sl == ppu.sl_pre_render) ? 0 : (ppu.sl + 1);
       ppu.sprite_y = next_sl - ppu.oam_data - 1;
       break;
     }
@@ -656,11 +675,11 @@ static void ppu_fetch_unused()
 
 static void ppu_fetch()
 {
-  if (ppu.render_enabled && (ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER)) {
+  if (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render)) {
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
       ppu_clear_sprites();
     } else if (ppu.dot >= PPU_DOT_SPRITE_EVAL_BEGIN && ppu.dot <= PPU_DOT_END) {
-      if (ppu.sl != PPU_SL_PRE_RENDER) {
+      if (ppu.sl != ppu.sl_pre_render) {
         ppu_evaluate_sprites();
       }
     } else if (ppu.dot >= PPU_DOT_SPRITE_BEGIN && ppu.dot <= PPU_DOT_SPRITE_END) {
@@ -742,14 +761,26 @@ static void ppu_render_mask(uint x)
     float rf = 1.0f;
     float gf = 1.0f;
     float bf = 1.0f;
-    if (ppu.mask & PPU_MASK_RED) {
-      gf *= ppu_tint_accent;
-      bf *= ppu_tint_accent;
+    if (ppu.ntsc) {
+      if (ppu.mask & PPU_MASK_RED) {
+        gf *= ppu_tint_accent;
+        bf *= ppu_tint_accent;
+      }
+      if (ppu.mask & PPU_MASK_GREEN) {
+        rf *= ppu_tint_accent;
+        bf *= ppu_tint_accent;
+      }
+    } else {
+      if (ppu.mask & PPU_MASK_GREEN) {
+        gf *= ppu_tint_accent;
+        bf *= ppu_tint_accent;
+      }
+      if (ppu.mask & PPU_MASK_RED) {
+        rf *= ppu_tint_accent;
+        bf *= ppu_tint_accent;
+      }
     }
-    if (ppu.mask & PPU_MASK_GREEN) {
-      rf *= ppu_tint_accent;
-      bf *= ppu_tint_accent;
-    }
+    // todo: (Dendy) blue emphasis delay
     if (ppu.mask & PPU_MASK_BLUE) {
       rf *= ppu_tint_accent;
       gf *= ppu_tint_accent;
@@ -771,7 +802,7 @@ static void ppu_render_mask(uint x)
 
 static void ppu_render()
 {
-  if (ppu.sl <= PPU_SL_END) {
+  if (ppu.sl <= ppu.sl_end) {
     if (ppu.dot >= PPU_DOT_BEGIN + 2 && ppu.dot <= PPU_DOT_END + 2) {
       ppu_render_mask(ppu.dot - PPU_DOT_BEGIN - 2);
     }
@@ -789,16 +820,16 @@ void ppu_tick()
   ppu_render();
   ppu_fetch();
 
-  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.dot == PPU_DOT_ZERO) {
+  if (ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_ZERO) {
     ppu.status &= ~(PPU_STATUS_SPRITE0_HIT | PPU_STATUS_SPRITE_OVERFLOW);
     ppu_reg_bus_decay();
   }
 
-  if (ppu.sl == PPU_SL_PRE_RENDER && ppu.dot == PPU_DOT_BEGIN) {
+  if (ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_BEGIN) {
     ppu.status &= ~PPU_STATUS_VBLANK;
   }
 
-  if ((ppu.sl == PPU_SL_VBLANK && ppu.dot == PPU_DOT_BEGIN) && !ppu.suppress_vblank) {
+  if ((ppu.sl == ppu.sl_vblank && ppu.dot == PPU_DOT_BEGIN) && !ppu.suppress_vblank) {
     ppu.status |= PPU_STATUS_VBLANK;
     ppu.check_nmi = true;
   }
@@ -824,11 +855,11 @@ void ppu_tick()
 
   bool swap_v = false;
   if (ppu.render_enabled) {
-    if ((ppu.sl <= PPU_SL_END || ppu.sl == PPU_SL_PRE_RENDER) && ppu.dot == PPU_DOT_SWAP_X) {
+    if ((ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render) && ppu.dot == PPU_DOT_SWAP_X) {
       ppu_swap_x();
       swap_v = true;
     }
-    if (ppu.sl == PPU_SL_PRE_RENDER && ppu.dot >= PPU_DOT_SWAP_Y_BEGIN && ppu.dot <= PPU_DOT_SWAP_Y_END) {
+    if (ppu.sl == ppu.sl_pre_render && ppu.dot >= PPU_DOT_SWAP_Y_BEGIN && ppu.dot <= PPU_DOT_SWAP_Y_END) {
       ppu_swap_y();
       swap_v = true;
     }
@@ -864,13 +895,13 @@ void ppu_tick()
     }
   }
 
-  if (ppu.odd_frame && ppu.sl == PPU_SL_PRE_RENDER && ppu.dot == PPU_DOT_LAST - 1 && ppu.render_enabled) {
+  if (ppu.ntsc && ppu.odd_frame && ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_LAST - 1 && ppu.render_enabled) {
     ++ppu.dot;
   }
 
   if (++ppu.dot > PPU_DOT_LAST) {
     ppu.dot = 0;
-    if (++ppu.sl > PPU_SL_PRE_RENDER) {
+    if (++ppu.sl > ppu.sl_pre_render) {
       ppu.sl = 0;
       ppu.odd_frame = !ppu.odd_frame;
     }
