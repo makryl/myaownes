@@ -36,7 +36,7 @@ MN_CACHE_LINE static struct
   bool apu_irq;
   bool irq;
   MN_CACHE_LINE u8 vram[0x1000];
-  MN_CACHE_LINE u8 eram[0x2000]; // used for mapper registers. <0x4020 never accessed from CPU, even if mapped.
+  MN_CACHE_LINE u8 eram[0x20]; // used for mapper registers. <0x4020 never accessed from CPU, even if mapped.
 } map;
 
 mn_rom mn_rom_get() { return map_dyn.rom; }
@@ -338,9 +338,6 @@ static void map_nrom_load()
 
   map_prg_ram_page_8k(0, 3);
 
-  // map_cpu_read_pages(map_dyn.eram, 0, 4, 2);
-  // map_cpu_write_pages(map_dyn.eram, 0, 4, 2);
-
   for (uint i = 0; i < 8; ++i) { // rom may have < 8k
     map_chr_page_1k(i, i);
   }
@@ -366,6 +363,7 @@ typedef struct
 
 static void map_mmc1_update()
 {
+  static_assert(sizeof(MapMMC1) <= sizeof(map.eram));
   MapMMC1* reg = (MapMMC1*)map.eram;
   u8 ctrl_nt = reg->ctrl & 3;
   u8 ctrl_prg = (reg->ctrl >> 2) & 3;
@@ -505,6 +503,7 @@ typedef struct
 
 static void map_mmc3_update()
 {
+  static_assert(sizeof(MapMMC3) <= sizeof(map.eram));
   MapMMC3* reg = (MapMMC3*)map.eram;
   if (reg->ctrl & 0x80) {
     map_chr_page_1k(reg->chr2, 0);

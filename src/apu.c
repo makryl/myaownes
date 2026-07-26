@@ -61,6 +61,15 @@ static const uint apu_noise_period_ntsc[16] = { 4,   8,   16,  32,  64,  96,   1
 static const uint apu_noise_period_pal[16] = { 4,   8,   14,  30,  60,  88,  118,  148, //
                                                188, 236, 354, 472, 708, 944, 1890, 3778 };
 
+MN_CACHE_LINE static struct
+{
+  MN_CACHE_LINE uint noise_period_table[16];
+  MN_CACHE_LINE uint dmc_period_table[16];
+  MN_CACHE_LINE uint pulse_table[31];
+  MN_CACHE_LINE uint tnd_table[16][16][128];
+  MN_CACHE_LINE i16 out_data[1024];
+} apu_dyn;
+
 MN_CACHE_LINE static struct Apu
 {
   u64 time_target;
@@ -174,18 +183,11 @@ MN_CACHE_LINE static struct Apu
   bool noise_mode;
   bool noise_env_const;
   bool noise_env_start;
-
-  MN_CACHE_LINE uint noise_period_table[16];
-  MN_CACHE_LINE uint dmc_period_table[16];
-  MN_CACHE_LINE uint pulse_table[31];
-  MN_CACHE_LINE uint tnd_table[16][16][128];
-
-  MN_CACHE_LINE i16 out_data[1024];
 } apu;
 
 uint apu_size() { return sizeof(apu); }
 void* apu_data() { return &apu; }
-i16* mn_audio_data() { return apu.out_data; }
+i16* mn_audio_data() { return apu_dyn.out_data; }
 uint mn_audio_size() { return apu.out_size * sizeof(i16); }
 void apu_reset_out() { apu.out_size = 0; }
 
@@ -291,8 +293,8 @@ static uint apu_dmc_sample() { return apu.dmc_val; }
 
 static uint apu_sample()
 {
-  uint pulse = apu.pulse_table[apu_pulse1_sample() + apu_pulse2_sample()];
-  uint tnd = apu.tnd_table[apu_triangle_sample()][apu_noise_sample()][apu_dmc_sample()];
+  uint pulse = apu_dyn.pulse_table[apu_pulse1_sample() + apu_pulse2_sample()];
+  uint tnd = apu_dyn.tnd_table[apu_triangle_sample()][apu_noise_sample()][apu_dmc_sample()];
   return pulse + tnd;
 }
 
@@ -308,8 +310,8 @@ void apu_power()
       apu.step4 = APU_STEP4_NTSC;
       apu.step5 = APU_STEP5_NTSC;
       apu.time_target = ((u64)APU_FREQ_NTSC << 32) / MN_AUDIO_FREQ;
-      memcpy(apu.noise_period_table, apu_noise_period_ntsc, sizeof(apu.noise_period_table));
-      memcpy(apu.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu.dmc_period_table));
+      memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
+      memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
       break;
     case MN_REGION_PAL:
       apu.step1 = APU_STEP1_PAL;
@@ -318,8 +320,8 @@ void apu_power()
       apu.step4 = APU_STEP4_PAL;
       apu.step5 = APU_STEP5_PAL;
       apu.time_target = ((u64)APU_FREQ_PAL << 32) / MN_AUDIO_FREQ;
-      memcpy(apu.noise_period_table, apu_noise_period_pal, sizeof(apu.noise_period_table));
-      memcpy(apu.dmc_period_table, apu_dmc_period_pal, sizeof(apu.dmc_period_table));
+      memcpy(apu_dyn.noise_period_table, apu_noise_period_pal, sizeof(apu_dyn.noise_period_table));
+      memcpy(apu_dyn.dmc_period_table, apu_dmc_period_pal, sizeof(apu_dyn.dmc_period_table));
       break;
     case MN_REGION_DENDY:
       apu.step1 = APU_STEP1_NTSC;
@@ -328,26 +330,26 @@ void apu_power()
       apu.step4 = APU_STEP4_NTSC;
       apu.step5 = APU_STEP5_NTSC;
       apu.time_target = ((u64)APU_FREQ_DENDY << 32) / MN_AUDIO_FREQ;
-      memcpy(apu.noise_period_table, apu_noise_period_ntsc, sizeof(apu.noise_period_table));
-      memcpy(apu.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu.dmc_period_table));
+      memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
+      memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
       break;
   }
 
   // scale table values to i16 and upscale to << 10, reserving 6 bit for accum sum (~40 samples)
-  apu.pulse_table[0] = 0;
+  apu_dyn.pulse_table[0] = 0;
   for (uint i = 1; i < 31; ++i) {
     double val = 95.52 / (8128.0 / i + 100.0); // 95.88 or 95.52?
-    apu.pulse_table[i] = (uint)(val * 32767.0 * 1024.0 + 0.5);
+    apu_dyn.pulse_table[i] = (uint)(val * 32767.0 * 1024.0 + 0.5);
   }
 
   for (int t = 0; t < 16; ++t) {
     for (int n = 0; n < 16; ++n) {
       for (int d = 0; d < 128; ++d) {
         if (t == 0 && n == 0 && d == 0) {
-          apu.tnd_table[t][n][d] = 0;
+          apu_dyn.tnd_table[t][n][d] = 0;
         } else {
           double val = 159.79 / ((1.0 / ((double)t / 8227.0 + (double)n / 12241.0 + (double)d / 22638.0)) + 100.0);
-          apu.tnd_table[t][n][d] = (uint)(val * 32767.0 * 1024.0 + 0.5);
+          apu_dyn.tnd_table[t][n][d] = (uint)(val * 32767.0 * 1024.0 + 0.5);
         }
       }
     }
@@ -578,7 +580,7 @@ static void apu_triangle_tick()
 static void apu_noise_tick()
 {
   if (apu.noise_timer == 0) {
-    apu.noise_timer = apu.noise_period_table[apu.noise_period];
+    apu.noise_timer = apu_dyn.noise_period_table[apu.noise_period];
     uint bit1 = apu.noise_shift & 1;
     uint bit2 = apu.noise_mode ? ((apu.noise_shift >> 6) & 1) : ((apu.noise_shift >> 1) & 1);
     uint feedback = bit1 ^ bit2;
@@ -591,7 +593,7 @@ static void apu_noise_tick()
 static void apu_dmc_tick()
 {
   if (apu.dmc_timer == 0) {
-    apu.dmc_timer = apu.dmc_period_table[apu.dmc_period];
+    apu.dmc_timer = apu_dyn.dmc_period_table[apu.dmc_period];
     if (apu.dmc_out_bit == 0) {
       if (apu.dmc_has_buf) {
         apu_trace_dmc("APU DMC SHIFT=%04X ", apu.dmc_addr);
@@ -804,7 +806,7 @@ static void apu_mix()
       sample = apu_mix_low_pass(sample);
       sample = apu_mix_dither(sample);
       sample = apu_mix_clip(sample >> 16);
-      apu.out_data[apu.out_size++] = sample;
+      apu_dyn.out_data[apu.out_size++] = sample;
     }
     apu.mix_accum = 0;
     apu.mix_sample_count = 0;

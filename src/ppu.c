@@ -88,6 +88,8 @@ enum : u8
   PPU_SPRITE_FLIP_VERT = (1 << 7),
 };
 
+MN_CACHE_LINE static uint ppu_out[256 * 240];
+
 MN_CACHE_LINE static struct Ppu
 {
   uint cyc;
@@ -156,14 +158,12 @@ MN_CACHE_LINE static struct Ppu
   MN_CACHE_LINE u8 oam1[0x100];
   MN_CACHE_LINE u8 oam2[0x20];
   MN_CACHE_LINE u8 pam[0x20];
-
-  MN_CACHE_LINE uint out[256 * 240];
 } ppu;
 
 uint ppu_size() { return sizeof(ppu); }
 void* ppu_data() { return &ppu; }
 
-uint* mn_video_data() { return ppu.out; }
+uint* mn_video_data() { return ppu_out; }
 void mn_palette(uint palette[64]) { memcpy(ppu_palette, palette, sizeof(ppu_palette)); }
 
 void ppu_power()
@@ -795,7 +795,7 @@ static void ppu_render_mask(uint x)
   rgb |= 0xFF000000;
 
   uint out_idx = (ppu.sl << 8) | x;
-  ppu.out[out_idx] = rgb;
+  ppu_out[out_idx] = rgb;
 }
 
 static void ppu_render()
