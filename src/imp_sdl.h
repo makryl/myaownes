@@ -30,22 +30,23 @@ static struct
   SDL_FRect rect;
   SDL_FRect ui_offset;
   const char* popup_text;
-  Uint64 last_time;
-  Uint64 curr_time;
-  Uint64 target_frame_time;
-  Uint64 real_frame_time;
-  Uint64 popup_time;
-  Uint64 fps_time;
-  Uint64 fps_count;
-  Uint64 fps_value;
-  Uint64 auto_save_time;
-  Uint64 perf_freq;
+  u64 last_time;
+  u64 curr_time;
+  u64 target_frame_time;
+  u64 real_frame_time;
+  u64 popup_time;
+  u64 fps_time;
+  u64 fps_count;
+  u64 fps_value;
+  u64 auto_save_time;
+  u64 perf_freq;
   uint auto_save_period;
   uint scale;
   uint turbo;
   uint slot;
   uint audio_buffer_size;
   uint fast_forward_scale;
+  uint region;
   u8 joy1_mask;
   u8 joy2_mask;
   u8 joy1;
@@ -87,7 +88,7 @@ static void imp_draw_help()
   SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Help        F1        MyaowNES ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Open        F2          v" MN_VERSION " ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Reload      F3                 ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Region      F3                 ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Reset       F4    /\\____/\\     ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick save  F5                 ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Aspect      F6   |  o..o  |    ");
@@ -130,7 +131,19 @@ static void imp_popup(const char* text, float time)
 
 static void imp_update_frame_time()
 {
-  imp.target_frame_time = imp.perf_freq / ((imp.rom && imp.rom->tv == MN_TV_NTSC) ? 60 : 50);
+  imp.target_frame_time = imp.perf_freq / ((mn_region_get() == MN_REGION_NTSC) ? 60 : 50);
+}
+
+static void imp_window_resize()
+{
+  int width;
+  int height;
+  SDL_GetWindowSizeInPixels(imp.window, &width, &height);
+  mn_video_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
+  imp.ui_offset.w = imp.rect.w / 256;
+  imp.ui_offset.h = imp.rect.h / 240;
+  imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
+  imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
 }
 
 static void imp_update_size()
@@ -139,6 +152,7 @@ static void imp_update_size()
   uint height;
   mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
   SDL_SetWindowSize(imp.window, width, height);
+  imp_window_resize();
 }
 
 static void imp_ensure_dir(const char* subdir)
@@ -174,13 +188,14 @@ static void imp_save_path(char* dst, const char* subdir, const char* ext)
 static void imp_rom_update()
 {
   mn_rom rom = imp.rom;
+  imp.help = !rom || rom->mapper_error;
+  imp.pause = !rom || rom->mapper_error;
   if (!rom) {
-    imp.help = true;
-    imp.pause = true;
+    for (uint i = 0; i < 6; ++i) {
+      imp.rom_info[i][0] = 0;
+    }
     return;
   }
-  imp.help = false;
-  imp.pause = false;
 
   char title[256] = {};
   SDL_strlcat(title, imp_rom_name(), IMP_PATH_SIZE);
@@ -190,10 +205,11 @@ static void imp_rom_update()
 
   SDL_memset(imp.rom_info, 0, sizeof(imp.rom_info));
   SDL_snprintf(imp.rom_info[0], sizeof(imp.rom_info[0]), "%-5s %1s%03d-%03d",
-               rom->tv == MN_TV_NTSC    ? "NTSC"
-               : rom->tv == MN_TV_PAL   ? "PAL"
-               : rom->tv == MN_TV_DENDY ? "Dendy"
-                                        : "Error",
+               rom->region == MN_REGION_NTSC    ? "NTSC"
+               : rom->region == MN_REGION_PAL   ? "PAL"
+               : rom->region == MN_REGION_AUTO  ? "Multi"
+               : rom->region == MN_REGION_DENDY ? "Dendy"
+                                                : "Error",
                rom->mapper_error ? "!" : " ", rom->mapper, rom->submapper);
   SDL_snprintf(imp.rom_info[1], sizeof(imp.rom_info[0]), "%-5s %-3s %4s", rom->vert_mirror ? "Vert" : "Horiz",
                rom->alt_mirror ? "Alt" : "", rom->has_trainer ? "TR" : "");
@@ -210,6 +226,7 @@ static void imp_rom_update()
   }
 
   imp_update_frame_time();
+  imp_update_size();
 }
 
 static void imp_save_config()
@@ -227,6 +244,7 @@ static void imp_save_config()
   fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
   fprintf(f, "fps %u\n", imp.fps);
   fprintf(f, "fast_forward_scale %u\n", imp.fast_forward_scale);
+  fprintf(f, "region %u\n", imp.region);
   fprintf(f, "palette %s\n", imp.palette_path);
   fclose(f);
   imp.dirty_config = false;
@@ -236,10 +254,11 @@ static void imp_load_config()
 {
   imp.scale = 2;
   imp.auto_aspect = true;
-  imp.overscan = true;
+  imp.overscan = false;
   imp.auto_save_period = 60;
   imp.fps = false;
   imp.fast_forward_scale = 4;
+  imp.region = MN_REGION_AUTO;
 
   FILE* f = fopen(imp.config_path, "r");
   if (!f) {
@@ -265,6 +284,8 @@ static void imp_load_config()
       imp.fps = val;
     } else if (strcmp(key, "fast_forward_scale") == 0) {
       fscanf(f, "%u", &imp.fast_forward_scale);
+    } else if (strcmp(key, "region") == 0) {
+      fscanf(f, "%u", &imp.region);
     } else if (strcmp(key, "palette") == 0) {
       fscanf(f, " %[^\n]", imp.palette_path);
       if (strlen(imp.palette_path)) {
@@ -379,6 +400,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
 
   imp_load_config();
+  mn_region_set(imp.region);
 
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 #ifdef __EMSCRIPTEN__
@@ -434,13 +456,15 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
 static void imp_help()
 {
-  if (imp.help) {
-    imp.help = false;
-    imp.pause = false;
-  } else {
-    imp.help = true;
-    imp.pause = true;
-    imp_draw_help();
+  if (imp.rom) {
+    if (imp.help) {
+      imp.help = false;
+      imp.pause = false;
+    } else {
+      imp.help = true;
+      imp.pause = true;
+      imp_draw_help();
+    }
   }
 }
 
@@ -450,10 +474,20 @@ static void imp_open_file()
   SDL_ShowOpenFileDialog(imp_file_dialog_cb, nullptr, imp.window, filters, 2, nullptr, false);
 }
 
-static void imp_reload_rom()
+static void imp_toggle_region()
 {
+  imp.region = (imp.region + 1) % 4;
+  imp.dirty_config = true;
+  mn_region_set(imp.region);
   if (imp.rom) {
     mn_rom_set(imp.rom);
+  }
+  imp_update_size();
+  switch (imp.region) {
+    case MN_REGION_NTSC: imp_popup("Region NTSC", 2); break;
+    case MN_REGION_PAL: imp_popup("Region PAL", 2); break;
+    case MN_REGION_AUTO: imp_popup("Region Auto", 2); break;
+    case MN_REGION_DENDY: imp_popup("Region Dendy", 2); break;
   }
 }
 
@@ -462,7 +496,7 @@ static void imp_toggle_aspect()
   imp.auto_aspect = !imp.auto_aspect;
   imp.dirty_config = true;
   imp_update_size();
-  imp_popup(imp.auto_aspect ? "Aspect ON" : "Aspect OFF", 1);
+  imp_popup(imp.auto_aspect ? "Aspect ON" : "Aspect OFF", 2);
 }
 
 static void imp_toggle_overscan()
@@ -470,7 +504,7 @@ static void imp_toggle_overscan()
   imp.overscan = !imp.overscan;
   imp.dirty_config = true;
   imp_update_size();
-  imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 1);
+  imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 2);
 }
 
 static void imp_toggle_fullscreen()
@@ -508,14 +542,14 @@ static void imp_upscale()
     imp.dirty_config = true;
   }
   switch (imp.scale) {
-    case 1: imp_popup("Scale x1", 1); break;
-    case 2: imp_popup("Scale x2", 1); break;
-    case 3: imp_popup("Scale x3", 1); break;
-    case 4: imp_popup("Scale x4", 1); break;
-    case 5: imp_popup("Scale x5", 1); break;
-    case 6: imp_popup("Scale x6", 1); break;
-    case 7: imp_popup("Scale x7", 1); break;
-    case 8: imp_popup("Scale x8", 1); break;
+    case 1: imp_popup("Scale x1", 2); break;
+    case 2: imp_popup("Scale x2", 2); break;
+    case 3: imp_popup("Scale x3", 2); break;
+    case 4: imp_popup("Scale x4", 2); break;
+    case 5: imp_popup("Scale x5", 2); break;
+    case 6: imp_popup("Scale x6", 2); break;
+    case 7: imp_popup("Scale x7", 2); break;
+    case 8: imp_popup("Scale x8", 2); break;
   }
   imp_update_size();
 }
@@ -527,14 +561,14 @@ static void imp_downscale()
     imp.dirty_config = true;
   }
   switch (imp.scale) {
-    case 1: imp_popup("Scale x1", 1); break;
-    case 2: imp_popup("Scale x2", 1); break;
-    case 3: imp_popup("Scale x3", 1); break;
-    case 4: imp_popup("Scale x4", 1); break;
-    case 5: imp_popup("Scale x5", 1); break;
-    case 6: imp_popup("Scale x6", 1); break;
-    case 7: imp_popup("Scale x7", 1); break;
-    case 8: imp_popup("Scale x8", 1); break;
+    case 1: imp_popup("Scale x1", 2); break;
+    case 2: imp_popup("Scale x2", 2); break;
+    case 3: imp_popup("Scale x3", 2); break;
+    case 4: imp_popup("Scale x4", 2); break;
+    case 5: imp_popup("Scale x5", 2); break;
+    case 6: imp_popup("Scale x6", 2); break;
+    case 7: imp_popup("Scale x7", 2); break;
+    case 8: imp_popup("Scale x8", 2); break;
   }
   imp_update_size();
 }
@@ -547,7 +581,7 @@ static void imp_toggle_pause()
   } else {
     imp.pause = !imp.pause;
     if (imp.pause) {
-      imp_popup("Pause", 1);
+      imp_popup("Pause", 2);
     }
   }
 }
@@ -700,18 +734,6 @@ static void imp_joy2_a_turbo_up() { imp.joy2_turbo_a = false; }
 static void imp_joy2_b_turbo_down() { imp.joy2_turbo_b = true; }
 static void imp_joy2_b_turbo_up() { imp.joy2_turbo_b = false; }
 
-static void imp_window_resize()
-{
-  int width;
-  int height;
-  SDL_GetWindowSizeInPixels(imp.window, &width, &height);
-  mn_video_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
-  imp.ui_offset.w = imp.rect.w / 256;
-  imp.ui_offset.h = imp.rect.h / 240;
-  imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
-  imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
-}
-
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
 {
   switch (event->type) {
@@ -722,7 +744,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       switch (event->key.key) {
         case SDLK_F1: imp_help(); break;
         case SDLK_F2: imp_open_file(); break;
-        case SDLK_F3: imp_reload_rom(); break;
+        case SDLK_F3: imp_toggle_region(); break;
         case SDLK_F4: mn_reset(); break;
         case SDLK_F5: imp_save(); break;
         case SDLK_F6: imp_toggle_aspect(); break;
@@ -969,7 +991,8 @@ SDL_AppResult SDL_AppIterate(void*)
   SDL_SetRenderScale(imp.renderer, imp.ui_offset.w, imp.ui_offset.h);
   if (imp.help) {
     imp_draw_help();
-  } else if (imp.popup_time > 0) {
+  }
+  if (imp.popup_time > 0) {
     imp_draw_popup();
   }
   if (imp.fps) {

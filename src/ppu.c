@@ -169,21 +169,19 @@ void mn_palette(uint palette[64]) { memcpy(ppu_palette, palette, sizeof(ppu_pale
 void ppu_power()
 {
   memset(&ppu, 0, sizeof(ppu));
-  mn_rom rom = mn_rom_get();
-  switch (rom->tv) {
-    case MN_TV_NTSC:
-    case MN_TV_AUTO:
+  switch (mn_region_get()) {
+    case MN_REGION_NTSC:
       ppu.sl_end = 239;
       ppu.sl_vblank = 241;
       ppu.sl_pre_render = 261;
       ppu.ntsc = true;
       break;
-    case MN_TV_PAL:
+    case MN_REGION_PAL:
       ppu.sl_end = 239;
       ppu.sl_vblank = 241;
       ppu.sl_pre_render = 311;
       break;
-    case MN_TV_DENDY:
+    case MN_REGION_DENDY:
       ppu.sl_end = 239;
       ppu.sl_vblank = 291;
       ppu.sl_pre_render = 311;

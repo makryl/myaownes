@@ -20,7 +20,7 @@ struct NESHeader
   u8 prg_chr_ext;
   u8 prg_ram_size;
   u8 chr_ram_size;
-  u8 tv;
+  u8 region;
   u8 other[3];
 };
 
@@ -37,6 +37,9 @@ enum
   NES_PRG_PAGE_SIZE = 0x4000,
   NES_CHR_PAGE_SIZE = 0x2000,
 };
+
+static uint dev_region_forced = MN_REGION_AUTO;
+static uint dev_region = MN_REGION_AUTO;
 
 void dev_power()
 {
@@ -69,20 +72,27 @@ void mn_frame(u8 joy1, u8 joy2)
 #endif
 }
 
-static float dev_aspect_scale(bool a) { return (256.0f / 240.0f) * (a ? (8.0f / 7.0f) : 1.0f); }
+static float dev_aspect_region() { return mn_region_get() == MN_REGION_NTSC ? (8.0f / 7.0f) : (18.0f / 13.0f); }
+static float dev_aspect_scale(bool a) { return (256.0f / 240.0f) * (a ? dev_aspect_region() : 1.0f); }
 static float dev_aspect_overscan(bool a) { return a ? (4.0f / 3.0f) : (256.0f / 224.0f); }
 static float dev_aspect_target(bool a, bool o) { return o ? dev_aspect_overscan(a) : dev_aspect_scale(a); }
 
-void mn_output_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh)
+void mn_video_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh)
 {
+  if (mn_region_get() != MN_REGION_NTSC) {
+    overscan = false;
+  }
   float h = (overscan ? 224.0f : 240.0f) * scale;
   float w = h * dev_aspect_target(auto_aspect, overscan);
   *dw = (uint)(w + 0.5f);
   *dh = (uint)(h + 0.5f);
 }
 
-void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh)
+void mn_video_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh)
 {
+  if (mn_region_get() != MN_REGION_NTSC) {
+    overscan = false;
+  }
   float aspect_scale = dev_aspect_scale(auto_aspect);
   float aspect_target = dev_aspect_target(auto_aspect, overscan);
   float aspect_output = sw / sh;
@@ -95,6 +105,28 @@ void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* d
   }
   *dx = (sw - *dw) / 2.0f;
   *dy = (sh - *dh) / 2.0f;
+}
+
+uint mn_region_get() { return dev_region; }
+
+void dev_region_update()
+{
+  if (dev_region_forced != MN_REGION_AUTO) {
+    dev_region = dev_region_forced;
+  } else {
+    mn_rom rom = mn_rom_get();
+    if (rom && rom->region != MN_REGION_AUTO) {
+      dev_region = rom->region;
+    } else {
+      dev_region = MN_REGION_NTSC;
+    }
+  }
+}
+
+void mn_region_set(uint region)
+{
+  dev_region_forced = region;
+  dev_region_update();
 }
 
 bool mn_save(const char* path)
@@ -382,11 +414,11 @@ mn_rom mn_rom_load(const char* rom_path, const char* sram_path)
   if (is_v2) {
     rom->mapper = (h.mapper_flags >> 4) | (h.mapper_sig2 & 0xF0) | ((h.sub_mapper & 0x0F) << 8);
     rom->submapper = (h.sub_mapper >> 4);
-    rom->tv = h.tv;
+    rom->region = h.region;
   } else {
     rom->mapper = (h.mapper_flags >> 4) | (h.mapper_sig2 & 0xF0);
     rom->submapper = 0;
-    rom->tv = MN_TV_NTSC;
+    rom->region = MN_REGION_NTSC;
   }
 
   return rom;

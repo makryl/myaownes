@@ -23,10 +23,10 @@ enum
 
 enum
 {
-  MN_TV_NTSC = 0,
-  MN_TV_PAL,
-  MN_TV_AUTO,
-  MN_TV_DENDY,
+  MN_REGION_NTSC = 0,
+  MN_REGION_PAL,
+  MN_REGION_AUTO,
+  MN_REGION_DENDY,
 };
 
 struct mn_rom
@@ -41,7 +41,7 @@ struct mn_rom
   uint chr_ram_size;
   uint mapper;
   uint submapper;
-  uint tv;
+  uint region;
   bool vert_mirror;
   bool prg_has_battery;
   bool chr_has_battery;
@@ -55,6 +55,8 @@ bool mn_rom_save(const char* sram_path);
 void mn_rom_release(mn_rom rom);
 bool mn_rom_set(mn_rom rom);
 mn_rom mn_rom_get();
+void mn_region_set(uint region);
+uint mn_region_get();
 uint* mn_video_data();
 void mn_video_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh);
 void mn_video_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh);

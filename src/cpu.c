@@ -102,8 +102,7 @@ static void cpu_poll()
 void cpu_power()
 {
   memset(&cpu, 0, sizeof(cpu));
-  mn_rom rom = mn_rom_get();
-  cpu.pal = (rom->tv == MN_TV_PAL);
+  cpu.pal = (mn_region_get() == MN_REGION_PAL);
   cpu_reset();
   cpu_poll();
 }

@@ -872,6 +872,7 @@ bool map_rom_load(mn_rom rom, bool init)
 {
   map_dyn.rom = rom;
   rom->mapper_error = false;
+  dev_region_update();
   map_nrom_load();
   switch (rom->mapper) {
     case 0: break;

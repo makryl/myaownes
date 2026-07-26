@@ -300,10 +300,8 @@ void apu_power()
 {
   memset(&apu, 0, sizeof(apu));
 
-  mn_rom rom = mn_rom_get();
-  switch (rom->tv) {
-    case MN_TV_NTSC:
-    case MN_TV_AUTO:
+  switch (mn_region_get()) {
+    case MN_REGION_NTSC:
       apu.step1 = APU_STEP1_NTSC;
       apu.step2 = APU_STEP2_NTSC;
       apu.step3 = APU_STEP3_NTSC;
@@ -313,7 +311,7 @@ void apu_power()
       memcpy(apu.noise_period_table, apu_noise_period_ntsc, sizeof(apu.noise_period_table));
       memcpy(apu.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu.dmc_period_table));
       break;
-    case MN_TV_PAL:
+    case MN_REGION_PAL:
       apu.step1 = APU_STEP1_PAL;
       apu.step2 = APU_STEP2_PAL;
       apu.step3 = APU_STEP3_PAL;
@@ -323,7 +321,7 @@ void apu_power()
       memcpy(apu.noise_period_table, apu_noise_period_pal, sizeof(apu.noise_period_table));
       memcpy(apu.dmc_period_table, apu_dmc_period_pal, sizeof(apu.dmc_period_table));
       break;
-    case MN_TV_DENDY:
+    case MN_REGION_DENDY:
       apu.step1 = APU_STEP1_NTSC;
       apu.step2 = APU_STEP2_NTSC;
       apu.step3 = APU_STEP3_NTSC;
