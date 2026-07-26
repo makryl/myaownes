@@ -87,7 +87,7 @@ static void imp_draw_help()
   u8 i = 2;
   SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Help        F1        MyaowNES ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Open        F2          v" MN_VERSION " ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Open DnDrop,F2          v" MN_VERSION " ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Region      F3                 ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Reset       F4    /\\____/\\     ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick save  F5                 ");
@@ -134,7 +134,7 @@ static void imp_update_frame_time()
   imp.target_frame_time = imp.perf_freq / ((mn_region_get() == MN_REGION_NTSC) ? 60 : 50);
 }
 
-static void imp_window_resize()
+static void imp_onresize()
 {
   int width;
   int height;
@@ -146,13 +146,15 @@ static void imp_window_resize()
   imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
 }
 
-static void imp_update_size()
+static void imp_try_resize()
 {
+#ifndef __EMSCRIPTEN__
   uint width;
   uint height;
   mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
   SDL_SetWindowSize(imp.window, width, height);
-  imp_window_resize();
+#endif
+  imp_onresize();
 }
 
 static void imp_ensure_dir(const char* subdir)
@@ -220,13 +222,13 @@ static void imp_rom_update()
   SDL_snprintf(imp.rom_info[5], sizeof(imp.rom_info[0]), "CHR-%-4s %4dK", rom->chr_has_battery ? "SRAM" : "RAM",
                rom->chr_ram_size >> 10);
 
-  SDL_Log("Rom: %s", imp.rom_info[0]);
-  for (uint i = 1; i < 6; ++i) {
+  SDL_Log("Rom: %s", imp.rom_path);
+  for (uint i = 0; i < 6; ++i) {
     SDL_Log("     %s", imp.rom_info[i]);
   }
 
   imp_update_frame_time();
-  imp_update_size();
+  imp_try_resize();
 }
 
 static void imp_save_config()
@@ -482,7 +484,7 @@ static void imp_toggle_region()
   if (imp.rom) {
     mn_rom_set(imp.rom);
   }
-  imp_update_size();
+  imp_try_resize();
   switch (imp.region) {
     case MN_REGION_NTSC: imp_popup("Region NTSC", 2); break;
     case MN_REGION_PAL: imp_popup("Region PAL", 2); break;
@@ -495,7 +497,7 @@ static void imp_toggle_aspect()
 {
   imp.auto_aspect = !imp.auto_aspect;
   imp.dirty_config = true;
-  imp_update_size();
+  imp_try_resize();
   imp_popup(imp.auto_aspect ? "Aspect ON" : "Aspect OFF", 2);
 }
 
@@ -503,7 +505,7 @@ static void imp_toggle_overscan()
 {
   imp.overscan = !imp.overscan;
   imp.dirty_config = true;
-  imp_update_size();
+  imp_try_resize();
   imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 2);
 }
 
@@ -551,7 +553,7 @@ static void imp_upscale()
     case 7: imp_popup("Scale x7", 2); break;
     case 8: imp_popup("Scale x8", 2); break;
   }
-  imp_update_size();
+  imp_try_resize();
 }
 
 static void imp_downscale()
@@ -570,7 +572,7 @@ static void imp_downscale()
     case 7: imp_popup("Scale x7", 2); break;
     case 8: imp_popup("Scale x8", 2); break;
   }
-  imp_update_size();
+  imp_try_resize();
 }
 
 static void imp_toggle_pause()
@@ -734,12 +736,21 @@ static void imp_joy2_a_turbo_up() { imp.joy2_turbo_a = false; }
 static void imp_joy2_b_turbo_down() { imp.joy2_turbo_b = true; }
 static void imp_joy2_b_turbo_up() { imp.joy2_turbo_b = false; }
 
+void imp_drop_file(const char* path)
+{
+  if (path) {
+    imp_rom_load(path);
+    imp_rom_update();
+  }
+}
+
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
 {
   switch (event->type) {
     case SDL_EVENT_QUIT: return SDL_APP_SUCCESS;
     case SDL_EVENT_WINDOW_RESIZED:
-    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: imp_window_resize(); break;
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: imp_onresize(); break;
+    case SDL_EVENT_DROP_FILE: imp_drop_file(event->drop.data); break;
     case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
         case SDLK_F1: imp_help(); break;
@@ -977,7 +988,9 @@ SDL_AppResult SDL_AppIterate(void*)
   imp.auto_save_time += imp.real_frame_time;
   if (imp.auto_save_time >= imp.auto_save_period * imp.perf_freq) {
     imp.auto_save_time -= imp.auto_save_period * imp.perf_freq;
-    mn_rom_save(imp.sram_path);
+    if (imp.rom) {
+      mn_rom_save(imp.sram_path);
+    }
     imp_save_config();
   }
 
