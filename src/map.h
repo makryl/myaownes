@@ -12,4 +12,4 @@ void map_ppu_addr(u16 addr);
 void map_ppu_read(u16 addr, u8* val);
 void map_ppu_write(u16 addr, u8 val);
 void map_apu_irq(bool enabled);
-bool map_rom_load(Rom rom, bool init);
+bool map_rom_load(mn_rom rom, bool init);

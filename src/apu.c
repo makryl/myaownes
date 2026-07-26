@@ -185,7 +185,7 @@ MN_CACHE_LINE static struct Apu
 
 uint apu_size() { return sizeof(apu); }
 void* apu_data() { return &apu; }
-void* mn_audio_data() { return apu.out_data; }
+i16* mn_audio_data() { return apu.out_data; }
 uint mn_audio_size() { return apu.out_size * sizeof(i16); }
 void apu_reset_out() { apu.out_size = 0; }
 
@@ -300,10 +300,10 @@ void apu_power()
 {
   memset(&apu, 0, sizeof(apu));
 
-  Rom rom = mn_rom_get();
+  mn_rom rom = mn_rom_get();
   switch (rom->tv) {
     case MN_TV_NTSC:
-    case MN_TV_MULTI:
+    case MN_TV_AUTO:
       apu.step1 = APU_STEP1_NTSC;
       apu.step2 = APU_STEP2_NTSC;
       apu.step3 = APU_STEP3_NTSC;
@@ -324,11 +324,11 @@ void apu_power()
       memcpy(apu.dmc_period_table, apu_dmc_period_pal, sizeof(apu.dmc_period_table));
       break;
     case MN_TV_DENDY:
-      apu.step1 = APU_STEP1_PAL;
-      apu.step2 = APU_STEP2_PAL;
-      apu.step3 = APU_STEP3_PAL;
-      apu.step4 = APU_STEP4_PAL;
-      apu.step5 = APU_STEP5_PAL;
+      apu.step1 = APU_STEP1_NTSC;
+      apu.step2 = APU_STEP2_NTSC;
+      apu.step3 = APU_STEP3_NTSC;
+      apu.step4 = APU_STEP4_NTSC;
+      apu.step5 = APU_STEP5_NTSC;
       apu.time_target = ((u64)APU_FREQ_DENDY << 32) / MN_AUDIO_FREQ;
       memcpy(apu.noise_period_table, apu_noise_period_ntsc, sizeof(apu.noise_period_table));
       memcpy(apu.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu.dmc_period_table));

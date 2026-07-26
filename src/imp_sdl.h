@@ -61,7 +61,7 @@ static struct
   bool joy2_turbo_a;
   bool joy2_turbo_b;
   bool dirty_config;
-  Rom rom;
+  mn_rom rom;
   char rom_info[6][15];
   char rom_path[IMP_PATH_SIZE];
   char sram_path[IMP_PATH_SIZE];
@@ -137,7 +137,7 @@ static void imp_update_size()
 {
   uint width;
   uint height;
-  mn_output_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
+  mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
   SDL_SetWindowSize(imp.window, width, height);
 }
 
@@ -173,7 +173,7 @@ static void imp_save_path(char* dst, const char* subdir, const char* ext)
 
 static void imp_rom_update()
 {
-  Rom rom = imp.rom;
+  mn_rom rom = imp.rom;
   if (!rom) {
     imp.help = true;
     imp.pause = true;
@@ -396,7 +396,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   uint width;
   uint height;
-  mn_output_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
+  mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
 
   if (!SDL_CreateWindowAndRenderer("MyaowNES", width, height, SDL_WINDOW_RESIZABLE, &imp.window, &imp.renderer)) {
     SDL_Log("%s", SDL_GetError());
@@ -705,7 +705,7 @@ static void imp_window_resize()
   int width;
   int height;
   SDL_GetWindowSizeInPixels(imp.window, &width, &height);
-  mn_output_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
+  mn_video_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
   imp.ui_offset.w = imp.rect.w / 256;
   imp.ui_offset.h = imp.rect.h / 240;
   imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
@@ -963,7 +963,7 @@ SDL_AppResult SDL_AppIterate(void*)
   SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xFF);
   SDL_RenderClear(imp.renderer);
 
-  SDL_UpdateTexture(imp.tex_out, nullptr, mn_output(), 256 * 4);
+  SDL_UpdateTexture(imp.tex_out, nullptr, mn_video_data(), 256 * 4);
   SDL_RenderTexture(imp.renderer, imp.tex_out, nullptr, &imp.rect);
 
   SDL_SetRenderScale(imp.renderer, imp.ui_offset.w, imp.ui_offset.h);

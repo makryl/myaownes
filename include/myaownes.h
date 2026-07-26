@@ -7,7 +7,7 @@ typedef unsigned char u8;
 typedef signed long long i64;
 typedef signed short i16;
 typedef signed char i8;
-typedef struct Rom* Rom;
+typedef struct mn_rom* mn_rom;
 
 enum
 {
@@ -25,11 +25,11 @@ enum
 {
   MN_TV_NTSC = 0,
   MN_TV_PAL,
-  MN_TV_MULTI,
+  MN_TV_AUTO,
   MN_TV_DENDY,
 };
 
-struct Rom
+struct mn_rom
 {
   const u8* prg_rom;
   const u8* chr_rom;
@@ -50,19 +50,19 @@ struct Rom
   bool mapper_error;
 };
 
-Rom mn_rom_load(const char* rom_path, const char* sram_path);
+mn_rom mn_rom_load(const char* rom_path, const char* sram_path);
 bool mn_rom_save(const char* sram_path);
-void mn_rom_release(Rom rom);
-bool mn_rom_set(Rom rom);
-Rom mn_rom_get();
-uint* mn_output();
-void mn_output_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh);
-void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh);
+void mn_rom_release(mn_rom rom);
+bool mn_rom_set(mn_rom rom);
+mn_rom mn_rom_get();
+uint* mn_video_data();
+void mn_video_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh);
+void mn_video_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh);
+i16* mn_audio_data();
+uint mn_audio_size();
 void mn_power();
 void mn_reset();
 void mn_frame(u8 joy1, u8 joy2);
 bool mn_save(const char* path);
 bool mn_load(const char* path);
 void mn_palette(uint palette[64]);
-void* mn_audio_data();
-uint mn_audio_size();

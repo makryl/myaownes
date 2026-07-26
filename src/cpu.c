@@ -58,7 +58,7 @@ MN_CACHE_LINE static struct Cpu
   u8 x;
   u8 y;
   u8 joy_pending[2];
-  u8 joy_val[2];
+  u8 joy_shift[2];
   u8 open_bus;
   bool reset;
   bool nmi;
@@ -102,7 +102,7 @@ static void cpu_poll()
 void cpu_power()
 {
   memset(&cpu, 0, sizeof(cpu));
-  Rom rom = mn_rom_get();
+  mn_rom rom = mn_rom_get();
   cpu.pal = (rom->tv == MN_TV_PAL);
   cpu_reset();
   cpu_poll();
@@ -130,8 +130,9 @@ static u8 cpu_joy_poll(u16 addr)
     val = (cpu.joy_pending[cpu.joy_idx] & 1);
   } else {
     cpu.joy_shift_delay = 2;
-    val = (cpu.joy_val[cpu.joy_idx] & 1);
+    val = (cpu.joy_shift[cpu.joy_idx] & 1);
   }
+  val |= (val & 1) << 1;
   return val | (cpu.open_bus & 0xE0);
 }
 
@@ -139,7 +140,7 @@ static void cpu_joy_shift()
 {
   if (cpu.joy_shift_delay > 0) {
     if (--cpu.joy_shift_delay == 0) {
-      cpu.joy_val[cpu.joy_idx] = (cpu.joy_val[cpu.joy_idx] >> 1) | 0x80;
+      cpu.joy_shift[cpu.joy_idx] = (cpu.joy_shift[cpu.joy_idx] >> 1) | 0x80;
     }
   }
 }
@@ -148,14 +149,16 @@ static void cpu_joy_strobe(u8 val)
 {
   cpu.joy_strobe = (val & 1);
   if (cpu.joy_strobe) {
-    cpu.joy_val[0] = cpu.joy_pending[0];
-    cpu.joy_val[1] = cpu.joy_pending[1];
+    cpu.joy_shift[0] = cpu.joy_pending[0];
+    cpu.joy_shift[1] = cpu.joy_pending[1];
   }
 }
 
 static void cpu_cyc_begin()
 {
-  cpu_dmc_dma(); // todo: only opcode read for PAL?
+  if (!cpu.pal || cpu.addr == cpu.pc - 1) {
+    cpu_dmc_dma();
+  }
   cpu_poll();
   ppu_tick();
   ppu_tick();

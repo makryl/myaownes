@@ -99,7 +99,7 @@ void mn_output_fit(bool auto_aspect, bool overscan, float sw, float sh, float* d
 
 bool mn_save(const char* path)
 {
-  Rom rom = mn_rom_get();
+  mn_rom rom = mn_rom_get();
   if (!rom) {
     errorf("no active rom set\n");
     return false;
@@ -150,7 +150,7 @@ bool mn_save(const char* path)
 
 bool mn_load(const char* path)
 {
-  Rom rom = mn_rom_get();
+  mn_rom rom = mn_rom_get();
   if (!rom) {
     errorf("no active rom set\n");
     return false;
@@ -201,7 +201,7 @@ bool mn_load(const char* path)
 
 bool mn_rom_save(const char* sram_path)
 {
-  Rom rom = mn_rom_get();
+  mn_rom rom = mn_rom_get();
   if (!rom) {
     errorf("no active rom set\n");
     return false;
@@ -235,7 +235,7 @@ bool mn_rom_save(const char* sram_path)
   return true;
 }
 
-Rom mn_rom_load(const char* rom_path, const char* sram_path)
+mn_rom mn_rom_load(const char* rom_path, const char* sram_path)
 {
   FILE* f = fopen(rom_path, "rb");
   if (!f) {
@@ -321,8 +321,8 @@ Rom mn_rom_load(const char* rom_path, const char* sram_path)
   uint rom_size = prg_rom_size + chr_rom_size;
   uint ram_size = prg_ram_size + chr_ram_size;
   uint total_size = rom_size + ram_size;
-  u8* mem = malloc(sizeof(struct Rom) + total_size);
-  u8* prg_rom = mem + sizeof(struct Rom);
+  u8* mem = malloc(sizeof(struct mn_rom) + total_size);
+  u8* prg_rom = mem + sizeof(struct mn_rom);
   u8* chr_rom = prg_rom + prg_rom_size;
   u8* prg_ram = chr_rom + chr_rom_size;
   u8* chr_ram = prg_ram + prg_ram_size;
@@ -364,7 +364,7 @@ Rom mn_rom_load(const char* rom_path, const char* sram_path)
     }
   }
 
-  Rom rom = (Rom)mem;
+  mn_rom rom = (mn_rom)mem;
   rom->prg_rom = prg_rom;
   rom->chr_rom = chr_rom_size > 0 ? chr_rom : nullptr;
   rom->prg_ram = prg_ram_size > 0 ? prg_ram : nullptr;
@@ -392,4 +392,4 @@ Rom mn_rom_load(const char* rom_path, const char* sram_path)
   return rom;
 }
 
-void mn_rom_release(Rom rom) { free(rom); }
+void mn_rom_release(mn_rom rom) { free(rom); }

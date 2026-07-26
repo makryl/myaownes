@@ -53,7 +53,7 @@ static TestParams tests[] = {
   { "apu_test/rom_singles/6-irq_flag_timing.nes", MN_TV_NTSC, { { 0x31D8322C, 20, 0x00, 0 } } }, //
   { "apu_test/rom_singles/7-dmc_basics.nes", MN_TV_NTSC, { { 0x96FCAE66, 22, 0x00, 0 } } }, //
   { "apu_test/rom_singles/8-dmc_rates.nes", MN_TV_NTSC, { { 0xF97AC6BC, 27, 0x00, 0 } } }, //
-  // { "apu_test/apu_test.nes", MN_TV_NTSC, { { 0x71B41136, 247, 0, 0 } } }, //
+  { "apu_test/apu_test.nes", MN_TV_NTSC, { { 0x71B41136, 298, 0, 0 } } }, //
   { "blargg_apu_2005.07.30/01.len_ctr.nes", MN_TV_NTSC, { { 0x2886AFFC, 24, 0x00, 0 } } }, //
   { "blargg_apu_2005.07.30/02.len_table.nes", MN_TV_NTSC, { { 0x2886AFFC, 11, 0x00, 0 } } }, //
   { "blargg_apu_2005.07.30/03.irq_flag.nes", MN_TV_NTSC, { { 0x2886AFFC, 18, 0x00, 0 } } }, //
@@ -333,7 +333,7 @@ void save_test_step_img(const char* rom_path, u8 step)
       img_path[i] = '/';
     }
   }
-  save_tga(img_path, mn_output(), 256, 240);
+  save_tga(img_path, mn_video_data(), 256, 240);
 }
 
 uint run_test_step(TestStep step)
@@ -344,12 +344,12 @@ uint run_test_step(TestStep step)
   for (uint i = 0; i < step.frames; ++i) {
     mn_frame(step.joy1, 0);
   }
-  return calc_crc((u8*)mn_output(), 256 * 240 * 4);
+  return calc_crc((u8*)mn_video_data(), 256 * 240 * 4);
 }
 
 bool run_test_steps(TestParams params, uint* out_hash)
 {
-  Rom rom = mn_rom_load(params.path, nullptr);
+  mn_rom rom = mn_rom_load(params.path, nullptr);
   rom->tv = params.tv;
   mn_rom_set(rom);
 

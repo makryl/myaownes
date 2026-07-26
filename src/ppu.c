@@ -163,16 +163,16 @@ MN_CACHE_LINE static struct Ppu
 uint ppu_size() { return sizeof(ppu); }
 void* ppu_data() { return &ppu; }
 
-uint* mn_output() { return ppu.out; }
+uint* mn_video_data() { return ppu.out; }
 void mn_palette(uint palette[64]) { memcpy(ppu_palette, palette, sizeof(ppu_palette)); }
 
 void ppu_power()
 {
   memset(&ppu, 0, sizeof(ppu));
-  Rom rom = mn_rom_get();
+  mn_rom rom = mn_rom_get();
   switch (rom->tv) {
     case MN_TV_NTSC:
-    case MN_TV_MULTI:
+    case MN_TV_AUTO:
       ppu.sl_end = 239;
       ppu.sl_vblank = 241;
       ppu.sl_pre_render = 261;
