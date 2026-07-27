@@ -168,6 +168,7 @@ void mn_palette(uint palette[64]) { memcpy(ppu_palette, palette, sizeof(ppu_pale
 
 void ppu_power()
 {
+  memset(&ppu_out, 0, sizeof(ppu_out));
   memset(&ppu, 0, sizeof(ppu));
   switch (mn_region_get()) {
     case MN_REGION_NTSC:

@@ -377,18 +377,20 @@ mn_rom mn_rom_load(const char* rom_path, const char* sram_path)
   fclose(f);
 
   memset(prg_ram, 0, ram_size);
-  if (sram_path && ram_size && (prg_has_battery || chr_has_battery)) {
+  if (sram_path && sram_path[0] && ram_size && (prg_has_battery || chr_has_battery)) {
     FILE* sram_file = fopen(sram_path, "rb");
     if (sram_file) {
       bool has_error = false;
       if (prg_ram_size && prg_has_battery) {
         if (fread(prg_ram, 1, prg_ram_size, f) != prg_ram_size) {
+          memset(prg_ram, 0, prg_ram_size);
           errorf("can not read PRG-SRAM from %s: %s\n", sram_path, strerror(errno));
           has_error = true;
         }
       }
       if (!has_error && chr_ram_size && chr_has_battery) {
         if (fread(chr_ram, 1, chr_ram_size, f) != chr_ram_size) {
+          memset(chr_ram, 0, chr_ram_size);
           errorf("can not read CHR-SRAM from %s: %s\n", sram_path, strerror(errno));
         }
       }

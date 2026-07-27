@@ -106,6 +106,14 @@ void map_ppu_write(u16 addr, u8 val)
   }
 }
 
+static void map_clear_pages()
+{
+  memset(map_dyn.cpu_read_page, 0, sizeof(map_dyn.cpu_read_page));
+  memset(map_dyn.cpu_write_page, 0, sizeof(map_dyn.cpu_write_page));
+  memset(map_dyn.ppu_read_page, 0, sizeof(map_dyn.ppu_read_page));
+  memset(map_dyn.ppu_write_page, 0, sizeof(map_dyn.ppu_write_page));
+}
+
 static const u8* map_cpu_read_pages(const u8* src, uint src_page, uint dst_page, uint pages)
 {
   const u8* next = nullptr;
@@ -197,30 +205,38 @@ static void map_prg_rom_page_32k(uint sp, uint dp)
 
 static void map_prg_ram_page_4k(uint sp, uint dp)
 {
-  sp = map_page_clamp(sp, map_dyn.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 0);
-  map_cpu_read_pages(map_dyn.rom->prg_ram, sp, dp, 1);
-  map_cpu_write_pages(map_dyn.rom->prg_ram, sp, dp, 1);
+  if (map_dyn.rom->prg_ram_size) {
+    sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_CPU_PAGE_SHIFT + 0);
+    map_cpu_read_pages(map_dyn.rom->prg_ram, sp, dp, 1);
+    map_cpu_write_pages(map_dyn.rom->prg_ram, sp, dp, 1);
+  }
 }
 
 static void map_prg_ram_page_8k(uint sp, uint dp)
 {
-  sp = map_page_clamp(sp, map_dyn.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 1);
-  map_cpu_read_pages(map_dyn.rom->prg_ram, sp * 2, dp * 2, 2);
-  map_cpu_write_pages(map_dyn.rom->prg_ram, sp * 2, dp * 2, 2);
+  if (map_dyn.rom->prg_ram_size) {
+    sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_CPU_PAGE_SHIFT + 1);
+    map_cpu_read_pages(map_dyn.rom->prg_ram, sp * 2, dp * 2, 2);
+    map_cpu_write_pages(map_dyn.rom->prg_ram, sp * 2, dp * 2, 2);
+  }
 }
 
 static void map_prg_ram_page_16k(uint sp, uint dp)
 {
-  sp = map_page_clamp(sp, map_dyn.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 2);
-  map_cpu_read_pages(map_dyn.rom->prg_ram, sp * 4, dp * 4, 4);
-  map_cpu_write_pages(map_dyn.rom->prg_ram, sp * 4, dp * 4, 4);
+  if (map_dyn.rom->prg_ram_size) {
+    sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_CPU_PAGE_SHIFT + 2);
+    map_cpu_read_pages(map_dyn.rom->prg_ram, sp * 4, dp * 4, 4);
+    map_cpu_write_pages(map_dyn.rom->prg_ram, sp * 4, dp * 4, 4);
+  }
 }
 
 static void map_prg_ram_page_32k(uint sp, uint dp)
 {
-  sp = map_page_clamp(sp, map_dyn.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + 3);
-  map_cpu_read_pages(map_dyn.rom->prg_ram, sp * 8, dp * 8, 8);
-  map_cpu_write_pages(map_dyn.rom->prg_ram, sp * 8, dp * 8, 8);
+  if (map_dyn.rom->prg_ram_size) {
+    sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_CPU_PAGE_SHIFT + 3);
+    map_cpu_read_pages(map_dyn.rom->prg_ram, sp * 8, dp * 8, 8);
+    map_cpu_write_pages(map_dyn.rom->prg_ram, sp * 8, dp * 8, 8);
+  }
 }
 
 static void map_chr_page_1k(uint sp, uint dp)
@@ -364,24 +380,57 @@ typedef struct
 static void map_mmc1_update()
 {
   static_assert(sizeof(MapMMC1) <= sizeof(map.eram));
+  mn_rom rom = map_dyn.rom;
   MapMMC1* reg = (MapMMC1*)map.eram;
   u8 ctrl_nt = reg->ctrl & 3;
   u8 ctrl_prg = (reg->ctrl >> 2) & 3;
   u8 ctrl_chr = reg->ctrl >> 4;
   u8 chr_page0 = reg->chr0;
   u8 chr_page1 = ctrl_chr ? reg->chr1 : reg->chr0;
-  u8 prg_sup0 = chr_page0 & 0x10;
-  u8 prg_sup1 = chr_page1 & 0x10;
   u8 prg_page = reg->prg & 0x0F;
+  u8 prg_ram_page = 0;
+  u8 prg_sup0 = 0;
+  u8 prg_sup1 = 0;
   u8 prg_last = -1 & 0x0F;
+  bool prg_ram_protect = false;
 
-  if (!map_dyn.rom->alt_mirror) {
+  bool snrom = (rom->prg_rom_size <= 256 * 1024 && rom->prg_ram_size == 8 * 1024
+                && (rom->chr_rom_size == 8 * 1024 || rom->chr_ram_size == 8 * 1024));
+
+  bool szrom = (rom->prg_ram_size == 16 * 1024 && (rom->chr_rom_size >= 16 * 1024 || rom->chr_ram_size >= 16 * 1024));
+
+  if (snrom) {
+    prg_ram_protect = (chr_page0 & 0x10);
+  } else {
+    prg_ram_protect = (reg->prg & 0x10);
+  }
+
+  if (szrom) {
+    prg_ram_page = (chr_page0 >> 4) & 1;
+  } else if (rom->prg_ram_size == 16 * 1024) {
+    prg_ram_page = (chr_page0 >> 3) & 1;
+  } else if (rom->prg_ram_size == 32 * 1024) {
+    prg_ram_page = (chr_page0 >> 2) & 3;
+  }
+
+  if (rom->prg_rom_size == 512 * 1024) {
+    prg_sup0 = chr_page0 & 0x10;
+    prg_sup1 = chr_page1 & 0x10;
+  }
+
+  map_clear_pages();
+
+  if (!rom->alt_mirror) {
     switch (ctrl_nt) {
       case 0: map_ppu_nt_single_low(); break;
       case 1: map_ppu_nt_single_high(); break;
       case 2: map_ppu_nt_vert_mirror(); break;
       case 3: map_ppu_nt_horiz_mirror(); break;
     }
+  }
+
+  if (!prg_ram_protect) {
+    map_prg_ram_page_8k(prg_ram_page, 3);
   }
 
   if (ctrl_chr) {

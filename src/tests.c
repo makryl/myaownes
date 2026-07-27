@@ -103,6 +103,46 @@ static TestParams tests[] = {
   { "full_palette/flowing_palette.nes", MN_REGION_NTSC, { { 0xA23B43F2, 30, 0, 0 } } }, //
   { "full_palette/full_palette_smooth.nes", MN_REGION_NTSC, { { 0xB9E4C8FC, 30, 0, 0 } } }, //
   { "full_palette/full_palette.nes", MN_REGION_NTSC, { { 0xA6FC042E, 30, 0, 0 } } }, //
+  { "holy-mapperel/M0_P32K_C8K_V.nes", MN_REGION_NTSC, { { 0x981BD784, 5, 0x00, 0 } } }, //
+  { "holy-mapperel/M0_P32K_CR8K_V.nes", MN_REGION_NTSC, { { 0xE0E298B7, 76, 0x00, 0 } } }, //
+  { "holy-mapperel/M0_P32K_CR32K_V.nes", MN_REGION_NTSC, { { 0xE0E298B7, 76, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K_C32K_S8K.nes", MN_REGION_NTSC, { { 0x8E756874, 81, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K_C32K_W8K.nes", MN_REGION_NTSC, { { 0x62412ED9, 81, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K_C32K.nes", MN_REGION_NTSC, { { 0x5AAC6663, 6, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K_C128K_S8K.nes", MN_REGION_NTSC, { { 0x701554BB, 82, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K_C128K_W8K.nes", MN_REGION_NTSC, { { 0x9C211216, 82, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K_C128K.nes", MN_REGION_NTSC, { { 0x3AB7DB20, 6, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K_CR8K.nes", MN_REGION_NTSC, { { 0x197C6D62, 77, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P128K.nes", MN_REGION_NTSC, { { 0xE6FC43EE, 77, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P512K_CR8K_S8K.nes", MN_REGION_NTSC, { { 0xEAAA9550, 155, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P512K_CR8K_S32K.nes", MN_REGION_NTSC, { { 0x68E2595B, 451, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P512K_S8K.nes", MN_REGION_NTSC, { { 0x152ABBDC, 155, 0x00, 0 } } }, //
+  { "holy-mapperel/M1_P512K_S32K.nes", MN_REGION_NTSC, { { 0x976277D7, 451, 0x00, 0 } } }, //
+  { "holy-mapperel/M2_P128K_CR8K_V.nes", MN_REGION_NTSC, { { 0xB12E2EEB, 76, 0x00, 0 } } }, //
+  { "holy-mapperel/M2_P128K_V.nes", MN_REGION_NTSC, { { 0x4EAE0067, 76, 0x00, 0 } } }, //
+  { "holy-mapperel/M3_P32K_C32K_H.nes", MN_REGION_NTSC, { { 0x0D541701, 5, 0x00, 0 } } }, //
+  { "holy-mapperel/M4_P128K_CR8K.nes", MN_REGION_NTSC, { { 0x5B785B84, 78, 0x00, 0 } } }, //
+  { "holy-mapperel/M4_P128K_CR32K.nes", MN_REGION_NTSC, { { 0x6A06D7E0, 284, 0x00, 0 } } }, //
+  { "holy-mapperel/M4_P128K.nes", MN_REGION_NTSC, { { 0xA4F87508, 78, 0x00, 0 } } }, //
+  { "holy-mapperel/M4_P256K_C256K.nes", MN_REGION_NTSC, { { 0x67842BC7, 13, 0x00, 0 } } }, //
+  { "holy-mapperel/M7_P128K_CR8K.nes", MN_REGION_NTSC, { { 0x63328D8D, 76, 0x00, 0 } } }, //
+  { "holy-mapperel/M7_P128K.nes", MN_REGION_NTSC, { { 0x9CB2A301, 76, 0x00, 0 } } }, //
+  // { "holy-mapperel/M9_P128K_C64K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M10_P128K_C64K_S8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M10_P128K_C64K_W8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  { "holy-mapperel/M11_P64K_C64K_V.nes", MN_REGION_NTSC, { { 0x5E238DB4, 5, 0x00, 0 } } }, //
+  { "holy-mapperel/M11_P64K_CR32K_V.nes", MN_REGION_NTSC, { { 0x87691334, 282, 0x00, 0 } } }, //
+  // { "holy-mapperel/M28_P512K_CR32K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M28_P512K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  { "holy-mapperel/M34_P128K_CR8K_H.nes", MN_REGION_NTSC, { { 0x2CE60CEA, 76, 0x00, 0 } } }, //
+  { "holy-mapperel/M34_P128K_H.nes", MN_REGION_NTSC, { { 0xD3662266, 76, 0x00, 0 } } }, //
+  { "holy-mapperel/M66_P64K_C16K_V.nes", MN_REGION_NTSC, { { 0xE8B5DD23, 5, 0x00, 0 } } }, //
+  // { "holy-mapperel/M69_P128K_C64K_S8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M69_P128K_C64K_W8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M78.3_P128K_C64K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M118_P128K_C64K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M180_P128K_CR8K_H.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  // { "holy-mapperel/M180_P128K_H.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
   { "instr_misc/rom_singles/01-abs_x_wrap.nes", MN_REGION_NTSC, { { 0x290CAB05, 11, 0x00, 0 } } }, //
   { "instr_misc/rom_singles/02-branch_wrap.nes", MN_REGION_NTSC, { { 0x54041E4A, 12, 0x00, 0 } } }, //
   { "instr_misc/rom_singles/03-dummy_reads.nes", MN_REGION_NTSC, { { 0x4D1E0C1E, 56, 0x00, 0 } } }, //
@@ -287,7 +327,7 @@ static TestParams tests[] = {
   { "vbl_nmi_timing/7.nmi_timing.nes", MN_REGION_NTSC, { { 0xE5553CE0, 109, 0x00, 0 } } }, //
 };
 
-uint calc_crc(const u8* data, uint size)
+static uint calc_crc(const u8* data, uint size)
 {
   uint crc = 0xFFFFFFFF;
   for (uint i = 0; i < size; ++i) {
@@ -299,7 +339,7 @@ uint calc_crc(const u8* data, uint size)
   return crc ^ 0xFFFFFFFF;
 }
 
-void save_tga(const char* img_path, const void* pixels, uint width, uint height)
+static void save_tga(const char* img_path, const void* pixels, uint width, uint height)
 {
   FILE* f = fopen(img_path, "wb");
   if (!f) {
@@ -321,22 +361,27 @@ void save_tga(const char* img_path, const void* pixels, uint width, uint height)
   fclose(f);
 }
 
-void save_test_step_img(const char* rom_path, u8 step)
+static void make_dirs(char* path)
+{
+  uint path_len = strlen(path);
+  for (uint i = 0; i <= path_len; i++) {
+    if (path[i] == '/') {
+      path[i] = 0;
+      mkdir(path, 0777);
+      path[i] = '/';
+    }
+  }
+}
+
+static void save_test_step_img(const char* rom_path, u8 step)
 {
   char img_path[512] = {};
   sprintf(img_path, "screenshots/%s.%d.tga", rom_path, step);
-  uint img_path_len = strlen(img_path);
-  for (uint i = 0; i <= img_path_len; i++) {
-    if (img_path[i] == '/') {
-      img_path[i] = 0;
-      mkdir(img_path, 0777);
-      img_path[i] = '/';
-    }
-  }
+  make_dirs(img_path);
   save_tga(img_path, mn_video_data(), 256, 240);
 }
 
-uint run_test_step(TestStep step)
+static uint run_test_step(TestStep step)
 {
   if (step.reset) {
     mn_reset();
@@ -347,9 +392,13 @@ uint run_test_step(TestStep step)
   return calc_crc((u8*)mn_video_data(), 256 * 240 * 4);
 }
 
-bool run_test_steps(TestParams params, uint* out_hash)
+static bool run_test_steps(TestParams params, uint* out_hash)
 {
-  mn_rom rom = mn_rom_load(params.path, nullptr);
+  memset(mn_video_data(), 0, 256ULL * 240 * 4);
+  char sram_path[512];
+  sprintf(sram_path, "saves/%s.sav", params.path);
+  make_dirs(sram_path);
+  mn_rom rom = mn_rom_load(params.path, sram_path);
   mn_region_set(params.region);
   mn_rom_set(rom);
 
@@ -369,16 +418,17 @@ bool run_test_steps(TestParams params, uint* out_hash)
     }
   }
 
+  mn_rom_save(sram_path);
   mn_rom_release(rom);
   return result;
 }
 
-bool run_test(TestParams params)
+static bool run_test(TestParams params)
 {
   bool result = false;
   if (!params.steps[0].hash || !params.steps[0].frames) {
     if (!params.steps[0].frames) {
-      params.steps[0].frames = 2400;
+      params.steps[0].frames = 600;
     }
     run_test_steps(params, &params.steps[0].hash);
 

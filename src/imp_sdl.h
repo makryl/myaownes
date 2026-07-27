@@ -92,7 +92,7 @@ static void imp_draw_help()
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Reset       F4    /\\____/\\     ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick save  F5                 ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Aspect      F6   |  o..o  |    ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Overscan    F7   |-[ + oo]|    ");
+  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Overscan    F7   |=<+__+>=|    ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick load  F8   |        |    ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, "                                ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quit       F10   [_m____m_]    ");

@@ -300,6 +300,7 @@ static uint apu_sample()
 
 void apu_power()
 {
+  memset(&apu_dyn, 0, sizeof(apu_dyn));
   memset(&apu, 0, sizeof(apu));
 
   switch (mn_region_get()) {

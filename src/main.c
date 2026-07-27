@@ -26,6 +26,17 @@ bool imp_init()
   // test = "nes-test-roms/dmc_tests/status.nes";
   // test = "nes-test-roms/volume_tests/volumes.nes";
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
+  // test = "nes-test-roms/holy-mapperel/M9_P128K_C64K.nes";
+  // test = "nes-test-roms/holy-mapperel/M10_P128K_C64K_S8K.nes";
+  // test = "nes-test-roms/holy-mapperel/M10_P128K_C64K_W8K.nes";
+  // test = "nes-test-roms/holy-mapperel/M28_P512K_CR32K.nes";
+  // test = "nes-test-roms/holy-mapperel/M28_P512K.nes";
+  // test = "nes-test-roms/holy-mapperel/M69_P128K_C64K_S8K.nes";
+  // test = "nes-test-roms/holy-mapperel/M69_P128K_C64K_W8K.nes";
+  // test = "nes-test-roms/holy-mapperel/M78.3_P128K_C64K.nes";
+  // test = "nes-test-roms/holy-mapperel/M118_P128K_C64K.nes";
+  // test = "nes-test-roms/holy-mapperel/M180_P128K_CR8K_H.nes";
+  // test = "nes-test-roms/holy-mapperel/M180_P128K_H.nes";
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";
