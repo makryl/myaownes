@@ -326,12 +326,31 @@ static void cpu_flag_overflow(bool cond)
   }
 }
 
-static u16 cpu_read16_addr(u16 addr) { return (u16)cpu_read_addr(addr) | ((u16)cpu_read_addr(addr + 1) << 8); }
-static u16 cpu_read16_zptr(u8 zptr) { return (u16)cpu_read_addr(zptr) | ((u16)cpu_read_addr((u8)(zptr + 1)) << 8); }
+static u16 cpu_read16_addr(u16 addr)
+{
+  uint lo = cpu_read_addr(addr);
+  uint hi = cpu_read_addr(addr + 1) << 8;
+  return lo | hi;
+}
+
+static u16 cpu_read16_zptr(u8 zptr)
+{
+  uint lo = cpu_read_addr(zptr);
+  uint hi = cpu_read_addr((u8)(zptr + 1)) << 8;
+  return lo | hi;
+}
+
 static u8 cpu_read_pc() { return cpu_read_addr(cpu.pc++); }
-static u16 cpu_read16_pc() { return (u16)cpu_read_pc() | ((u16)cpu_read_pc() << 8); }
+
+static u16 cpu_read16_pc()
+{
+  uint lo = cpu_read_pc();
+  uint hi = cpu_read_pc() << 8;
+  return lo | hi;
+}
 
 static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
+
 static u8 cpu_stack_pop(bool seq)
 {
   if (!seq) {
@@ -339,8 +358,19 @@ static u8 cpu_stack_pop(bool seq)
   }
   return cpu_read_addr(++cpu.s | 0x0100);
 }
-static void cpu_stack_push16(u16 val) { cpu_stack_push((u8)(val >> 8)), cpu_stack_push((u8)(val & 0xFF)); }
-static u16 cpu_stack_pop16(bool seq) { return (u16)cpu_stack_pop(seq) | ((u16)cpu_stack_pop(seq) << 8); }
+
+static void cpu_stack_push16(u16 val)
+{
+  cpu_stack_push((u8)(val >> 8));
+  cpu_stack_push((u8)(val & 0xFF));
+}
+
+static u16 cpu_stack_pop16(bool seq)
+{
+  uint lo = cpu_stack_pop(seq);
+  uint hi = cpu_stack_pop(seq) << 8;
+  return lo | hi;
+}
 
 static u16 cpu_addr_offset(u16 addr, int offset, bool readonly)
 {
