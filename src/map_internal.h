@@ -51,5 +51,6 @@ void map_chr_page_2k(uint sp, uint dp);
 void map_chr_page_4k(uint sp, uint dp);
 void map_chr_page_8k(uint sp, uint dp);
 
-bool map_discrete_load(uint mapper, uint submapper);
-bool map_mmc_load(uint mapper, uint submapper, bool init);
+bool map_discrete_load();
+bool map_mmc_load(bool init);
+bool map_other_load();

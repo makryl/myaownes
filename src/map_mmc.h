@@ -463,9 +463,10 @@ void map_mmc5_load()
 }
 */
 
-bool map_mmc_load(uint mapper, uint submapper, bool init)
+bool map_mmc_load(bool init)
 {
-  switch (mapper) {
+  mn_rom rom = mn_rom_get();
+  switch (rom->mapper) {
     case 1: map_mmc1_load(init); break;
     case 4: map_mmc3_load(); break;
     // case 5: map_mmc5_load(); break;

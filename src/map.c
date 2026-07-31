@@ -5,6 +5,7 @@
 #include "map_internal.h"
 #include "map_discrete.h"
 #include "map_mmc.h"
+#include "map_other.h"
 #include <string.h>
 
 enum : u64
@@ -320,11 +321,15 @@ bool map_rom_load(mn_rom rom, bool init)
     return true;
   }
 
-  if (map_discrete_load(rom->mapper, rom->submapper)) {
+  if (map_discrete_load()) {
     return true;
   }
 
-  if (map_mmc_load(rom->mapper, rom->submapper, init)) {
+  if (map_mmc_load(init)) {
+    return true;
+  }
+
+  if (map_other_load()) {
     return true;
   }
 
