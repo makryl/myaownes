@@ -76,23 +76,50 @@ void map_cpu_cyc()
   }
 }
 
+
+void map_cpu_read_raw(u16 addr, u8* val)
+{
+  const u8* page = map_dyn.cpu_read_page[addr >> MAP_CPU_PAGE_SHIFT];
+  if (page) {
+    *val = page[addr & MAP_CPU_PAGE_MASK];
+  }
+}
+
+void map_cpu_write_raw(u16 addr, u8 val)
+{
+  u8* page = map_dyn.cpu_write_page[addr >> MAP_CPU_PAGE_SHIFT];
+  if (page) {
+    page[addr & MAP_CPU_PAGE_MASK] = val;
+  }
+}
+
+void map_ppu_read_raw(u16 addr, u8* val)
+{
+  const u8* page = map_dyn.ppu_read_page[addr >> MAP_PPU_PAGE_SHIFT];
+  if (page) {
+    *val = page[addr & MAP_PPU_PAGE_MASK];
+  }
+}
+
+void map_ppu_write_raw(u16 addr, u8 val)
+{
+  u8* page = map_dyn.ppu_write_page[addr >> MAP_PPU_PAGE_SHIFT];
+  if (page) {
+    page[addr & MAP_PPU_PAGE_MASK] = val;
+  }
+}
+
 void map_cpu_read(u16 addr, u8* val, bool trace)
 {
   if (!map_dyn.cpu_read || !map_dyn.cpu_read(addr, val, trace)) {
-    const u8* page = map_dyn.cpu_read_page[addr >> MAP_CPU_PAGE_SHIFT];
-    if (page) {
-      *val = page[addr & MAP_CPU_PAGE_MASK];
-    }
+    map_cpu_read_raw(addr, val);
   }
 }
 
 void map_cpu_write(u16 addr, u8 val)
 {
   if (!map_dyn.cpu_write || !map_dyn.cpu_write(addr, val)) {
-    u8* page = map_dyn.cpu_write_page[addr >> MAP_CPU_PAGE_SHIFT];
-    if (page) {
-      page[addr & MAP_CPU_PAGE_MASK] = val;
-    }
+    map_cpu_write_raw(addr, val);
   }
 }
 
@@ -106,20 +133,14 @@ void map_ppu_addr(u16 addr)
 void map_ppu_read(u16 addr, u8* val)
 {
   if (!map_dyn.ppu_read || !map_dyn.ppu_read(addr, val)) {
-    const u8* page = map_dyn.ppu_read_page[addr >> MAP_PPU_PAGE_SHIFT];
-    if (page) {
-      *val = page[addr & MAP_PPU_PAGE_MASK];
-    }
+    map_ppu_read_raw(addr, val);
   }
 }
 
 void map_ppu_write(u16 addr, u8 val)
 {
   if (!map_dyn.ppu_write || !map_dyn.ppu_write(addr, val)) {
-    u8* page = map_dyn.ppu_write_page[addr >> MAP_PPU_PAGE_SHIFT];
-    if (page) {
-      page[addr & MAP_PPU_PAGE_MASK] = val;
-    }
+    map_ppu_write_raw(addr, val);
   }
 }
 

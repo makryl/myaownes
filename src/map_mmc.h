@@ -156,9 +156,9 @@ typedef struct
   u8 latch;
   u8 reload;
   u8 enabled;
-  u8 alt_irq;
+  u8 old_irq;
   u8 alt_mirror;
-  u8 alt_chr_ram;
+  u8 use_chr_ram;
 } map_mmc3;
 static_assert(sizeof(map_mmc3) <= MAP_REG_SIZE);
 
@@ -190,7 +190,7 @@ static void map_mmc3_update()
       map_ppu_nt_page(reg->chr1 >> 7, 0xB);
     }
   }
-  if (reg->alt_chr_ram) {
+  if (reg->use_chr_ram) {
     chr0 &= 0x3F;
     chr1 &= 0x3F;
     chr2 &= 0x3F;
@@ -276,7 +276,7 @@ static void map_mmc3_ppu_addr(u16 addr)
       } else {
         --reg->counter;
       }
-      if (reg->counter == 0 && reg->enabled && (reg->reload || !reg->alt_irq || reg->latch)) {
+      if (reg->counter == 0 && reg->enabled && (reg->reload || !reg->old_irq || reg->latch)) {
         map_irq(true);
       }
       reg->reload = 0;
@@ -295,33 +295,206 @@ static void map_mmc3_cpu_cyc()
   }
 }
 
-static void map_mmc3_load()
+static void map_mmc3_set_cb()
 {
   map_set_cpu_cyc_cb(map_mmc3_cpu_cyc);
   map_set_cpu_write_cb(map_mmc3_cpu_write);
   map_set_ppu_addr_cb(map_mmc3_ppu_addr);
+}
+
+static void map_mmc3_load()
+{
+  map_mmc3* reg = (map_mmc3*)map_reg();
+  mn_rom rom = mn_rom_get();
+  reg->old_irq = (rom->submapper == 4);
+  map_mmc3_set_cb();
   map_mmc3_update();
 }
 
 static void map_mmc3a_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
-  reg->alt_irq = true;
-  map_mmc3_load();
+  reg->old_irq = true;
+  map_mmc3_set_cb();
+  map_mmc3_update();
 }
 
 static void map_mmc3_txsrom_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->alt_mirror = true;
-  map_mmc3_load();
+  map_mmc3_set_cb();
+  map_mmc3_update();
 }
 
 static void map_mmc3_tqrom_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
-  reg->alt_chr_ram = true;
-  map_mmc3_load();
+  reg->use_chr_ram = true;
+  map_mmc3_set_cb();
+  map_mmc3_update();
+}
+
+typedef struct
+{
+  u8 chr0fd;
+  u8 chr0fe;
+  u8 chr1fd;
+  u8 chr1fe;
+  u8 latch0;
+  u8 latch1;
+} map_mmc2;
+
+static bool map_mmc2_cpu_write(u16 addr, u8 val)
+{
+  map_mmc2* reg = (map_mmc2*)map_reg();
+  switch (addr & 0xF000) {
+    case 0xA000: map_prg_rom_page_8k(val & 0x0F, 4); return true;
+    case 0xB000:
+      reg->chr0fd = val & 0x1F;
+      if (reg->latch0 == 0xFD) {
+        map_chr_page_4k(reg->chr0fd, 0);
+      }
+      return true;
+    case 0xC000:
+      reg->chr0fe = val & 0x1F;
+      if (reg->latch0 == 0xFE) {
+        map_chr_page_4k(reg->chr0fe, 0);
+      }
+      return true;
+    case 0xD000:
+      reg->chr1fd = val & 0x1F;
+      if (reg->latch1 == 0xFD) {
+        map_chr_page_4k(reg->chr1fd, 1);
+      }
+      return true;
+    case 0xE000:
+      reg->chr1fe = val & 0x1F;
+      if (reg->latch1 == 0xFE) {
+        map_chr_page_4k(reg->chr1fe, 1);
+      }
+      return true;
+    case 0xF000:
+      if (val & 1) {
+        map_ppu_nt_horiz_mirror();
+      } else {
+        map_ppu_nt_vert_mirror();
+      }
+      return true;
+  }
+  return false;
+}
+
+static bool map_mmc2_ppu_read(u16 addr, u8* val)
+{
+  map_ppu_read_raw(addr, val);
+  map_mmc2* reg = (map_mmc2*)map_reg();
+  if (addr == 0x0FD8) {
+    reg->latch0 = 0xFD;
+    map_chr_page_4k(reg->chr0fd, 0);
+  } else if (addr == 0x0FE8) {
+    reg->latch0 = 0xFE;
+    map_chr_page_4k(reg->chr0fe, 0);
+  } else if ((addr & 0xFFF8) == 0x1FD8) {
+    reg->latch1 = 0xFD;
+    map_chr_page_4k(reg->chr1fd, 1);
+  } else if ((addr & 0xFFF8) == 0x1FE8) {
+    reg->latch1 = 0xFE;
+    map_chr_page_4k(reg->chr1fe, 1);
+  }
+  return true;
+}
+
+static void map_mmc2_load()
+{
+  map_set_cpu_write_cb(map_mmc2_cpu_write);
+  map_set_ppu_read_cb(map_mmc2_ppu_read);
+  map_prg_rom_page_8k(0, 4);
+  map_prg_rom_page_8k(-3, 5);
+  map_prg_rom_page_8k(-2, 6);
+  map_prg_rom_page_8k(-1, 7);
+  map_mmc2* reg = (map_mmc2*)map_reg();
+  reg->latch0 = 0xFD;
+  reg->latch1 = 0xFD;
+}
+
+typedef struct
+{
+  u8 chr0fd;
+  u8 chr0fe;
+  u8 chr1fd;
+  u8 chr1fe;
+  u8 latch0;
+  u8 latch1;
+} map_mmc4;
+
+static bool map_mmc4_cpu_write(u16 addr, u8 val)
+{
+  map_mmc4* reg = (map_mmc4*)map_reg();
+  switch (addr & 0xF000) {
+    case 0xA000: map_prg_rom_page_16k(val & 0x0F, 2); return true;
+    case 0xB000:
+      reg->chr0fd = val & 0x1F;
+      if (reg->latch0 == 0xFD) {
+        map_chr_page_4k(reg->chr0fd, 0);
+      }
+      return true;
+    case 0xC000:
+      reg->chr0fe = val & 0x1F;
+      if (reg->latch0 == 0xFE) {
+        map_chr_page_4k(reg->chr0fe, 0);
+      }
+      return true;
+    case 0xD000:
+      reg->chr1fd = val & 0x1F;
+      if (reg->latch1 == 0xFD) {
+        map_chr_page_4k(reg->chr1fd, 1);
+      }
+      return true;
+    case 0xE000:
+      reg->chr1fe = val & 0x1F;
+      if (reg->latch1 == 0xFE) {
+        map_chr_page_4k(reg->chr1fe, 1);
+      }
+      return true;
+    case 0xF000:
+      if (val & 1) {
+        map_ppu_nt_horiz_mirror();
+      } else {
+        map_ppu_nt_vert_mirror();
+      }
+      return true;
+  }
+  return false;
+}
+
+static bool map_mmc4_ppu_read(u16 addr, u8* val)
+{
+  map_ppu_read_raw(addr, val);
+  map_mmc4* reg = (map_mmc4*)map_reg();
+  if ((addr & 0xFFF8) == 0x0FD8) {
+    reg->latch0 = 0xFD;
+    map_chr_page_4k(reg->chr0fd, 0);
+  } else if ((addr & 0xFFF8) == 0x0FE8) {
+    reg->latch0 = 0xFE;
+    map_chr_page_4k(reg->chr0fe, 0);
+  } else if ((addr & 0xFFF8) == 0x1FD8) {
+    reg->latch1 = 0xFD;
+    map_chr_page_4k(reg->chr1fd, 1);
+  } else if ((addr & 0xFFF8) == 0x1FE8) {
+    reg->latch1 = 0xFE;
+    map_chr_page_4k(reg->chr1fe, 1);
+  }
+  return true;
+}
+
+static void map_mmc4_load()
+{
+  map_set_cpu_write_cb(map_mmc4_cpu_write);
+  map_set_ppu_read_cb(map_mmc4_ppu_read);
+  map_mmc2* reg = (map_mmc2*)map_reg();
+  reg->latch0 = 0xFD;
+  reg->latch1 = 0xFD;
 }
 
 /*
@@ -526,9 +699,12 @@ bool map_mmc_load(bool init)
     case 1: map_mmc1_load(init); break;
     case 4: map_mmc3_load(); break;
     // case 5: map_mmc5_load(); break;
+    case 9: map_mmc2_load(); break;
+    case 10: map_mmc4_load(); break;
     case 12: map_mmc3a_load(); break;
     case 118: map_mmc3_txsrom_load(); break;
     case 119: map_mmc3_tqrom_load(); break;
+    case 155: map_mmc3a_load(); break;
     default: return false;
   }
   return true;

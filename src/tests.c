@@ -127,9 +127,9 @@ static TestParams tests[] = {
   { "holy-mapperel/M4_P256K_C256K.nes", MN_REGION_NTSC, { { 0x67842BC7, 13, 0x00, 0 } } }, //
   { "holy-mapperel/M7_P128K_CR8K.nes", MN_REGION_NTSC, { { 0x63328D8D, 76, 0x00, 0 } } }, //
   { "holy-mapperel/M7_P128K.nes", MN_REGION_NTSC, { { 0x9CB2A301, 76, 0x00, 0 } } }, //
-  // { "holy-mapperel/M9_P128K_C64K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
-  // { "holy-mapperel/M10_P128K_C64K_S8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
-  // { "holy-mapperel/M10_P128K_C64K_W8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  { "holy-mapperel/M9_P128K_C64K.nes", MN_REGION_NTSC, { { 0x0B81BA06, 6, 0x00, 0 } } }, //
+  { "holy-mapperel/M10_P128K_C64K_S8K.nes", MN_REGION_NTSC, { { 0x9D8A3F35, 113, 0x00, 0 } } }, //
+  { "holy-mapperel/M10_P128K_C64K_W8K.nes", MN_REGION_NTSC, { { 0x71BE7998, 81, 0x00, 0 } } }, //
   { "holy-mapperel/M11_P64K_C64K_V.nes", MN_REGION_NTSC, { { 0x5E238DB4, 5, 0x00, 0 } } }, //
   { "holy-mapperel/M11_P64K_CR32K_V.nes", MN_REGION_NTSC, { { 0x87691334, 282, 0x00, 0 } } }, //
   { "holy-mapperel/M28_P512K_CR32K.nes", MN_REGION_NTSC, { { 0xF96705C9, 403, 0x00, 0 } } }, //
@@ -140,7 +140,7 @@ static TestParams tests[] = {
   // { "holy-mapperel/M69_P128K_C64K_S8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
   // { "holy-mapperel/M69_P128K_C64K_W8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
   { "holy-mapperel/M78.3_P128K_C64K.nes", MN_REGION_NTSC, { { 0x7A52DE0F, 5, 0x00, 0 } } }, //
-  // { "holy-mapperel/M118_P128K_C64K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  { "holy-mapperel/M118_P128K_C64K.nes", MN_REGION_NTSC, { { 0x965FFB01, 9, 0x00, 0 } } }, //
   { "holy-mapperel/M180_P128K_CR8K_H.nes", MN_REGION_NTSC, { { 0xD91F39C2, 76, 0x00, 0 } } }, //
   { "holy-mapperel/M180_P128K_H.nes", MN_REGION_NTSC, { { 0x269F174E, 76, 0x00, 0 } } }, //
   { "instr_misc/rom_singles/01-abs_x_wrap.nes", MN_REGION_NTSC, { { 0x290CAB05, 11, 0x00, 0 } } }, //

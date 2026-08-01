@@ -21,6 +21,11 @@ void map_set_ppu_addr_cb(map_ppu_addr_cb cb);
 void map_set_ppu_read_cb(map_ppu_read_cb cb);
 void map_set_ppu_write_cb(map_ppu_write_cb cb);
 
+void map_cpu_read_raw(u16 addr, u8* val);
+void map_cpu_write_raw(u16 addr, u8 val);
+void map_ppu_read_raw(u16 addr, u8* val);
+void map_ppu_write_raw(u16 addr, u8 val);
+
 u8* map_reg();
 void map_irq(bool enabled);
 void map_cpu_irq();
