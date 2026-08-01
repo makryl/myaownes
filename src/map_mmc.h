@@ -157,26 +157,68 @@ typedef struct
   u8 reload;
   u8 enabled;
   u8 alt_irq;
+  u8 alt_mirror;
+  u8 alt_chr_ram;
 } map_mmc3;
 static_assert(sizeof(map_mmc3) <= MAP_REG_SIZE);
 
 static void map_mmc3_update()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
+  uint chr0 = reg->chr0;
+  uint chr1 = reg->chr1;
+  uint chr2 = reg->chr2;
+  uint chr3 = reg->chr3;
+  uint chr4 = reg->chr4;
+  uint chr5 = reg->chr5;
+  if (reg->alt_mirror) {
+    chr0 &= 0x7F;
+    chr1 &= 0x7F;
+    chr2 &= 0x7F;
+    chr3 &= 0x7F;
+    chr4 &= 0x7F;
+    chr5 &= 0x7F;
+    if (reg->ctrl & 0x80) {
+      map_ppu_nt_page(reg->chr2 >> 7, 0x8);
+      map_ppu_nt_page(reg->chr3 >> 7, 0x9);
+      map_ppu_nt_page(reg->chr4 >> 7, 0xA);
+      map_ppu_nt_page(reg->chr5 >> 7, 0xB);
+    } else {
+      map_ppu_nt_page(reg->chr0 >> 7, 0x8);
+      map_ppu_nt_page(reg->chr0 >> 7, 0x9);
+      map_ppu_nt_page(reg->chr1 >> 7, 0xA);
+      map_ppu_nt_page(reg->chr1 >> 7, 0xB);
+    }
+  }
+  if (reg->alt_chr_ram) {
+    chr0 &= 0x3F;
+    chr1 &= 0x3F;
+    chr2 &= 0x3F;
+    chr3 &= 0x3F;
+    chr4 &= 0x3F;
+    chr5 &= 0x3F;
+    uint ram_offset = (mn_rom_get()->chr_rom_size >> 10);
+    chr0 += (reg->chr0 & 0x40) ? ram_offset : 0;
+    chr1 += (reg->chr1 & 0x40) ? ram_offset : 0;
+    chr2 += (reg->chr2 & 0x40) ? ram_offset : 0;
+    chr3 += (reg->chr3 & 0x40) ? ram_offset : 0;
+    chr4 += (reg->chr4 & 0x40) ? ram_offset : 0;
+    chr5 += (reg->chr5 & 0x40) ? ram_offset : 0;
+  }
   if (reg->ctrl & 0x80) {
-    map_chr_page_1k(reg->chr2, 0);
-    map_chr_page_1k(reg->chr3, 1);
-    map_chr_page_1k(reg->chr4, 2);
-    map_chr_page_1k(reg->chr5, 3);
-    map_chr_page_2k(reg->chr0 >> 1, 2);
-    map_chr_page_2k(reg->chr1 >> 1, 3);
+    map_chr_page_2k(chr0 >> 1, 2);
+    map_chr_page_2k(chr1 >> 1, 3);
+    map_chr_page_1k(chr2, 0);
+    map_chr_page_1k(chr3, 1);
+    map_chr_page_1k(chr4, 2);
+    map_chr_page_1k(chr5, 3);
   } else {
-    map_chr_page_2k(reg->chr0 >> 1, 0);
-    map_chr_page_2k(reg->chr1 >> 1, 1);
-    map_chr_page_1k(reg->chr2, 4);
-    map_chr_page_1k(reg->chr3, 5);
-    map_chr_page_1k(reg->chr4, 6);
-    map_chr_page_1k(reg->chr5, 7);
+    map_chr_page_2k(chr0 >> 1, 0);
+    map_chr_page_2k(chr1 >> 1, 1);
+    map_chr_page_1k(chr2, 4);
+    map_chr_page_1k(chr3, 5);
+    map_chr_page_1k(chr4, 6);
+    map_chr_page_1k(chr5, 7);
   }
   if (reg->ctrl & 0x40) {
     map_prg_rom_page_8k(-2, 4);
@@ -204,7 +246,7 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
       map_mmc3_update();
       return true;
     case 0xA000:
-      if (!mn_rom_get()->alt_mirror) {
+      if (!mn_rom_get()->alt_mirror && !reg->alt_mirror) {
         if (val & 1) {
           map_ppu_nt_horiz_mirror();
         } else {
@@ -263,9 +305,23 @@ static void map_mmc3_load()
 
 static void map_mmc3a_load()
 {
-  map_mmc3_load();
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->alt_irq = true;
+  map_mmc3_load();
+}
+
+static void map_mmc3_txsrom_load()
+{
+  map_mmc3* reg = (map_mmc3*)map_reg();
+  reg->alt_mirror = true;
+  map_mmc3_load();
+}
+
+static void map_mmc3_tqrom_load()
+{
+  map_mmc3* reg = (map_mmc3*)map_reg();
+  reg->alt_chr_ram = true;
+  map_mmc3_load();
 }
 
 /*
@@ -471,6 +527,8 @@ bool map_mmc_load(bool init)
     case 4: map_mmc3_load(); break;
     // case 5: map_mmc5_load(); break;
     case 12: map_mmc3a_load(); break;
+    case 118: map_mmc3_txsrom_load(); break;
+    case 119: map_mmc3_tqrom_load(); break;
     default: return false;
   }
   return true;

@@ -30,6 +30,7 @@ void map_prg_rom_page(uint sp, uint dp, uint shift);
 void map_prg_ram_page(uint sp, uint dp, uint shift);
 void map_chr_page(uint sp, uint dp, uint shift);
 
+void map_ppu_nt_page(uint sp, uint dp);
 void map_ppu_nt_single_low();
 void map_ppu_nt_single_high();
 void map_ppu_nt_vert_mirror();

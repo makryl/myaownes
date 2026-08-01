@@ -241,52 +241,53 @@ void map_chr_page_2k(uint sp, uint dp) { map_chr_page(sp, dp, 1); }
 void map_chr_page_4k(uint sp, uint dp) { map_chr_page(sp, dp, 2); }
 void map_chr_page_8k(uint sp, uint dp) { map_chr_page(sp, dp, 3); }
 
-static void map_ppu_nt_page(uint page, u8* src)
+void map_ppu_nt_page(uint sp, uint dp)
 {
-  map_dyn.ppu_read_page[page] = src;
-  map_dyn.ppu_write_page[page] = src;
-  map_dyn.ppu_read_page[page + 4] = src;
-  map_dyn.ppu_write_page[page + 4] = src;
+  u8* src = map.vram + sp * MAP_PPU_PAGE_SIZE;
+  map_dyn.ppu_read_page[dp] = src;
+  map_dyn.ppu_write_page[dp] = src;
+  map_dyn.ppu_read_page[dp + 4] = src;
+  map_dyn.ppu_write_page[dp + 4] = src;
 }
 
 void map_ppu_nt_single_low()
 {
-  map_ppu_nt_page(0x8, map.vram);
-  map_ppu_nt_page(0x9, map.vram);
-  map_ppu_nt_page(0xA, map.vram);
-  map_ppu_nt_page(0xB, map.vram);
+  map_ppu_nt_page(0, 0x8);
+  map_ppu_nt_page(0, 0x9);
+  map_ppu_nt_page(0, 0xA);
+  map_ppu_nt_page(0, 0xB);
 }
 
 void map_ppu_nt_single_high()
 {
-  map_ppu_nt_page(0x8, map.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0x9, map.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xA, map.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(1, 0x8);
+  map_ppu_nt_page(1, 0x9);
+  map_ppu_nt_page(1, 0xA);
+  map_ppu_nt_page(1, 0xB);
 }
 
 void map_ppu_nt_vert_mirror()
 {
-  map_ppu_nt_page(0x8, map.vram);
-  map_ppu_nt_page(0x9, map.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xA, map.vram);
-  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0, 0x8);
+  map_ppu_nt_page(1, 0x9);
+  map_ppu_nt_page(0, 0xA);
+  map_ppu_nt_page(1, 0xB);
 }
 
 void map_ppu_nt_horiz_mirror()
 {
-  map_ppu_nt_page(0x8, map.vram);
-  map_ppu_nt_page(0x9, map.vram);
-  map_ppu_nt_page(0xA, map.vram + MAP_PPU_PAGE_SIZE);
-  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE);
+  map_ppu_nt_page(0, 0x8);
+  map_ppu_nt_page(0, 0x9);
+  map_ppu_nt_page(1, 0xA);
+  map_ppu_nt_page(1, 0xB);
 }
 
 void map_ppu_nt_four_screen()
 {
-  map_ppu_nt_page(0x8, map.vram + MAP_PPU_PAGE_SIZE * 0);
-  map_ppu_nt_page(0x9, map.vram + MAP_PPU_PAGE_SIZE * 1);
-  map_ppu_nt_page(0xA, map.vram + MAP_PPU_PAGE_SIZE * 2);
-  map_ppu_nt_page(0xB, map.vram + MAP_PPU_PAGE_SIZE * 3);
+  map_ppu_nt_page(0, 0x8);
+  map_ppu_nt_page(1, 0x9);
+  map_ppu_nt_page(2, 0xA);
+  map_ppu_nt_page(3, 0xB);
 }
 
 static void map_nrom_load()
