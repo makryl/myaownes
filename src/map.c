@@ -228,13 +228,13 @@ void map_prg_rom_page(uint sp, uint dp, uint shift)
   map_cpu_write_pages(nullptr, sp * pages, dp * pages, pages);
 }
 
-void map_prg_ram_page(uint sp, uint dp, uint shift)
+void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly)
 {
   if (map_dyn.rom->prg_ram_size) {
     uint pages = (1 << shift);
     sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_CPU_PAGE_SHIFT + shift);
     map_cpu_read_pages(map_dyn.rom->prg_ram, sp * pages, dp * pages, pages);
-    map_cpu_write_pages(map_dyn.rom->prg_ram, sp * pages, dp * pages, pages);
+    map_cpu_write_pages(readonly ? nullptr : map_dyn.rom->prg_ram, sp * pages, dp * pages, pages);
   }
 }
 
@@ -264,10 +264,10 @@ void map_prg_rom_page_8k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 1); };
 void map_prg_rom_page_16k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 2); };
 void map_prg_rom_page_32k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 3); };
 
-void map_prg_ram_page_4k(uint sp, uint dp) { map_prg_ram_page(sp, dp, 0); };
-void map_prg_ram_page_8k(uint sp, uint dp) { map_prg_ram_page(sp, dp, 1); };
-void map_prg_ram_page_16k(uint sp, uint dp) { map_prg_ram_page(sp, dp, 2); };
-void map_prg_ram_page_32k(uint sp, uint dp) { map_prg_ram_page(sp, dp, 3); };
+void map_prg_ram_page_4k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 0, readonly); };
+void map_prg_ram_page_8k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 1, readonly); };
+void map_prg_ram_page_16k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 2, readonly); };
+void map_prg_ram_page_32k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 3, readonly); };
 
 void map_chr_page_1k(uint sp, uint dp) { map_chr_page(sp, dp, 0); }
 void map_chr_page_2k(uint sp, uint dp) { map_chr_page(sp, dp, 1); }
@@ -328,8 +328,8 @@ static void map_nrom_load()
   map_prg_rom_page_16k(0, 2);
   map_prg_rom_page_16k(-1, 3);
 
-  map_prg_ram_page_4k(0, 6); // ram may have < 8k
-  map_prg_ram_page_4k(1, 7);
+  map_prg_ram_page_4k(0, 6, false); // ram may have < 8k
+  map_prg_ram_page_4k(1, 7, false);
 
   for (uint i = 0; i < 8; ++i) { // rom may have < 8k
     map_chr_page_1k(i, i);

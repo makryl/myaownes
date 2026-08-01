@@ -27,7 +27,7 @@ static void map_mmc1_update()
   u8 prg_sup0 = 0;
   u8 prg_sup1 = 0;
   u8 prg_last = -1 & 0x0F;
-  bool prg_ram_protect = false;
+  bool prg_ram_disabled = false;
 
   bool snrom = (rom->prg_rom_size <= 256 * 1024 && rom->prg_ram_size == 8 * 1024
                 && (rom->chr_rom_size == 8 * 1024 || rom->chr_ram_size == 8 * 1024));
@@ -35,9 +35,9 @@ static void map_mmc1_update()
   bool szrom = (rom->prg_ram_size == 16 * 1024 && (rom->chr_rom_size >= 16 * 1024 || rom->chr_ram_size >= 16 * 1024));
 
   if (snrom) {
-    prg_ram_protect = (chr_page0 & 0x10);
+    prg_ram_disabled = (chr_page0 & 0x10);
   } else {
-    prg_ram_protect = (reg->prg & 0x10);
+    prg_ram_disabled = (reg->prg & 0x10);
   }
 
   if (szrom) {
@@ -62,10 +62,10 @@ static void map_mmc1_update()
     }
   }
 
-  if (prg_ram_protect) {
+  if (prg_ram_disabled) {
     map_prg_clear_page_8k(3);
   } else {
-    map_prg_ram_page_8k(prg_ram_page, 3);
+    map_prg_ram_page_8k(prg_ram_page, 3, false);
   }
 
   if (ctrl_chr) {
@@ -256,7 +256,14 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
         }
       }
       return true;
-    case 0xA001: /* sram protect not needed*/ return true;
+    case 0xA001:
+      // sram protect not needed?
+      // if (val & 0x80) {
+      //   map_prg_ram_page_8k(0, 3, val & 0x40);
+      // } else {
+      //   map_prg_clear_page_8k(3);
+      // }
+      return true;
     case 0xC000: reg->latch = val; return true;
     case 0xC001: reg->reload = 1; return true;
     case 0xE000:

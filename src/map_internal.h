@@ -33,7 +33,7 @@ void map_clear_pages();
 
 void map_prg_clear_page(uint dp, uint shift);
 void map_prg_rom_page(uint sp, uint dp, uint shift);
-void map_prg_ram_page(uint sp, uint dp, uint shift);
+void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly);
 void map_chr_page(uint sp, uint dp, uint shift);
 
 void map_ppu_nt_page(uint sp, uint dp);
@@ -53,10 +53,10 @@ void map_prg_rom_page_8k(uint sp, uint dp);
 void map_prg_rom_page_16k(uint sp, uint dp);
 void map_prg_rom_page_32k(uint sp, uint dp);
 
-void map_prg_ram_page_4k(uint sp, uint dp);
-void map_prg_ram_page_8k(uint sp, uint dp);
-void map_prg_ram_page_16k(uint sp, uint dp);
-void map_prg_ram_page_32k(uint sp, uint dp);
+void map_prg_ram_page_4k(uint sp, uint dp, bool readonly);
+void map_prg_ram_page_8k(uint sp, uint dp, bool readonly);
+void map_prg_ram_page_16k(uint sp, uint dp, bool readonly);
+void map_prg_ram_page_32k(uint sp, uint dp, bool readonly);
 
 void map_chr_page_1k(uint sp, uint dp);
 void map_chr_page_2k(uint sp, uint dp);

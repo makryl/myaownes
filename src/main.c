@@ -26,21 +26,11 @@ bool imp_init()
   // test = "nes-test-roms/dmc_tests/status.nes";
   // test = "nes-test-roms/volume_tests/volumes.nes";
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
-  // test = "nes-test-roms/holy-mapperel/M9_P128K_C64K.nes";
-  // test = "nes-test-roms/holy-mapperel/M10_P128K_C64K_S8K.nes";
-  // test = "nes-test-roms/holy-mapperel/M10_P128K_C64K_W8K.nes";
-  // test = "nes-test-roms/holy-mapperel/M28_P512K_CR32K.nes";
-  // test = "nes-test-roms/holy-mapperel/M28_P512K.nes";
-  // test = "nes-test-roms/holy-mapperel/M69_P128K_C64K_S8K.nes";
-  // test = "nes-test-roms/holy-mapperel/M69_P128K_C64K_W8K.nes";
-  // test = "nes-test-roms/holy-mapperel/M78.3_P128K_C64K.nes";
-  // test = "nes-test-roms/holy-mapperel/M118_P128K_C64K.nes";
-  // test = "nes-test-roms/holy-mapperel/M180_P128K_CR8K_H.nes";
-  // test = "nes-test-roms/holy-mapperel/M180_P128K_H.nes";
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";
-  // test = "GoodNES/Japan/Fire Emblem Gaiden (J) [!].nes"; // mapper?
+  // test = "GoodNES/Japan/Fire Emblem Gaiden (J) [!].nes";
+  // test = "MegaPack/Translated/Fire Emblem Gaiden (J) [T-Eng97b2].nes";
 
   // test = "GoodNES/USA/Battletoads (U) [!].nes";
   // test = "MegaPack/USA/Micro Machines (U).nes";
@@ -58,6 +48,8 @@ bool imp_init()
   // test = "GoodNES/Europe/Elite (E) [!].nes";
   // test = "GoodNES/Europe/Asterix (E) [!].nes";
   // test = "GoodNES/Europe/Smurfs, The (E) [!].nes";
+  // test = "GoodNES/USA/Batman - Return of the Joker (U) [!].nes"; // FME-7
+  // test = "GoodNES/Japan/Magic John (J) [!].nes"; // Jaleco SS
 
   if (test) {
     chdir("../../tmp");
