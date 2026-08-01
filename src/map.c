@@ -213,6 +213,13 @@ static uint map_page_clamp(uint page, uint size, u8 shift)
   return page;
 }
 
+void map_prg_clear_page(uint dp, uint shift)
+{
+  uint pages = (1 << shift);
+  map_cpu_read_pages(nullptr, 0, dp * pages, pages);
+  map_cpu_write_pages(nullptr, 0, dp * pages, pages);
+}
+
 void map_prg_rom_page(uint sp, uint dp, uint shift)
 {
   uint pages = (1 << shift);
@@ -246,6 +253,11 @@ void map_chr_page(uint sp, uint dp, uint shift)
     map_ppu_write_pages(map_dyn.rom->chr_ram, sp * map_pages, dp * map_pages, map_pages);
   }
 }
+
+void map_prg_clear_page_4k(uint dp) { map_prg_clear_page(dp, 0); }
+void map_prg_clear_page_8k(uint dp) { map_prg_clear_page(dp, 1); }
+void map_prg_clear_page_16k(uint dp) { map_prg_clear_page(dp, 2); }
+void map_prg_clear_page_32k(uint dp) { map_prg_clear_page(dp, 3); }
 
 void map_prg_rom_page_4k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 0); };
 void map_prg_rom_page_8k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 1); };

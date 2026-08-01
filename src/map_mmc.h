@@ -53,8 +53,6 @@ static void map_mmc1_update()
     prg_sup1 = chr_page1 & 0x10;
   }
 
-  map_clear_pages();
-
   if (!rom->alt_mirror) {
     switch (ctrl_nt) {
       case 0: map_ppu_nt_single_low(); break;
@@ -64,7 +62,9 @@ static void map_mmc1_update()
     }
   }
 
-  if (!prg_ram_protect) {
+  if (prg_ram_protect) {
+    map_prg_clear_page_8k(3);
+  } else {
     map_prg_ram_page_8k(prg_ram_page, 3);
   }
 
@@ -139,6 +139,8 @@ static void map_mmc1_load(bool init)
   }
   map_mmc1_update();
 }
+
+static void map_mmc1a_load(bool init) { map_mmc1_load(init); }
 
 typedef struct
 {
@@ -405,7 +407,7 @@ static bool map_mmc2_ppu_read(u16 addr, u8* val)
   return true;
 }
 
-static void map_mmc2_load()
+static void map_mmc2_load(bool init)
 {
   map_set_cpu_write_cb(map_mmc2_cpu_write);
   map_set_ppu_read_cb(map_mmc2_ppu_read);
@@ -413,9 +415,11 @@ static void map_mmc2_load()
   map_prg_rom_page_8k(-3, 5);
   map_prg_rom_page_8k(-2, 6);
   map_prg_rom_page_8k(-1, 7);
-  map_mmc2* reg = (map_mmc2*)map_reg();
-  reg->latch0 = 0xFD;
-  reg->latch1 = 0xFD;
+  if (init) {
+    map_mmc2* reg = (map_mmc2*)map_reg();
+    reg->latch0 = 0xFD;
+    reg->latch1 = 0xFD;
+  }
 }
 
 typedef struct
@@ -488,13 +492,15 @@ static bool map_mmc4_ppu_read(u16 addr, u8* val)
   return true;
 }
 
-static void map_mmc4_load()
+static void map_mmc4_load(bool init)
 {
   map_set_cpu_write_cb(map_mmc4_cpu_write);
   map_set_ppu_read_cb(map_mmc4_ppu_read);
-  map_mmc2* reg = (map_mmc2*)map_reg();
-  reg->latch0 = 0xFD;
-  reg->latch1 = 0xFD;
+  if (init) {
+    map_mmc2* reg = (map_mmc2*)map_reg();
+    reg->latch0 = 0xFD;
+    reg->latch1 = 0xFD;
+  }
 }
 
 /*
@@ -699,12 +705,12 @@ bool map_mmc_load(bool init)
     case 1: map_mmc1_load(init); break;
     case 4: map_mmc3_load(); break;
     // case 5: map_mmc5_load(); break;
-    case 9: map_mmc2_load(); break;
-    case 10: map_mmc4_load(); break;
+    case 9: map_mmc2_load(init); break;
+    case 10: map_mmc4_load(init); break;
     case 12: map_mmc3a_load(); break;
     case 118: map_mmc3_txsrom_load(); break;
     case 119: map_mmc3_tqrom_load(); break;
-    case 155: map_mmc3a_load(); break;
+    case 155: map_mmc1a_load(init); break;
     default: return false;
   }
   return true;

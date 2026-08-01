@@ -137,8 +137,8 @@ static TestParams tests[] = {
   { "holy-mapperel/M34_P128K_CR8K_H.nes", MN_REGION_NTSC, { { 0x2CE60CEA, 76, 0x00, 0 } } }, //
   { "holy-mapperel/M34_P128K_H.nes", MN_REGION_NTSC, { { 0xD3662266, 76, 0x00, 0 } } }, //
   { "holy-mapperel/M66_P64K_C16K_V.nes", MN_REGION_NTSC, { { 0xE8B5DD23, 5, 0x00, 0 } } }, //
-  // { "holy-mapperel/M69_P128K_C64K_S8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
-  // { "holy-mapperel/M69_P128K_C64K_W8K.nes", MN_REGION_NTSC, { { 1, 1, 0x00, 0 } } }, // todo
+  { "holy-mapperel/M69_P128K_C64K_S8K.nes", MN_REGION_NTSC, { { 0x0255D129, 113, 0x00, 0 } } }, //
+  { "holy-mapperel/M69_P128K_C64K_W8K.nes", MN_REGION_NTSC, { { 0xEE619784, 83, 0x00, 0 } } }, //
   { "holy-mapperel/M78.3_P128K_C64K.nes", MN_REGION_NTSC, { { 0x7A52DE0F, 5, 0x00, 0 } } }, //
   { "holy-mapperel/M118_P128K_C64K.nes", MN_REGION_NTSC, { { 0x965FFB01, 9, 0x00, 0 } } }, //
   { "holy-mapperel/M180_P128K_CR8K_H.nes", MN_REGION_NTSC, { { 0xD91F39C2, 76, 0x00, 0 } } }, //
