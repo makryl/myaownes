@@ -1,7 +1,6 @@
 #pragma once
 
 #include "map_internal.h"
-#include "map_discrete.h"
 
 typedef struct
 {
@@ -13,6 +12,7 @@ typedef struct
   u8 prg_page;
   u8 chr_page;
 } map_action53;
+static_assert(sizeof(map_action53) <= MAP_REG_SIZE);
 
 static void map_action53_update()
 {
@@ -80,6 +80,7 @@ typedef struct
   u8 irq_counter_enabled;
   u8 command;
 } map_fme7;
+static_assert(sizeof(map_fme7) <= MAP_REG_SIZE);
 
 static bool map_fme7_cpu_write(u16 addr, u8 val)
 {
@@ -167,6 +168,7 @@ typedef struct
   u8 prg[3];
   u8 chr[8];
 } map_jalecoss;
+static_assert(sizeof(map_jalecoss) <= MAP_REG_SIZE);
 
 static bool map_jalecoss_cpu_write(u16 addr, u8 val)
 {
@@ -280,6 +282,254 @@ static void map_jalecoss_load()
   map_set_cpu_cyc_cb(map_jalecoss_cpu_cyc);
 }
 
+typedef struct
+{
+  u16 prescaler;
+  u8 ctrl;
+  u8 latch;
+  u8 counter;
+} map_vrc_irq;
+
+static void map_vrc_irq_ctrl(u8 val)
+{
+  map_vrc_irq* reg = (map_vrc_irq*)map_reg();
+  reg->ctrl = val;
+  if (val & 0x02) {
+    reg->counter = reg->latch;
+  }
+  map_irq(false);
+  reg->prescaler = 0;
+}
+
+static void map_vrc_irq_ack()
+{
+  map_vrc_irq* reg = (map_vrc_irq*)map_reg();
+  reg->ctrl = (reg->ctrl & 0x05) | ((reg->ctrl & 0x01) << 1);
+  map_irq(false);
+}
+
+static void map_vrc_cpu_cyc()
+{
+  map_vrc_irq* reg = (map_vrc_irq*)map_reg();
+  if (reg->ctrl & 0x02) {
+    bool clock = false;
+    if (reg->ctrl & 0x04) {
+      clock = true;
+    } else {
+      reg->prescaler += 3;
+      if (reg->prescaler >= 341) {
+        reg->prescaler -= 341;
+        clock = true;
+      }
+    }
+    if (clock) {
+      if (reg->counter == 0xFF) {
+        reg->counter = reg->latch;
+        map_irq(true); // todo: probably should trig later
+      } else {
+        ++reg->counter;
+      }
+    }
+  }
+}
+
+typedef struct
+{
+  map_vrc_irq irq;
+  u8 is_vrc4;
+  u8 is_vrc2a;
+  u8 a0_mask;
+  u8 a1_mask;
+  u8 prg_ctrl;
+  u8 prg0;
+  u8 prg1;
+  u16 chr[8];
+} map_vrc2_vrc4;
+static_assert(sizeof(map_vrc2_vrc4) <= MAP_REG_SIZE);
+
+static void map_vrc2_vrc4_update_prg()
+{
+  map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
+  if (reg->is_vrc4) {
+    if (reg->prg_ctrl & 0x01) {
+      map_prg_ram_page_8k(0, 3, false);
+    } else {
+      map_prg_clear_page_8k(3);
+    }
+    if (reg->prg_ctrl & 0x02) {
+      map_prg_rom_page_8k(-2, 4);
+      map_prg_rom_page_8k(reg->prg1, 5);
+      map_prg_rom_page_8k(reg->prg0, 6);
+    } else {
+      map_prg_rom_page_8k(reg->prg0, 4);
+      map_prg_rom_page_8k(reg->prg1, 5);
+      map_prg_rom_page_8k(-2, 6);
+    }
+  } else {
+    map_prg_rom_page_8k(reg->prg0, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
+  }
+}
+
+static bool map_vrc2_vrc4_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
+  uint a0 = (addr & reg->a0_mask) ? 1 : 0;
+  uint a1 = (addr & reg->a1_mask) ? 2 : 0;
+  addr = (addr & 0xF000) | a1 | a0;
+  switch (addr) {
+    case 0x8000:
+    case 0x8001:
+    case 0x8002:
+    case 0x8003:
+      reg->prg0 = (val & 0x1F);
+      map_vrc2_vrc4_update_prg();
+      break;
+    case 0xA000:
+    case 0xA001:
+    case 0xA002:
+    case 0xA003:
+      reg->prg1 = (val & 0x1F);
+      map_vrc2_vrc4_update_prg();
+      break;
+    case 0x9002:
+      if (reg->is_vrc4) {
+        reg->prg_ctrl = val;
+        map_vrc2_vrc4_update_prg();
+        break;
+      }
+    case 0x9001:
+    case 0x9003:
+      if (reg->is_vrc4) {
+        break;
+      }
+    case 0x9000:
+      switch (val & (reg->is_vrc4 ? 0x03 : 0x01)) {
+        case 0: map_ppu_nt_vert_mirror(); break;
+        case 1: map_ppu_nt_horiz_mirror(); break;
+        case 2: map_ppu_nt_single_low(); break;
+        case 3: map_ppu_nt_single_high(); break;
+      }
+      break;
+    case 0xB000:
+    case 0xB002:
+    case 0xC000:
+    case 0xC002:
+    case 0xD000:
+    case 0xD002:
+    case 0xE000:
+    case 0xE002: {
+      uint idx = (((addr - 0xB000) & 0x3000) >> 11) | ((addr & 0x02) >> 1);
+      if (reg->is_vrc2a) {
+        val >>= 1;
+      }
+      reg->chr[idx] = (reg->chr[idx] & 0xFFF0) | (val & 0x0F);
+      map_chr_page_1k(reg->chr[idx], idx);
+      break;
+    }
+    case 0xB001:
+    case 0xB003:
+    case 0xC001:
+    case 0xC003:
+    case 0xD001:
+    case 0xD003:
+    case 0xE001:
+    case 0xE003: {
+      uint idx = (((addr - 0xB000) & 0x3000) >> 11) | ((addr & 0x02) >> 1);
+      if (reg->is_vrc2a) {
+        val >>= 1;
+      }
+      reg->chr[idx] = (reg->chr[idx] & 0x000F) | ((val & (reg->is_vrc4 ? 0x1F : 0x0F)) << 4);
+      map_chr_page_1k(reg->chr[idx], idx);
+      break;
+    }
+    case 0xF000: reg->irq.latch = (reg->irq.latch & 0xF0) | (val & 0x0F); break;
+    case 0xF001: reg->irq.latch = (reg->irq.latch & 0x0F) | ((val & 0x0F) << 4); break;
+    case 0xF002: map_vrc_irq_ctrl(val); break;
+    case 0xF003: map_vrc_irq_ack(); break;
+  }
+  return true;
+}
+
+static void map_vrc2_vrc4_load()
+{
+  mn_rom rom = mn_rom_get();
+  map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
+  reg->is_vrc4 = (rom->submapper < 3);
+  uint a0_lo = 0;
+  uint a1_lo = 0;
+  uint a0_hi = 0;
+  uint a1_hi = 0;
+  switch (rom->mapper) {
+    case 21:
+      a0_lo = 0x02;
+      a1_lo = 0x04;
+      a0_hi = 0x40;
+      a1_hi = 0x80;
+      break;
+    case 22:
+      reg->is_vrc4 = false;
+      reg->is_vrc2a = true;
+      a0_lo = 0x02;
+      a1_lo = 0x01;
+      break;
+    case 23:
+      a0_lo = 0x01;
+      a1_lo = 0x02;
+      a0_hi = 0x04;
+      a1_hi = 0x08;
+      break;
+    case 25:
+      a0_lo = 0x02;
+      a1_lo = 0x01;
+      a0_hi = 0x08;
+      a1_hi = 0x04;
+      break;
+    case 27: // clone VRC4f 23-1
+      a0_lo = 0x01;
+      a1_lo = 0x02;
+      break;
+  }
+  if (rom->submapper) {
+    if (rom->submapper & 1) {
+      a0_hi = 0;
+      a1_hi = 0;
+    } else {
+      a0_lo = 0;
+      a1_lo = 0;
+    }
+  }
+  reg->a0_mask = (a0_hi | a0_lo);
+  reg->a1_mask = (a1_hi | a1_lo);
+  if (reg->is_vrc4) {
+    map_set_cpu_cyc_cb(map_vrc_cpu_cyc);
+  }
+  map_set_cpu_write_cb(map_vrc2_vrc4_cpu_write);
+}
+
+static void map_vrc1_load()
+{
+  // todo
+}
+
+static void map_vrc3_load()
+{
+  // todo
+}
+
+static void map_vrc6_load()
+{
+  // todo
+}
+
+static void map_vrc7_load()
+{
+  // todo
+}
+
 bool map_other_load()
 {
   mn_rom rom = mn_rom_get();
@@ -287,6 +537,16 @@ bool map_other_load()
     case 18: map_jalecoss_load(); break;
     case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
     case 69: map_fme7_load(); break;
+    case 21:
+    case 22:
+    case 23:
+    case 25:
+    case 27: map_vrc2_vrc4_load(); break;
+    case 24:
+    case 26: map_vrc6_load(); break;
+    case 73: map_vrc3_load(); break;
+    case 75: map_vrc1_load(); break;
+    case 85: map_vrc7_load(); break;
     default: return false;
   }
   return true;

@@ -325,6 +325,18 @@ static TestParams tests[] = {
   { "vbl_nmi_timing/5.nmi_suppression.nes", MN_REGION_NTSC, { { 0xB2955A03, 166, 0x00, 0 } } }, //
   { "vbl_nmi_timing/6.nmi_disable.nes", MN_REGION_NTSC, { { 0xFD58C6AA, 109, 0x00, 0 } } }, //
   { "vbl_nmi_timing/7.nmi_timing.nes", MN_REGION_NTSC, { { 0xE5553CE0, 109, 0x00, 0 } } }, //
+  { "vrctest/vrctest21s0.nes", MN_REGION_NTSC, { { 0x579C0323, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest21s1.nes", MN_REGION_NTSC, { { 0x24AFA780, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest21s2.nes", MN_REGION_NTSC, { { 0x3AB4BA0C, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest22.nes", MN_REGION_NTSC, { { 0x7271DB9B, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest23s0.nes", MN_REGION_NTSC, { { 0xED3AACB2, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest23s1.nes", MN_REGION_NTSC, { { 0xFFE71C79, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest23s2.nes", MN_REGION_NTSC, { { 0x771EDC58, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest23s3.nes", MN_REGION_NTSC, { { 0xAD21A096, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest25s0.nes", MN_REGION_NTSC, { { 0x2EA25E99, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest25s1.nes", MN_REGION_NTSC, { { 0x7B2EA541, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest25s2.nes", MN_REGION_NTSC, { { 0x081F36C0, 5, 0x00, 0 } } }, //
+  { "vrctest/vrctest25s3.nes", MN_REGION_NTSC, { { 0x78CE440A, 5, 0x00, 0 } } }, //
 };
 
 static uint calc_crc(const u8* data, uint size)

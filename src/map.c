@@ -206,6 +206,10 @@ static uint map_page_mask(uint n)
 static uint map_page_clamp(uint page, uint size, u8 shift)
 {
   uint pages = (size >> shift);
+  if (pages == 0) {
+    pages = 1;
+    // __builtin_debugtrap();
+  }
   page &= map_page_mask(pages);
   if (page >= pages) {
     page %= pages;
