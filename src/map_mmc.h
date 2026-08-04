@@ -55,10 +55,10 @@ static void map_mmc1_update()
 
   if (!rom->alt_mirror) {
     switch (ctrl_nt) {
-      case 0: map_ppu_nt_single_low(); break;
-      case 1: map_ppu_nt_single_high(); break;
-      case 2: map_ppu_nt_vert_mirror(); break;
-      case 3: map_ppu_nt_horiz_mirror(); break;
+      case 0: map_ciram_single_low(); break;
+      case 1: map_ciram_single_high(); break;
+      case 2: map_ciram_vert_mirror(); break;
+      case 3: map_ciram_horiz_mirror(); break;
     }
   }
 
@@ -181,15 +181,15 @@ static void map_mmc3_update()
     chr4 &= 0x7F;
     chr5 &= 0x7F;
     if (reg->ctrl & 0x80) {
-      map_ppu_nt_page(reg->chr2 >> 7, 0x8);
-      map_ppu_nt_page(reg->chr3 >> 7, 0x9);
-      map_ppu_nt_page(reg->chr4 >> 7, 0xA);
-      map_ppu_nt_page(reg->chr5 >> 7, 0xB);
+      map_ciram_page(reg->chr2 >> 7, 0x8);
+      map_ciram_page(reg->chr3 >> 7, 0x9);
+      map_ciram_page(reg->chr4 >> 7, 0xA);
+      map_ciram_page(reg->chr5 >> 7, 0xB);
     } else {
-      map_ppu_nt_page(reg->chr0 >> 7, 0x8);
-      map_ppu_nt_page(reg->chr0 >> 7, 0x9);
-      map_ppu_nt_page(reg->chr1 >> 7, 0xA);
-      map_ppu_nt_page(reg->chr1 >> 7, 0xB);
+      map_ciram_page(reg->chr0 >> 7, 0x8);
+      map_ciram_page(reg->chr0 >> 7, 0x9);
+      map_ciram_page(reg->chr1 >> 7, 0xA);
+      map_ciram_page(reg->chr1 >> 7, 0xB);
     }
   }
   if (reg->use_chr_ram) {
@@ -250,9 +250,9 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
     case 0xA000:
       if (!mn_rom_get()->alt_mirror && !reg->alt_mirror) {
         if (val & 1) {
-          map_ppu_nt_horiz_mirror();
+          map_ciram_horiz_mirror();
         } else {
-          map_ppu_nt_vert_mirror();
+          map_ciram_vert_mirror();
         }
       }
       return true;
@@ -385,9 +385,9 @@ static bool map_mmc2_cpu_write(u16 addr, u8 val)
       return true;
     case 0xF000:
       if (val & 1) {
-        map_ppu_nt_horiz_mirror();
+        map_ciram_horiz_mirror();
       } else {
-        map_ppu_nt_vert_mirror();
+        map_ciram_vert_mirror();
       }
       return true;
   }
@@ -470,9 +470,9 @@ static bool map_mmc4_cpu_write(u16 addr, u8 val)
       return true;
     case 0xF000:
       if (val & 1) {
-        map_ppu_nt_horiz_mirror();
+        map_ciram_horiz_mirror();
       } else {
-        map_ppu_nt_vert_mirror();
+        map_ciram_vert_mirror();
       }
       return true;
   }
@@ -643,10 +643,10 @@ static bool map_mmc5_cpu_write(u16 addr, u8 val)
     u8 nt3 = addr >> 6;
 
 
-  map_ppu_nt_page(0x8, map_dyn.vram + MAP_PPU_PAGE_SIZE * 0);
-  map_ppu_nt_page(0x9, map_dyn.vram + MAP_PPU_PAGE_SIZE * 1);
-  map_ppu_nt_page(0xA, map_dyn.vram + MAP_PPU_PAGE_SIZE * 2);
-  map_ppu_nt_page(0xB, map_dyn.vram + MAP_PPU_PAGE_SIZE * 3);
+  map_ciram_page(0x8, map_dyn.vram + MAP_PPU_PAGE_SIZE * 0);
+  map_ciram_page(0x9, map_dyn.vram + MAP_PPU_PAGE_SIZE * 1);
+  map_ciram_page(0xA, map_dyn.vram + MAP_PPU_PAGE_SIZE * 2);
+  map_ciram_page(0xB, map_dyn.vram + MAP_PPU_PAGE_SIZE * 3);
   }
   // if (addr >= MAP_MMC5_ERAM && map_dyn.eram[MAP_MMC5_EXT_MODE] > 2) { // eram write protect
   //   return true;

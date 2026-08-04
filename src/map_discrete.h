@@ -38,23 +38,23 @@ static void map_discrete_common_mirror(u8 mode, bool val)
   switch (mode) {
     case MAP_MIRROR_SINGLE_LO_HI:
       if (val) {
-        map_ppu_nt_single_high();
+        map_ciram_single_high();
       } else {
-        map_ppu_nt_single_low();
+        map_ciram_single_low();
       }
       break;
     case MAP_MIRROR_VERT_HORIZ:
       if (val) {
-        map_ppu_nt_horiz_mirror();
+        map_ciram_horiz_mirror();
       } else {
-        map_ppu_nt_vert_mirror();
+        map_ciram_vert_mirror();
       }
       break;
     case MAP_MIRROR_HORIZ_VERT:
       if (val) {
-        map_ppu_nt_vert_mirror();
+        map_ciram_vert_mirror();
       } else {
-        map_ppu_nt_horiz_mirror();
+        map_ciram_horiz_mirror();
       }
       break;
   }

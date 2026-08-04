@@ -278,7 +278,7 @@ void map_chr_page_2k(uint sp, uint dp) { map_chr_page(sp, dp, 1); }
 void map_chr_page_4k(uint sp, uint dp) { map_chr_page(sp, dp, 2); }
 void map_chr_page_8k(uint sp, uint dp) { map_chr_page(sp, dp, 3); }
 
-void map_ppu_nt_page(uint sp, uint dp)
+void map_ciram_page(uint sp, uint dp)
 {
   u8* src = map.vram + sp * MAP_PPU_PAGE_SIZE;
   map_dyn.ppu_read_page[dp] = src;
@@ -287,44 +287,44 @@ void map_ppu_nt_page(uint sp, uint dp)
   map_dyn.ppu_write_page[dp + 4] = src;
 }
 
-void map_ppu_nt_single_low()
+void map_ciram_single_low()
 {
-  map_ppu_nt_page(0, 0x8);
-  map_ppu_nt_page(0, 0x9);
-  map_ppu_nt_page(0, 0xA);
-  map_ppu_nt_page(0, 0xB);
+  map_ciram_page(0, 0x8);
+  map_ciram_page(0, 0x9);
+  map_ciram_page(0, 0xA);
+  map_ciram_page(0, 0xB);
 }
 
-void map_ppu_nt_single_high()
+void map_ciram_single_high()
 {
-  map_ppu_nt_page(1, 0x8);
-  map_ppu_nt_page(1, 0x9);
-  map_ppu_nt_page(1, 0xA);
-  map_ppu_nt_page(1, 0xB);
+  map_ciram_page(1, 0x8);
+  map_ciram_page(1, 0x9);
+  map_ciram_page(1, 0xA);
+  map_ciram_page(1, 0xB);
 }
 
-void map_ppu_nt_vert_mirror()
+void map_ciram_vert_mirror()
 {
-  map_ppu_nt_page(0, 0x8);
-  map_ppu_nt_page(1, 0x9);
-  map_ppu_nt_page(0, 0xA);
-  map_ppu_nt_page(1, 0xB);
+  map_ciram_page(0, 0x8);
+  map_ciram_page(1, 0x9);
+  map_ciram_page(0, 0xA);
+  map_ciram_page(1, 0xB);
 }
 
-void map_ppu_nt_horiz_mirror()
+void map_ciram_horiz_mirror()
 {
-  map_ppu_nt_page(0, 0x8);
-  map_ppu_nt_page(0, 0x9);
-  map_ppu_nt_page(1, 0xA);
-  map_ppu_nt_page(1, 0xB);
+  map_ciram_page(0, 0x8);
+  map_ciram_page(0, 0x9);
+  map_ciram_page(1, 0xA);
+  map_ciram_page(1, 0xB);
 }
 
-void map_ppu_nt_four_screen()
+void map_ciram_four_screen()
 {
-  map_ppu_nt_page(0, 0x8);
-  map_ppu_nt_page(1, 0x9);
-  map_ppu_nt_page(2, 0xA);
-  map_ppu_nt_page(3, 0xB);
+  map_ciram_page(0, 0x8);
+  map_ciram_page(1, 0x9);
+  map_ciram_page(2, 0xA);
+  map_ciram_page(3, 0xB);
 }
 
 static void map_nrom_load()
@@ -340,11 +340,11 @@ static void map_nrom_load()
   }
 
   if (map_dyn.rom->alt_mirror) {
-    map_ppu_nt_four_screen();
+    map_ciram_four_screen();
   } else if (map_dyn.rom->vert_mirror) {
-    map_ppu_nt_vert_mirror();
+    map_ciram_vert_mirror();
   } else {
-    map_ppu_nt_horiz_mirror();
+    map_ciram_horiz_mirror();
   }
 }
 

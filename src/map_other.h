@@ -18,10 +18,10 @@ static void map_action53_update()
 {
   map_action53* reg = (map_action53*)map_reg();
   switch (reg->mirror_mode) {
-    case 0: map_ppu_nt_single_low(); break;
-    case 1: map_ppu_nt_single_high(); break;
-    case 2: map_ppu_nt_vert_mirror(); break;
-    case 3: map_ppu_nt_horiz_mirror(); break;
+    case 0: map_ciram_single_low(); break;
+    case 1: map_ciram_single_high(); break;
+    case 2: map_ciram_vert_mirror(); break;
+    case 3: map_ciram_horiz_mirror(); break;
   }
   if (reg->bank_mode < 2) {
     map_prg_rom_page_32k((reg->outer_bank & ~reg->bank_mask) | (reg->prg_page & reg->bank_mask), 1);
@@ -109,10 +109,10 @@ static bool map_sunsoft3_cpu_write(u16 addr, u8 val)
       break;
     case 0xE800:
       switch (val & 3) {
-        case 0: map_ppu_nt_vert_mirror(); break;
-        case 1: map_ppu_nt_horiz_mirror(); break;
-        case 2: map_ppu_nt_single_low(); break;
-        case 3: map_ppu_nt_single_high(); break;
+        case 0: map_ciram_vert_mirror(); break;
+        case 1: map_ciram_horiz_mirror(); break;
+        case 2: map_ciram_single_low(); break;
+        case 3: map_ciram_single_high(); break;
       }
       break;
     case 0xF800: map_prg_rom_page_16k(val & 0x0F, 2); break;
@@ -193,10 +193,10 @@ static bool map_sunsoft_fme7_cpu_write(u16 addr, u8 val)
           break;
         case 0xC:
           switch (val & 0x03) {
-            case 0: map_ppu_nt_vert_mirror(); break;
-            case 1: map_ppu_nt_horiz_mirror(); break;
-            case 2: map_ppu_nt_single_low(); break;
-            case 3: map_ppu_nt_single_high(); break;
+            case 0: map_ciram_vert_mirror(); break;
+            case 1: map_ciram_horiz_mirror(); break;
+            case 2: map_ciram_single_low(); break;
+            case 3: map_ciram_single_high(); break;
           }
           break;
         case 0xD:
@@ -315,10 +315,10 @@ static bool map_jaleco_ss_cpu_write(u16 addr, u8 val)
       break;
     case 0xF002:
       switch (val & 0x03) {
-        case 0: map_ppu_nt_horiz_mirror(); break;
-        case 1: map_ppu_nt_vert_mirror(); break;
-        case 2: map_ppu_nt_single_low(); break;
-        case 3: map_ppu_nt_single_high(); break;
+        case 0: map_ciram_horiz_mirror(); break;
+        case 1: map_ciram_vert_mirror(); break;
+        case 2: map_ciram_single_low(); break;
+        case 3: map_ciram_single_high(); break;
       }
       break;
     case 0xF003:
@@ -489,10 +489,10 @@ static bool map_vrc2_vrc4_cpu_write(u16 addr, u8 val)
       }
     case 0x9000:
       switch (val & (reg->is_vrc4 ? 0x03 : 0x01)) {
-        case 0: map_ppu_nt_vert_mirror(); break;
-        case 1: map_ppu_nt_horiz_mirror(); break;
-        case 2: map_ppu_nt_single_low(); break;
-        case 3: map_ppu_nt_single_high(); break;
+        case 0: map_ciram_vert_mirror(); break;
+        case 1: map_ciram_horiz_mirror(); break;
+        case 2: map_ciram_single_low(); break;
+        case 3: map_ciram_single_high(); break;
       }
       break;
     case 0xB000:
@@ -638,10 +638,10 @@ static void map_vrc6_update()
   map_chr_page_1k(reg->chr[7], 7);
 
   switch ((reg->ctrl >> 2) & 3) {
-    case 0: map_ppu_nt_vert_mirror(); break;
-    case 1: map_ppu_nt_horiz_mirror(); break;
-    case 2: map_ppu_nt_single_low(); break;
-    case 3: map_ppu_nt_single_high(); break;
+    case 0: map_ciram_vert_mirror(); break;
+    case 1: map_ciram_horiz_mirror(); break;
+    case 2: map_ciram_single_low(); break;
+    case 3: map_ciram_single_high(); break;
   }
 }
 
@@ -756,9 +756,9 @@ static bool map_vrc1_cpu_write(u16 addr, u8 val)
     case 0x9000:
       if (!rom->alt_mirror) {
         if (val & 1) {
-          map_ppu_nt_horiz_mirror();
+          map_ciram_horiz_mirror();
         } else {
-          map_ppu_nt_vert_mirror();
+          map_ciram_vert_mirror();
         }
       }
       reg->chr0 = (reg->chr0 & 0x0F) | ((val & 0x02) << 3);
@@ -817,10 +817,10 @@ static bool map_vrc7_cpu_write(u16 addr, u8 val)
     case 0xD010: map_chr_page_1k(val, (((addr - 0xA000) & 0x3000) >> 11) | ((addr & reg->a43_mask) ? 1 : 0)); break;
     case 0xE000:
       switch (val & 3) {
-        case 0: map_ppu_nt_vert_mirror(); break;
-        case 1: map_ppu_nt_horiz_mirror(); break;
-        case 2: map_ppu_nt_single_low(); break;
-        case 3: map_ppu_nt_single_high(); break;
+        case 0: map_ciram_vert_mirror(); break;
+        case 1: map_ciram_horiz_mirror(); break;
+        case 2: map_ciram_single_low(); break;
+        case 3: map_ciram_single_high(); break;
       }
       if (val & 0x80) {
         map_prg_ram_page_8k(0, 3, false);
@@ -890,7 +890,7 @@ static void map_namco163_chr_update()
       }
     }
     if (use_nt) {
-      map_ppu_nt_page(reg->chr[i] & 1, i);
+      map_ciram_page(reg->chr[i] & 1, i);
     } else {
       map_chr_page_1k(reg->chr[i], i);
     }

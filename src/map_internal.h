@@ -36,12 +36,12 @@ void map_prg_rom_page(uint sp, uint dp, uint shift);
 void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly);
 void map_chr_page(uint sp, uint dp, uint shift);
 
-void map_ppu_nt_page(uint sp, uint dp);
-void map_ppu_nt_single_low();
-void map_ppu_nt_single_high();
-void map_ppu_nt_vert_mirror();
-void map_ppu_nt_horiz_mirror();
-void map_ppu_nt_four_screen();
+void map_ciram_page(uint sp, uint dp);
+void map_ciram_single_low();
+void map_ciram_single_high();
+void map_ciram_vert_mirror();
+void map_ciram_horiz_mirror();
+void map_ciram_four_screen();
 
 void map_prg_clear_page_4k(uint dp);
 void map_prg_clear_page_8k(uint dp);
