@@ -285,9 +285,10 @@ static void map_jalecoss_load()
 typedef struct
 {
   u16 prescaler;
+  u16 latch;
+  u16 counter;
   u8 ctrl;
-  u8 latch;
-  u8 counter;
+  u8 vrc3;
 } map_vrc_irq;
 
 static void map_vrc_irq_ctrl(u8 val)
@@ -313,7 +314,7 @@ static void map_vrc_cpu_cyc()
   map_vrc_irq* reg = (map_vrc_irq*)map_reg();
   if (reg->ctrl & 0x02) {
     bool clock = false;
-    if (reg->ctrl & 0x04) {
+    if (reg->vrc3 || (reg->ctrl & 0x04)) {
       clock = true;
     } else {
       reg->prescaler += 3;
@@ -323,8 +324,9 @@ static void map_vrc_cpu_cyc()
       }
     }
     if (clock) {
-      if (reg->counter == 0xFF) {
-        reg->counter = reg->latch;
+      uint mask = (reg->vrc3 && (reg->ctrl & 0x04) == 0) ? 0xFFFF : 0xFF;
+      if ((reg->counter & mask) == (0xFFFF & mask)) {
+        reg->counter = (reg->latch & mask);
         map_irq(true); // todo: probably should trig later
       } else {
         ++reg->counter;
@@ -633,9 +635,30 @@ static void map_vrc6b_load()
   map_vrc6_load();
 }
 
+static bool map_vrc3_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_vrc_irq* reg = (map_vrc_irq*)map_reg();
+  switch (addr & 0xF000) {
+    case 0xF000: map_prg_rom_page_16k(val & 7, 2); break;
+    case 0x8000: reg->latch = (reg->latch & 0xFFF0) | (val & 0x0F); break;
+    case 0x9000: reg->latch = (reg->latch & 0xFF0F) | ((val & 0x0F) << 4); break;
+    case 0xA000: reg->latch = (reg->latch & 0xF0FF) | ((val & 0x0F) << 8); break;
+    case 0xB000: reg->latch = (reg->latch & 0x0FFF) | ((val & 0x0F) << 12); break;
+    case 0xC000: map_vrc_irq_ctrl(val); break;
+    case 0xD000: map_vrc_irq_ack(); break;
+  }
+  return true;
+}
+
 static void map_vrc3_load()
 {
-  // todo
+  map_vrc_irq* reg = (map_vrc_irq*)map_reg();
+  reg->vrc3 = true;
+  map_set_cpu_cyc_cb(map_vrc_cpu_cyc);
+  map_set_cpu_write_cb(map_vrc3_cpu_write);
 }
 
 static void map_vrc1_load()
