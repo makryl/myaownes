@@ -50,6 +50,16 @@ bool imp_init()
   // test = "GoodNES/Europe/Smurfs, The (E) [!].nes";
   // test = "GoodNES/USA/Batman - Return of the Joker (U) [!].nes"; // FME-7
   // test = "GoodNES/Japan/Magic John (J) [!].nes"; // Jaleco SS
+  // test = "GoodNES/Japan/TwinBee 3 - Poko Poko Daimaou (J) [!].nes"; // VRC2a	22 +
+  // test = "GoodNES/Japan/Konami Wai Wai World (J) [!].nes"; // VRC2b	23-3 +
+  // test = "GoodNES/Japan/Contra (J) [!].nes"; // VRC2b	23-3 +
+  // test = "GoodNES/Japan/Ganbare Goemon Gaiden - Kieta Ougon Kiseru (J) (V1.1) [!].nes"; // VRC2c	25-3 +
+  // test = "GoodNES/Japan/Wai Wai World 2 - SOS!! Paseri Jou (J) [!].nes"; // VRC4a	21-1 +
+  // test = "GoodNES/Japan/Bio Miracle Bokutte Upa (J) [!].nes"; // VRC4b	25-1 +
+  // test = "GoodNES/Japan/Ganbare Goemon Gaiden 2 - Tenka no Zaihou (J) [!].nes"; // VRC4c 21-2 +
+  // test = "GoodNES/Japan/Teenage Mutant Ninja Turtles (J) [!].nes"; // VRC4d	25-2 +
+  // test = "GoodNES/Japan/Akumajou Special - Boku Dracula-kun (J) [!].nes"; // VRC4e	23-2 +
+  // test = "GoodNES/Japan/Tiny Toon Adventures (J) [!].nes"; // VRC4e	23-2 +
 
   if (test) {
     chdir("../../tmp");

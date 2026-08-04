@@ -341,6 +341,7 @@ typedef struct
   u8 a0_mask;
   u8 a1_mask;
   u8 prg_ctrl;
+  u8 microwire_latch;
   u8 prg0;
   u8 prg1;
   u16 chr[8];
@@ -373,10 +374,14 @@ static void map_vrc2_vrc4_update_prg()
 
 static bool map_vrc2_vrc4_cpu_write(u16 addr, u8 val)
 {
+  map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
+  if (!reg->is_vrc4 && addr >= 0x6000 && addr <= 0x6FFF) {
+    reg->microwire_latch = (val & 1);
+    return true;
+  }
   if (addr < 0x8000) {
     return false;
   }
-  map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
   uint a0 = (addr & reg->a0_mask) ? 1 : 0;
   uint a1 = (addr & reg->a1_mask) ? 2 : 0;
   addr = (addr & 0xF000) | a1 | a0;
@@ -454,6 +459,16 @@ static bool map_vrc2_vrc4_cpu_write(u16 addr, u8 val)
   return true;
 }
 
+static bool map_vrc2_cpu_read(u16 addr, u8* val, bool)
+{
+  if (addr >= 0x6000 && addr <= 0x6FFF) {
+    map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
+    *val = ((*val) & 0xFE) | reg->microwire_latch;
+    return true;
+  }
+  return false;
+}
+
 static void map_vrc2_vrc4_load()
 {
   mn_rom rom = mn_rom_get();
@@ -506,6 +521,8 @@ static void map_vrc2_vrc4_load()
   reg->a1_mask = (a1_hi | a1_lo);
   if (reg->is_vrc4) {
     map_set_cpu_cyc_cb(map_vrc_cpu_cyc);
+  } else {
+    map_set_cpu_read_cb(map_vrc2_cpu_read);
   }
   map_set_cpu_write_cb(map_vrc2_vrc4_cpu_write);
 }
