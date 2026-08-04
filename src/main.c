@@ -68,7 +68,13 @@ bool imp_init()
   // test = "GoodNES/Japan/Tetsuwan Atom (J) [!].nes"; // VRC1 +
   // test = "GoodNES/Japan/Lagrange Point (J) [!].nes"; // VRC7a +
   // test = "GoodNES/Japan/Tiny Toon Adventures 2 - Montana Land e Youkoso (J) [!].nes"; // VRC7b +
-  test = "GoodNES/Japan/Fantasy Zone II - Opa-Opa no Namida (J) [!].nes"; // Sunsoft-3
+  // test = "GoodNES/Japan/Fantasy Zone II - Opa-Opa no Namida (J) [!].nes"; // Sunsoft-3
+  // test = "GoodNES/Japan/Mappy Kids (J) [!].nes"; // Namco-163
+  // test = "MegaPack/Translated/Splatter House - Wanpaku Graffiti (J) [T-Eng2.0].nes"; // Namco-163
+  // test = "GoodNES/Japan/Digital Devil Story - Megami Tensei II (J) (V1.1) [!].nes"; // Namco-163
+  // test = "GoodNES/Japan/King of Kings (J) [!].nes"; // Namco-163
+  // test = "GoodNES/Japan/Star Wars (J) (Namco) [!].nes"; // Namco-163
+  // test = "GoodNES/Japan/Dokuganryuu Masamune (J) [!].nes"; // Namco-163
 
   if (test) {
     chdir("../../tmp");

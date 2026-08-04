@@ -4,7 +4,7 @@
 
 enum
 {
-  MAP_REG_SIZE = 0x20,
+  MAP_REG_SIZE = 0x100,
 };
 
 typedef void (*map_cpu_cyc_cb)();

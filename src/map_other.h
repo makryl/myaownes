@@ -865,7 +865,131 @@ static void map_vrc7_load()
   map_set_cpu_write_cb(map_vrc7_cpu_write);
 }
 
-static void map_namco163_load() {}
+typedef struct
+{
+  u16 irq_counter;
+  u8 ctrl;
+  u8 addr;
+  u8 chr[12];
+  u8 data[0x80]; // todo: save this to ".sav"?
+} map_namco163;
+static_assert(sizeof(map_namco163) <= MAP_REG_SIZE);
+
+static void map_namco163_chr_update()
+{
+  map_namco163* reg = (map_namco163*)map_reg();
+  for (uint i = 0; i < 12; ++i) {
+    bool use_nt = false;
+    if (reg->chr[i] >= 0xE0) {
+      if (i < 4) {
+        use_nt = !(reg->ctrl & 0x40);
+      } else if (i < 8) {
+        use_nt = !(reg->ctrl & 0x80);
+      } else {
+        use_nt = true;
+      }
+    }
+    if (use_nt) {
+      map_ppu_nt_page(reg->chr[i] & 1, i);
+    } else {
+      map_chr_page_1k(reg->chr[i], i);
+    }
+  }
+}
+
+static bool map_namco163_cpu_read(u16 addr, u8* val, bool trace)
+{
+  map_namco163* reg = (map_namco163*)map_reg();
+  switch (addr & 0xF800) {
+    case 0x4800:
+      *val = reg->data[reg->addr & 0x7F];
+      if ((reg->addr & 0x80) && reg->addr < 0xFF && !trace) {
+        ++reg->addr;
+      }
+      return true;
+    case 0x5000: *val = (reg->irq_counter & 0x00FF); return true;
+    case 0x5800: *val = ((reg->irq_counter & 0xFF00) >> 8); return true;
+  }
+  return false;
+}
+
+static bool map_namco163_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x4800 || (addr >= 0x6000 && addr <= 0x7FFF)) {
+    return false;
+  }
+  map_namco163* reg = (map_namco163*)map_reg();
+  switch (addr & 0xF800) {
+    case 0x4800:
+      reg->data[reg->addr & 0x7F] = val;
+      if ((reg->addr & 0x80) && reg->addr < 0xFF) {
+        ++reg->addr;
+      }
+      break;
+    case 0x5000:
+      reg->irq_counter = (reg->irq_counter & 0xFF00) | val;
+      map_irq(false);
+      break;
+    case 0x5800:
+      reg->irq_counter = (reg->irq_counter & 0x00FF) | (val << 8);
+      map_irq(false);
+      break;
+    case 0x8000:
+    case 0x8800:
+    case 0x9000:
+    case 0x9800:
+    case 0xA000:
+    case 0xA800:
+    case 0xB000:
+    case 0xB800:
+    case 0xC000:
+    case 0xC800:
+    case 0xD000:
+    case 0xD800:
+      reg->chr[(addr & 0x7800) >> 11] = val;
+      map_namco163_chr_update();
+      break;
+    case 0xE000:
+      map_prg_rom_page_8k(val & 0x3F, 4);
+      // todo: audio: val & 0x40, pin 22: val & 0x80
+      break;
+    case 0xE800:
+      map_prg_rom_page_8k(val & 0x3F, 5);
+      reg->ctrl = val & 0xC0;
+      map_namco163_chr_update();
+      break;
+    case 0xF000:
+      map_prg_rom_page_8k(val & 0x3F, 6);
+      // $3F replaces CHR bank output with audio state debug info
+      // todo: audio? pin 44: val & 0x40, val & 0x80
+      break;
+    case 0xF800:
+      reg->addr = val;
+      // write protect not needed
+      break;
+  }
+  return true;
+}
+
+static void map_namco163_cpu_cyc()
+{
+  map_namco163* reg = (map_namco163*)map_reg();
+  if (reg->irq_counter & 0x8000) {
+    if (reg->irq_counter == 0xFFFF) {
+      reg->irq_counter = 0x7FFF;
+      map_irq(true);
+    } else {
+      ++reg->irq_counter;
+    }
+  }
+}
+
+static void map_namco163_load()
+{
+  map_set_cpu_cyc_cb(map_namco163_cpu_cyc);
+  map_set_cpu_read_cb(map_namco163_cpu_read);
+  map_set_cpu_write_cb(map_namco163_cpu_write);
+}
 
 bool map_other_load()
 {
