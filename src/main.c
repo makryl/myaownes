@@ -64,6 +64,10 @@ bool imp_init()
   // test = "GoodNES/Japan/Esper Dream 2 - Aratanaru Tatakai (J) [!].nes"; // VRC6b +
   // test = "GoodNES/Japan/Mouryou Senki Madara (J) [!].nes"; // VRC6b +
   // test = "GoodNES/Japan/Salamander (J) [!].nes"; // VRC3 +
+  // test = "GoodNES/Japan/Ganbare Goemon! - Karakuri Douchuu (J) [!].nes"; // VRC1 +
+  // test = "GoodNES/Japan/Tetsuwan Atom (J) [!].nes"; // VRC1 +
+  // test = "GoodNES/Japan/Lagrange Point (J) [!].nes"; // VRC7a +
+  // test = "GoodNES/Japan/Tiny Toon Adventures 2 - Montana Land e Youkoso (J) [!].nes"; // VRC7b +
 
   if (test) {
     chdir("../../tmp");

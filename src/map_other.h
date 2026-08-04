@@ -661,14 +661,134 @@ static void map_vrc3_load()
   map_set_cpu_write_cb(map_vrc3_cpu_write);
 }
 
-static void map_vrc1_load()
+typedef struct
 {
-  // todo
+  u8 chr0;
+  u8 chr1;
+} map_vrc1;
+static_assert(sizeof(map_vrc1) <= MAP_REG_SIZE);
+
+static bool map_vrc1_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_vrc1* reg = (map_vrc1*)map_reg();
+  mn_rom rom = mn_rom_get();
+  switch (addr & 0xF000) {
+    case 0x8000: map_prg_rom_page_8k(val & 0x0F, 4); break;
+    case 0xA000: map_prg_rom_page_8k(val & 0x0F, 5); break;
+    case 0xC000: map_prg_rom_page_8k(val & 0x0F, 6); break;
+    case 0x9000:
+      if (!rom->alt_mirror) {
+        if (val & 1) {
+          map_ppu_nt_horiz_mirror();
+        } else {
+          map_ppu_nt_vert_mirror();
+        }
+      }
+      reg->chr0 = (reg->chr0 & 0x0F) | ((val & 0x02) << 3);
+      reg->chr1 = (reg->chr1 & 0x0F) | ((val & 0x04) << 2);
+      map_chr_page_4k(reg->chr0, 0);
+      map_chr_page_4k(reg->chr1, 1);
+      break;
+    case 0xE000:
+      reg->chr0 = (reg->chr0 & 0x10) | (val & 0x0F);
+      map_chr_page_4k(reg->chr0, 0);
+      break;
+    case 0xF000:
+      reg->chr1 = (reg->chr1 & 0x10) | (val & 0x0F);
+      map_chr_page_4k(reg->chr1, 1);
+      break;
+  }
+  return true;
+}
+
+static void map_vrc1_load() { map_set_cpu_write_cb(map_vrc1_cpu_write); }
+
+
+typedef struct
+{
+  map_vrc_irq irq;
+  u8 a43_mask;
+} map_vrc7;
+static_assert(sizeof(map_vrc7) <= MAP_REG_SIZE);
+
+static bool map_vrc7_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_vrc7* reg = (map_vrc7*)map_reg();
+  switch (addr & 0xF018) {
+    case 0x8000: map_prg_rom_page_8k(val & 0x3F, 4); break;
+    case 0x8008:
+    case 0x8010:
+      if (addr & reg->a43_mask) {
+        map_prg_rom_page_8k(val & 0x3F, 5);
+      }
+      break;
+    case 0x9000: map_prg_rom_page_8k(val & 0x3F, 6); break;
+    case 0xA000:
+    case 0xA008:
+    case 0xA010:
+    case 0xB000:
+    case 0xB008:
+    case 0xB010:
+    case 0xC000:
+    case 0xC008:
+    case 0xC010:
+    case 0xD000:
+    case 0xD008:
+    case 0xD010: map_chr_page_1k(val, (((addr - 0xA000) & 0x3000) >> 11) | ((addr & reg->a43_mask) ? 1 : 0)); break;
+    case 0xE000:
+      switch (val & 3) {
+        case 0: map_ppu_nt_vert_mirror(); break;
+        case 1: map_ppu_nt_horiz_mirror(); break;
+        case 2: map_ppu_nt_single_low(); break;
+        case 3: map_ppu_nt_single_high(); break;
+      }
+      if (val & 0x80) {
+        map_prg_ram_page_8k(0, 3, false);
+      } else {
+        map_prg_clear_page_8k(3);
+      }
+      if (val & 0x40) {
+        // todo: silence expansion sound if set
+      }
+      break;
+    case 0xE008:
+    case 0xE010:
+      if (addr & reg->a43_mask) {
+        reg->irq.latch = val;
+      }
+      break;
+    case 0xF000: map_vrc_irq_ctrl(val); break;
+    case 0xF008:
+    case 0xF010:
+      if (addr & reg->a43_mask) {
+        map_vrc_irq_ack();
+      }
+      break;
+    case 0x9010:
+    case 0x9030:
+      // todo: audio (VRC7a)
+      break;
+  }
+  return true;
 }
 
 static void map_vrc7_load()
 {
-  // todo
+  map_vrc7* reg = (map_vrc7*)map_reg();
+  mn_rom rom = mn_rom_get();
+  switch (rom->submapper) {
+    case 1: reg->a43_mask = 0x0008; break; // VRC7b
+    case 2: reg->a43_mask = 0x0010; break; // VRC7a
+    default: reg->a43_mask = 0x0018; break; // both
+  }
+  map_set_cpu_cyc_cb(map_vrc_cpu_cyc);
+  map_set_cpu_write_cb(map_vrc7_cpu_write);
 }
 
 bool map_other_load()
