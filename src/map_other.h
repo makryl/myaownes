@@ -76,18 +76,89 @@ static bool map_action53_cpu_write(u16 addr, u8 val)
 typedef struct
 {
   u16 irq_counter;
+  u8 irq_latch;
   u8 irq_enabled;
-  u8 irq_counter_enabled;
   u8 command;
-} map_fme7;
-static_assert(sizeof(map_fme7) <= MAP_REG_SIZE);
+} map_sunsoft3;
+static_assert(sizeof(map_sunsoft3) <= MAP_REG_SIZE);
 
-static bool map_fme7_cpu_write(u16 addr, u8 val)
+static bool map_sunsoft3_cpu_write(u16 addr, u8 val)
 {
   if (addr < 0x8000) {
     return false;
   }
-  map_fme7* reg = (map_fme7*)map_reg();
+  map_sunsoft3* reg = (map_sunsoft3*)map_reg();
+  bool irq_ack = (addr & 0x8800);
+  switch (addr & 0xF800) {
+    case 0x8800: map_chr_page_2k(val & 0x3F, 0); break;
+    case 0x9800: map_chr_page_2k(val & 0x3F, 1); break;
+    case 0xA800: map_chr_page_2k(val & 0x3F, 2); break;
+    case 0xB800: map_chr_page_2k(val & 0x3F, 3); break;
+    case 0xC800:
+      if (reg->irq_latch) {
+        reg->irq_counter = (reg->irq_counter & 0xFF00) | val;
+        reg->irq_latch = 0;
+      } else {
+        reg->irq_counter = (reg->irq_counter & 0x00FF) | (val << 8);
+        reg->irq_latch = 1;
+      }
+      break;
+    case 0xD800:
+      reg->irq_enabled = (val & 0x10);
+      irq_ack = false;
+      break;
+    case 0xE800:
+      switch (val & 3) {
+        case 0: map_ppu_nt_vert_mirror(); break;
+        case 1: map_ppu_nt_horiz_mirror(); break;
+        case 2: map_ppu_nt_single_low(); break;
+        case 3: map_ppu_nt_single_high(); break;
+      }
+      break;
+    case 0xF800: map_prg_rom_page_16k(val & 0x0F, 2); break;
+  }
+  if (irq_ack) {
+    map_irq(false);
+  }
+  return true;
+}
+
+static void map_sunsoft3_cpu_cyc()
+{
+  map_sunsoft3* reg = (map_sunsoft3*)map_reg();
+  if (reg->irq_enabled) {
+    if (reg->irq_counter == 0) {
+      reg->irq_counter = 0xFFFF;
+      reg->irq_enabled = 0;
+      reg->irq_latch = 0;
+      map_irq(true);
+    } else {
+      --reg->irq_counter;
+    }
+  }
+}
+
+static void map_sunsoft3_load()
+{
+  map_set_cpu_cyc_cb(map_sunsoft3_cpu_cyc);
+  map_set_cpu_write_cb(map_sunsoft3_cpu_write);
+}
+
+typedef struct
+{
+  u16 irq_counter;
+  u8 irq_enabled;
+  u8 irq_counter_enabled;
+  u8 command;
+} map_sunsoft_fme7;
+static_assert(sizeof(map_sunsoft_fme7) <= MAP_REG_SIZE);
+
+static bool map_sunsoft_fme7_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_sunsoft_fme7* reg = (map_sunsoft_fme7*)map_reg();
   mn_rom rom = mn_rom_get();
   bool prg_use_ram = false;
   bool prg_ram_disabled = false;
@@ -141,22 +212,25 @@ static bool map_fme7_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static void map_fme7_cpu_cyc()
+static void map_sunsoft_fme7_cpu_cyc()
 {
-  map_fme7* reg = (map_fme7*)map_reg();
+  map_sunsoft_fme7* reg = (map_sunsoft_fme7*)map_reg();
   if (reg->irq_counter_enabled) {
-    if (--reg->irq_counter == 0xFFFF) {
+    if (reg->irq_counter == 0) {
+      reg->irq_counter = 0xFFFF;
       if (reg->irq_enabled) {
         map_irq(true);
       }
+    } else {
+      --reg->irq_counter;
     }
   }
 }
 
-static void map_fme7_load()
+static void map_sunsoft_fme7_load()
 {
-  map_set_cpu_cyc_cb(map_fme7_cpu_cyc);
-  map_set_cpu_write_cb(map_fme7_cpu_write);
+  map_set_cpu_cyc_cb(map_sunsoft_fme7_cpu_cyc);
+  map_set_cpu_write_cb(map_sunsoft_fme7_cpu_write);
   // todo: audio
 }
 
@@ -167,15 +241,15 @@ typedef struct
   u8 irq_ctrl;
   u8 prg[3];
   u8 chr[8];
-} map_jalecoss;
-static_assert(sizeof(map_jalecoss) <= MAP_REG_SIZE);
+} map_jaleco_ss;
+static_assert(sizeof(map_jaleco_ss) <= MAP_REG_SIZE);
 
-static bool map_jalecoss_cpu_write(u16 addr, u8 val)
+static bool map_jaleco_ss_cpu_write(u16 addr, u8 val)
 {
   if (addr < 0x8000) {
     return false;
   }
-  map_jalecoss* reg = (map_jalecoss*)map_reg();
+  map_jaleco_ss* reg = (map_jaleco_ss*)map_reg();
   switch (addr & 0xF003) {
     case 0x8000:
     case 0x8002:
@@ -254,9 +328,9 @@ static bool map_jalecoss_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static void map_jalecoss_cpu_cyc()
+static void map_jaleco_ss_cpu_cyc()
 {
-  map_jalecoss* reg = (map_jalecoss*)map_reg();
+  map_jaleco_ss* reg = (map_jaleco_ss*)map_reg();
   if (reg->irq_ctrl & 0x01) {
     if ((reg->irq_ctrl & 0x08) && (reg->irq_counter & 0x000F) == 0) {
       reg->irq_counter |= 0x000F;
@@ -276,10 +350,10 @@ static void map_jalecoss_cpu_cyc()
   }
 }
 
-static void map_jalecoss_load()
+static void map_jaleco_ss_load()
 {
-  map_set_cpu_write_cb(map_jalecoss_cpu_write);
-  map_set_cpu_cyc_cb(map_jalecoss_cpu_cyc);
+  map_set_cpu_write_cb(map_jaleco_ss_cpu_write);
+  map_set_cpu_cyc_cb(map_jaleco_ss_cpu_cyc);
 }
 
 typedef struct
@@ -791,13 +865,18 @@ static void map_vrc7_load()
   map_set_cpu_write_cb(map_vrc7_cpu_write);
 }
 
+static void map_namco163_load() {}
+
 bool map_other_load()
 {
   mn_rom rom = mn_rom_get();
   switch (rom->mapper) {
-    case 18: map_jalecoss_load(); break;
+    case 18: map_jaleco_ss_load(); break;
+    case 19: map_namco163_load(); break;
     case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
-    case 69: map_fme7_load(); break;
+    case 67: map_sunsoft3_load(); break;
+    // case 68: map_sunsoft4_load(); break;
+    case 69: map_sunsoft_fme7_load(); break;
     case 21:
     case 22:
     case 23:

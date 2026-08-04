@@ -68,6 +68,7 @@ bool imp_init()
   // test = "GoodNES/Japan/Tetsuwan Atom (J) [!].nes"; // VRC1 +
   // test = "GoodNES/Japan/Lagrange Point (J) [!].nes"; // VRC7a +
   // test = "GoodNES/Japan/Tiny Toon Adventures 2 - Montana Land e Youkoso (J) [!].nes"; // VRC7b +
+  test = "GoodNES/Japan/Fantasy Zone II - Opa-Opa no Namida (J) [!].nes"; // Sunsoft-3
 
   if (test) {
     chdir("../../tmp");
