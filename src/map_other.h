@@ -527,9 +527,110 @@ static void map_vrc2_vrc4_load()
   map_set_cpu_write_cb(map_vrc2_vrc4_cpu_write);
 }
 
-static void map_vrc1_load()
+typedef struct
 {
-  // todo
+  map_vrc_irq irq;
+  u8 a0_mask;
+  u8 a1_mask;
+  u8 ctrl;
+  u8 prg0;
+  u8 prg1;
+  u16 chr[8];
+} map_vrc6;
+static_assert(sizeof(map_vrc6) <= MAP_REG_SIZE);
+
+static void map_vrc6_update()
+{
+  map_vrc6* reg = (map_vrc6*)map_reg();
+  if (reg->ctrl & 0x80) {
+    map_prg_ram_page_8k(0, 3, false);
+  } else {
+    map_prg_clear_page_8k(3);
+  }
+
+  map_prg_rom_page_16k(reg->prg0, 2);
+  map_prg_rom_page_8k(reg->prg1, 6);
+
+  // simplified W.PN MMDD -> W.10 MM00
+  map_chr_page_1k(reg->chr[0], 0);
+  map_chr_page_1k(reg->chr[1], 1);
+  map_chr_page_1k(reg->chr[2], 2);
+  map_chr_page_1k(reg->chr[3], 3);
+  map_chr_page_1k(reg->chr[4], 4);
+  map_chr_page_1k(reg->chr[5], 5);
+  map_chr_page_1k(reg->chr[6], 6);
+  map_chr_page_1k(reg->chr[7], 7);
+
+  switch ((reg->ctrl >> 2) & 3) {
+    case 0: map_ppu_nt_vert_mirror(); break;
+    case 1: map_ppu_nt_horiz_mirror(); break;
+    case 2: map_ppu_nt_single_low(); break;
+    case 3: map_ppu_nt_single_high(); break;
+  }
+}
+
+static bool map_vrc6_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_vrc6* reg = (map_vrc6*)map_reg();
+  uint a0 = (addr & reg->a0_mask) ? 1 : 0;
+  uint a1 = (addr & reg->a1_mask) ? 2 : 0;
+  addr = (addr & 0xF000) | a1 | a0;
+  switch (addr) {
+    case 0x8000:
+    case 0x8001:
+    case 0x8002:
+    case 0x8003: reg->prg0 = (val & 0x0F); break;
+    case 0xC000:
+    case 0xC001:
+    case 0xC002:
+    case 0xC003: reg->prg1 = (val & 0x1F); break;
+    case 0xB003: reg->ctrl = val; break;
+    case 0xD000:
+    case 0xD001:
+    case 0xD002:
+    case 0xD003:
+    case 0xE000:
+    case 0xE001:
+    case 0xE002:
+    case 0xE003: reg->chr[((addr & 0x2000) >> 11) | (addr & 3)] = val; break;
+    case 0xF000: reg->irq.latch = val; break;
+    case 0xF001: map_vrc_irq_ctrl(val); break;
+    case 0xF002: map_vrc_irq_ack(); break;
+    case 0x9000:
+    case 0xA000:
+    case 0xB000:
+    case 0xB001:
+    case 0xB002:
+      // todo: audio
+      break;
+  }
+  map_vrc6_update();
+  return true;
+}
+
+static void map_vrc6_load()
+{
+  map_set_cpu_cyc_cb(map_vrc_cpu_cyc);
+  map_set_cpu_write_cb(map_vrc6_cpu_write);
+}
+
+static void map_vrc6a_load()
+{
+  map_vrc6* reg = (map_vrc6*)map_reg();
+  reg->a0_mask = 1;
+  reg->a1_mask = 2;
+  map_vrc6_load();
+}
+
+static void map_vrc6b_load()
+{
+  map_vrc6* reg = (map_vrc6*)map_reg();
+  reg->a0_mask = 2;
+  reg->a1_mask = 1;
+  map_vrc6_load();
 }
 
 static void map_vrc3_load()
@@ -537,7 +638,7 @@ static void map_vrc3_load()
   // todo
 }
 
-static void map_vrc6_load()
+static void map_vrc1_load()
 {
   // todo
 }
@@ -559,8 +660,8 @@ bool map_other_load()
     case 23:
     case 25:
     case 27: map_vrc2_vrc4_load(); break;
-    case 24:
-    case 26: map_vrc6_load(); break;
+    case 24: map_vrc6a_load(); break;
+    case 26: map_vrc6b_load(); break;
     case 73: map_vrc3_load(); break;
     case 75: map_vrc1_load(); break;
     case 85: map_vrc7_load(); break;
