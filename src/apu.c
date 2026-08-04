@@ -4,6 +4,14 @@
 #include "common.h"
 #include <string.h>
 
+enum
+{
+  APU_FILTER_HP = 10,
+  APU_FILTER_LP = 14000,
+  APU_FILTER_DITHER = 1,
+  APU_FILTER_DMC = 1,
+};
+
 enum : u8
 {
   APU_STATUS_PULSE1 = (1 << 0),
@@ -139,6 +147,7 @@ MN_CACHE_LINE static struct Apu
   uint dmc_out_bit;
   uint dmc_out;
   uint dmc_val;
+  uint dmc_val_filtered;
   u16 dmc_sample_addr;
   u16 dmc_addr;
   u8 dmc_buf;
@@ -289,7 +298,20 @@ static uint apu_noise_sample()
   return sample * volume;
 }
 
-static uint apu_dmc_sample() { return apu.dmc_val; }
+static uint apu_dmc_sample()
+{
+  if (APU_FILTER_DMC) {
+    if ((apu.cyc % 4) == 0) {
+      if (apu.dmc_val_filtered < apu.dmc_val) {
+        ++apu.dmc_val_filtered;
+      } else if (apu.dmc_val_filtered > apu.dmc_val) {
+        --apu.dmc_val_filtered;
+      }
+    }
+    return apu.dmc_val_filtered;
+  }
+  return apu.dmc_val;
+}
 
 static uint apu_sample()
 {
@@ -749,19 +771,19 @@ static void apu_update_env()
 
 #define APU_PI 3.141592653589793238462643383279502884
 #define apu_filter_alpha(freq) (1.0 / (1.0 + (2.0 * APU_PI * (freq)) / MN_AUDIO_FREQ))
-static const i64 apu_hp10_alpha = (i64)(apu_filter_alpha(10.0) * 65536.0 + 0.5);
-static const i64 apu_lp14k_alpha = (i64)((1.0 - apu_filter_alpha(14000.0)) * 65536.0 + 0.5);
+static const i64 apu_hp_alpha = (i64)(apu_filter_alpha(APU_FILTER_HP) * 65536.0 + 0.5);
+static const i64 apu_lp_alpha = (i64)((1.0 - apu_filter_alpha(APU_FILTER_LP)) * 65536.0 + 0.5);
 
 static int apu_mix_high_pass(int sample)
 {
-  apu.mix_hp_y = (apu_hp10_alpha * ((i64)apu.mix_hp_y + (i64)sample - (i64)apu.mix_hp_x)) >> 16;
+  apu.mix_hp_y = (apu_hp_alpha * ((i64)apu.mix_hp_y + (i64)sample - (i64)apu.mix_hp_x)) >> 16;
   apu.mix_hp_x = sample;
   return apu.mix_hp_y;
 }
 
 static int apu_mix_low_pass(int sample)
 {
-  apu.mix_lp_y = apu.mix_lp_y + ((apu_lp14k_alpha * ((i64)sample - (i64)apu.mix_lp_y)) >> 16);
+  apu.mix_lp_y = apu.mix_lp_y + ((apu_lp_alpha * ((i64)sample - (i64)apu.mix_lp_y)) >> 16);
   return apu.mix_lp_y;
 }
 
@@ -777,10 +799,13 @@ static uint apu_xorshift32()
 
 static int apu_mix_dither(int sample)
 {
-  int rand1 = apu_xorshift32() & 0xFFFF;
-  int rand2 = apu_xorshift32() & 0xFFFF;
-  int dither_noise = rand1 - rand2;
-  return sample + dither_noise;
+  if (APU_FILTER_DITHER) {
+    int rand1 = apu_xorshift32() & 0xFFFF;
+    int rand2 = apu_xorshift32() & 0xFFFF;
+    int dither_noise = rand1 - rand2;
+    sample += dither_noise;
+  }
+  return sample;
 }
 
 static int apu_mix_clip(int sample)
@@ -802,7 +827,7 @@ static void apu_mix()
   if (apu.time_current >= apu.time_target) {
     if (apu.out_size <= 1024) {
       // mix_accum already has << 10 in table values, upsample to 15, reserve 1 bit for filters
-      int sample = (apu.mix_accum / apu.mix_sample_count) << 5;
+      int sample = (apu.mix_accum / apu.mix_sample_count) << 5; // todo: probably should be 6
       sample = apu_mix_high_pass(sample);
       sample = apu_mix_low_pass(sample);
       sample = apu_mix_dither(sample);
