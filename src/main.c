@@ -77,6 +77,13 @@ bool imp_init()
   // test = "GoodNES/Japan/Dokuganryuu Masamune (J) [!].nes"; // Namco-163
   // test = "GoodNES/Japan/Family Circuit '91 (J) [!].nes"; // Namco-175
   // test = "GoodNES/Japan/Splatterhouse - Wanpaku Graffiti (J) [!].nes"; // Namco-340
+  // test = "GoodNES/Japan/Digital Devil Story - Megami Tensei (J) [!].nes"; // Namco-3446
+  // test = "GoodNES/Japan/Babel no Tou (J) (V1.0) [!].nes"; // Namco-118
+  // test = "GoodNES/Japan/Family Jockey (J) [!].nes"; // Namco-118
+  // test = "GoodNES/Japan/Metro-Cross (J) [!].nes"; // Namco-118
+  // test = "GoodNES/Japan/Quinty (J) [!].nes"; // Namco-3433
+  // test = "GoodNES/Japan/Devil Man (J) [!].nes"; // Namco-3453
+  // test = "GoodNES/Japan/Dragon Buster (J) [!].nes"; // Namco-3425
 
   if (test) {
     chdir("../../tmp");
