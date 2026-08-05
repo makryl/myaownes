@@ -75,6 +75,8 @@ bool imp_init()
   // test = "GoodNES/Japan/King of Kings (J) [!].nes"; // Namco-163
   // test = "GoodNES/Japan/Star Wars (J) (Namco) [!].nes"; // Namco-163
   // test = "GoodNES/Japan/Dokuganryuu Masamune (J) [!].nes"; // Namco-163
+  // test = "GoodNES/Japan/Family Circuit '91 (J) [!].nes"; // Namco-175
+  // test = "GoodNES/Japan/Splatterhouse - Wanpaku Graffiti (J) [!].nes"; // Namco-340
 
   if (test) {
     chdir("../../tmp");

@@ -43,16 +43,22 @@ void map_ciram_vert_mirror();
 void map_ciram_horiz_mirror();
 void map_ciram_four_screen();
 
+void map_prg_clear_page_1k(uint dp);
+void map_prg_clear_page_2k(uint dp);
 void map_prg_clear_page_4k(uint dp);
 void map_prg_clear_page_8k(uint dp);
 void map_prg_clear_page_16k(uint dp);
 void map_prg_clear_page_32k(uint dp);
 
+void map_prg_rom_page_1k(uint sp, uint dp);
+void map_prg_rom_page_2k(uint sp, uint dp);
 void map_prg_rom_page_4k(uint sp, uint dp);
 void map_prg_rom_page_8k(uint sp, uint dp);
 void map_prg_rom_page_16k(uint sp, uint dp);
 void map_prg_rom_page_32k(uint sp, uint dp);
 
+void map_prg_ram_page_1k(uint sp, uint dp, bool readonly);
+void map_prg_ram_page_2k(uint sp, uint dp, bool readonly);
 void map_prg_ram_page_4k(uint sp, uint dp, bool readonly);
 void map_prg_ram_page_8k(uint sp, uint dp, bool readonly);
 void map_prg_ram_page_16k(uint sp, uint dp, bool readonly);

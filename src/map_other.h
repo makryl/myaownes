@@ -870,36 +870,44 @@ typedef struct
   u16 irq_counter;
   u8 ctrl;
   u8 addr;
+  u8 namco_175;
+  u8 namco_340;
   u8 chr[12];
   u8 data[0x80]; // todo: save this to ".sav"?
-} map_namco163;
-static_assert(sizeof(map_namco163) <= MAP_REG_SIZE);
+} map_namco;
+static_assert(sizeof(map_namco) <= MAP_REG_SIZE);
 
-static void map_namco163_chr_update()
+static void map_namco_chr_update()
 {
-  map_namco163* reg = (map_namco163*)map_reg();
-  for (uint i = 0; i < 12; ++i) {
-    bool use_nt = false;
-    if (reg->chr[i] >= 0xE0) {
-      if (i < 4) {
-        use_nt = !(reg->ctrl & 0x40);
-      } else if (i < 8) {
-        use_nt = !(reg->ctrl & 0x80);
-      } else {
-        use_nt = true;
-      }
-    }
-    if (use_nt) {
-      map_ciram_page(reg->chr[i] & 1, i);
-    } else {
+  map_namco* reg = (map_namco*)map_reg();
+  if (reg->namco_175 || reg->namco_340) {
+    for (uint i = 0; i < 8; ++i) {
       map_chr_page_1k(reg->chr[i], i);
+    }
+  } else {
+    for (uint i = 0; i < 12; ++i) {
+      bool use_nt = false;
+      if (reg->chr[i] >= 0xE0) {
+        if (i < 4) {
+          use_nt = !(reg->ctrl & 0x40);
+        } else if (i < 8) {
+          use_nt = !(reg->ctrl & 0x80);
+        } else {
+          use_nt = true;
+        }
+      }
+      if (use_nt) {
+        map_ciram_page(reg->chr[i] & 1, i);
+      } else {
+        map_chr_page_1k(reg->chr[i], i);
+      }
     }
   }
 }
 
-static bool map_namco163_cpu_read(u16 addr, u8* val, bool trace)
+static bool map_namco_cpu_read(u16 addr, u8* val, bool trace)
 {
-  map_namco163* reg = (map_namco163*)map_reg();
+  map_namco* reg = (map_namco*)map_reg();
   switch (addr & 0xF800) {
     case 0x4800:
       *val = reg->data[reg->addr & 0x7F];
@@ -913,26 +921,32 @@ static bool map_namco163_cpu_read(u16 addr, u8* val, bool trace)
   return false;
 }
 
-static bool map_namco163_cpu_write(u16 addr, u8 val)
+static bool map_namco_cpu_write(u16 addr, u8 val)
 {
   if (addr < 0x4800 || (addr >= 0x6000 && addr <= 0x7FFF)) {
     return false;
   }
-  map_namco163* reg = (map_namco163*)map_reg();
+  map_namco* reg = (map_namco*)map_reg();
   switch (addr & 0xF800) {
     case 0x4800:
-      reg->data[reg->addr & 0x7F] = val;
-      if ((reg->addr & 0x80) && reg->addr < 0xFF) {
-        ++reg->addr;
+      if (!reg->namco_175 && !reg->namco_340) {
+        reg->data[reg->addr & 0x7F] = val;
+        if ((reg->addr & 0x80) && reg->addr < 0xFF) {
+          ++reg->addr;
+        }
       }
       break;
     case 0x5000:
-      reg->irq_counter = (reg->irq_counter & 0xFF00) | val;
-      map_irq(false);
+      if (!reg->namco_175 && !reg->namco_340) {
+        reg->irq_counter = (reg->irq_counter & 0xFF00) | val;
+        map_irq(false);
+      }
       break;
     case 0x5800:
-      reg->irq_counter = (reg->irq_counter & 0x00FF) | (val << 8);
-      map_irq(false);
+      if (!reg->namco_175 && !reg->namco_340) {
+        reg->irq_counter = (reg->irq_counter & 0x00FF) | (val << 8);
+        map_irq(false);
+      }
       break;
     case 0x8000:
     case 0x8800:
@@ -943,20 +957,31 @@ static bool map_namco163_cpu_write(u16 addr, u8 val)
     case 0xB000:
     case 0xB800:
     case 0xC000:
+      if (reg->namco_175) {
+        // ram enable?
+      }
     case 0xC800:
     case 0xD000:
     case 0xD800:
       reg->chr[(addr & 0x7800) >> 11] = val;
-      map_namco163_chr_update();
+      map_namco_chr_update();
       break;
     case 0xE000:
       map_prg_rom_page_8k(val & 0x3F, 4);
       // todo: audio: val & 0x40, pin 22: val & 0x80
+      if (reg->namco_340) {
+        switch (val >> 6) {
+          case 0: map_ciram_single_low(); break;
+          case 1: map_ciram_vert_mirror(); break;
+          case 2: map_ciram_single_high(); break;
+          case 3: map_ciram_horiz_mirror(); break;
+        }
+      }
       break;
     case 0xE800:
       map_prg_rom_page_8k(val & 0x3F, 5);
       reg->ctrl = val & 0xC0;
-      map_namco163_chr_update();
+      map_namco_chr_update();
       break;
     case 0xF000:
       map_prg_rom_page_8k(val & 0x3F, 6);
@@ -964,16 +989,18 @@ static bool map_namco163_cpu_write(u16 addr, u8 val)
       // todo: audio? pin 44: val & 0x40, val & 0x80
       break;
     case 0xF800:
-      reg->addr = val;
-      // write protect not needed
+      if (!reg->namco_175 && !reg->namco_340) {
+        reg->addr = val;
+        // write protect not needed
+      }
       break;
   }
   return true;
 }
 
-static void map_namco163_cpu_cyc()
+static void map_namco_cpu_cyc()
 {
-  map_namco163* reg = (map_namco163*)map_reg();
+  map_namco* reg = (map_namco*)map_reg();
   if (reg->irq_counter & 0x8000) {
     if (reg->irq_counter == 0xFFFF) {
       reg->irq_counter = 0x7FFF;
@@ -984,11 +1011,26 @@ static void map_namco163_cpu_cyc()
   }
 }
 
-static void map_namco163_load()
+static void map_namco_129_163_load()
 {
-  map_set_cpu_cyc_cb(map_namco163_cpu_cyc);
-  map_set_cpu_read_cb(map_namco163_cpu_read);
-  map_set_cpu_write_cb(map_namco163_cpu_write);
+  map_set_cpu_cyc_cb(map_namco_cpu_cyc);
+  map_set_cpu_read_cb(map_namco_cpu_read);
+  map_set_cpu_write_cb(map_namco_cpu_write);
+}
+
+static void map_namco_175_340_load()
+{
+  map_namco* reg = (map_namco*)map_reg();
+  mn_rom rom = mn_rom_get();
+  switch (rom->submapper) {
+    case 0:
+      reg->namco_175 = (rom->prg_has_battery || rom->prg_ram_size);
+      reg->namco_340 = !reg->namco_175;
+      break;
+    case 1: reg->namco_175 = true; break;
+    case 2: reg->namco_340 = true; break;
+  }
+  map_set_cpu_write_cb(map_namco_cpu_write);
 }
 
 bool map_other_load()
@@ -996,7 +1038,7 @@ bool map_other_load()
   mn_rom rom = mn_rom_get();
   switch (rom->mapper) {
     case 18: map_jaleco_ss_load(); break;
-    case 19: map_namco163_load(); break;
+    case 19: map_namco_129_163_load(); break;
     case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
     case 67: map_sunsoft3_load(); break;
     // case 68: map_sunsoft4_load(); break;
@@ -1011,6 +1053,7 @@ bool map_other_load()
     case 73: map_vrc3_load(); break;
     case 75: map_vrc1_load(); break;
     case 85: map_vrc7_load(); break;
+    case 210: map_namco_175_340_load(); break;
     default: return false;
   }
   return true;

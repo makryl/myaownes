@@ -10,12 +10,9 @@
 
 enum : u64
 {
-  MAP_CPU_PAGE_SHIFT = 12, // 4kb
-  MAP_CPU_PAGE_SIZE = 1 << MAP_CPU_PAGE_SHIFT,
-  MAP_CPU_PAGE_MASK = MAP_CPU_PAGE_SIZE - 1,
-  MAP_PPU_PAGE_SHIFT = 10, // 1kb
-  MAP_PPU_PAGE_SIZE = 1 << MAP_PPU_PAGE_SHIFT,
-  MAP_PPU_PAGE_MASK = MAP_PPU_PAGE_SIZE - 1,
+  MAP_PAGE_SHIFT = 10, // 1kb
+  MAP_PAGE_SIZE = 1 << MAP_PAGE_SHIFT,
+  MAP_PAGE_MASK = MAP_PAGE_SIZE - 1,
 };
 
 MN_CACHE_LINE static struct
@@ -27,12 +24,12 @@ MN_CACHE_LINE static struct
   bool (*ppu_read)(u16, u8*);
   bool (*ppu_write)(u16, u8);
 
-  const u8* cpu_read_page[16];
-  u8* cpu_write_page[16];
-  const u8* ppu_read_page[16];
-  u8* ppu_write_page[16];
-
   mn_rom rom;
+
+  MN_CACHE_LINE const u8* cpu_read_page[64];
+  MN_CACHE_LINE u8* cpu_write_page[64];
+  MN_CACHE_LINE const u8* ppu_read_page[16];
+  MN_CACHE_LINE u8* ppu_write_page[16];
 } map_dyn;
 
 MN_CACHE_LINE static struct
@@ -79,33 +76,33 @@ void map_cpu_cyc()
 
 void map_cpu_read_raw(u16 addr, u8* val)
 {
-  const u8* page = map_dyn.cpu_read_page[addr >> MAP_CPU_PAGE_SHIFT];
+  const u8* page = map_dyn.cpu_read_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
-    *val = page[addr & MAP_CPU_PAGE_MASK];
+    *val = page[addr & MAP_PAGE_MASK];
   }
 }
 
 void map_cpu_write_raw(u16 addr, u8 val)
 {
-  u8* page = map_dyn.cpu_write_page[addr >> MAP_CPU_PAGE_SHIFT];
+  u8* page = map_dyn.cpu_write_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
-    page[addr & MAP_CPU_PAGE_MASK] = val;
+    page[addr & MAP_PAGE_MASK] = val;
   }
 }
 
 void map_ppu_read_raw(u16 addr, u8* val)
 {
-  const u8* page = map_dyn.ppu_read_page[addr >> MAP_PPU_PAGE_SHIFT];
+  const u8* page = map_dyn.ppu_read_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
-    *val = page[addr & MAP_PPU_PAGE_MASK];
+    *val = page[addr & MAP_PAGE_MASK];
   }
 }
 
 void map_ppu_write_raw(u16 addr, u8 val)
 {
-  u8* page = map_dyn.ppu_write_page[addr >> MAP_PPU_PAGE_SHIFT];
+  u8* page = map_dyn.ppu_write_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
-    page[addr & MAP_PPU_PAGE_MASK] = val;
+    page[addr & MAP_PAGE_MASK] = val;
   }
 }
 
@@ -156,7 +153,7 @@ static const u8* map_cpu_read_pages(const u8* src, uint src_page, uint dst_page,
 {
   const u8* next = nullptr;
   for (uint i = 0; i < pages; ++i) {
-    next = src ? src + (size_t)MAP_CPU_PAGE_SIZE * (src_page + i) : 0;
+    next = src ? src + (size_t)MAP_PAGE_SIZE * (src_page + i) : 0;
     map_dyn.cpu_read_page[dst_page + i] = next;
   }
   return next;
@@ -166,7 +163,7 @@ static u8* map_cpu_write_pages(u8* src, uint src_page, uint dst_page, uint pages
 {
   u8* next = nullptr;
   for (uint i = 0; i < pages; ++i) {
-    next = src ? src + (size_t)MAP_CPU_PAGE_SIZE * (src_page + i) : 0;
+    next = src ? src + (size_t)MAP_PAGE_SIZE * (src_page + i) : 0;
     map_dyn.cpu_write_page[dst_page + i] = next;
   }
   return next;
@@ -176,7 +173,7 @@ static const u8* map_ppu_read_pages(const u8* src, uint src_page, uint dst_page,
 {
   const u8* next = nullptr;
   for (uint i = 0; i < pages; ++i) {
-    next = src ? src + (size_t)MAP_PPU_PAGE_SIZE * (src_page + i) : 0;
+    next = src ? src + (size_t)MAP_PAGE_SIZE * (src_page + i) : 0;
     map_dyn.ppu_read_page[dst_page + i] = next;
   }
   return next;
@@ -186,7 +183,7 @@ static u8* map_ppu_write_pages(u8* src, uint src_page, uint dst_page, uint pages
 {
   u8* next = nullptr;
   for (uint i = 0; i < pages; ++i) {
-    next = src ? src + (size_t)MAP_PPU_PAGE_SIZE * (src_page + i) : 0;
+    next = src ? src + (size_t)MAP_PAGE_SIZE * (src_page + i) : 0;
     map_dyn.ppu_write_page[dst_page + i] = next;
   }
   return next;
@@ -207,8 +204,8 @@ static uint map_page_clamp(uint page, uint size, u8 shift)
 {
   uint pages = (size >> shift);
   if (pages == 0) {
-    pages = 1;
-    // __builtin_debugtrap();
+    __builtin_debugtrap();
+    return 0;
   }
   page &= map_page_mask(pages);
   if (page >= pages) {
@@ -227,7 +224,7 @@ void map_prg_clear_page(uint dp, uint shift)
 void map_prg_rom_page(uint sp, uint dp, uint shift)
 {
   uint pages = (1 << shift);
-  sp = map_page_clamp(sp, map_dyn.rom->prg_rom_size, MAP_CPU_PAGE_SHIFT + shift);
+  sp = map_page_clamp(sp, map_dyn.rom->prg_rom_size, MAP_PAGE_SHIFT + shift);
   map_cpu_read_pages(map_dyn.rom->prg_rom, sp * pages, dp * pages, pages);
   map_cpu_write_pages(nullptr, sp * pages, dp * pages, pages);
 }
@@ -236,7 +233,7 @@ void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly)
 {
   if (map_dyn.rom->prg_ram_size) {
     uint pages = (1 << shift);
-    sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_CPU_PAGE_SHIFT + shift);
+    sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_PAGE_SHIFT + shift);
     map_cpu_read_pages(map_dyn.rom->prg_ram, sp * pages, dp * pages, pages);
     map_cpu_write_pages(readonly ? nullptr : map_dyn.rom->prg_ram, sp * pages, dp * pages, pages);
   }
@@ -245,33 +242,39 @@ void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly)
 void map_chr_page(uint sp, uint dp, uint shift)
 {
   uint map_pages = (1 << shift);
-  uint rom_pages = (map_dyn.rom->chr_rom_size >> (MAP_PPU_PAGE_SHIFT + shift));
+  uint rom_pages = (map_dyn.rom->chr_rom_size >> (MAP_PAGE_SHIFT + shift));
   if (sp < rom_pages || map_dyn.rom->chr_ram_size == 0) {
-    sp = map_page_clamp(sp, map_dyn.rom->chr_rom_size, MAP_PPU_PAGE_SHIFT + shift);
+    sp = map_page_clamp(sp, map_dyn.rom->chr_rom_size, MAP_PAGE_SHIFT + shift);
     map_ppu_read_pages(map_dyn.rom->chr_rom, sp * map_pages, dp * map_pages, map_pages);
     map_ppu_write_pages(0, sp * map_pages, dp * map_pages, map_pages);
   } else {
     sp -= rom_pages;
-    sp = map_page_clamp(sp, map_dyn.rom->chr_ram_size, MAP_PPU_PAGE_SHIFT + shift);
+    sp = map_page_clamp(sp, map_dyn.rom->chr_ram_size, MAP_PAGE_SHIFT + shift);
     map_ppu_read_pages(map_dyn.rom->chr_ram, sp * map_pages, dp * map_pages, map_pages);
     map_ppu_write_pages(map_dyn.rom->chr_ram, sp * map_pages, dp * map_pages, map_pages);
   }
 }
 
-void map_prg_clear_page_4k(uint dp) { map_prg_clear_page(dp, 0); }
-void map_prg_clear_page_8k(uint dp) { map_prg_clear_page(dp, 1); }
-void map_prg_clear_page_16k(uint dp) { map_prg_clear_page(dp, 2); }
-void map_prg_clear_page_32k(uint dp) { map_prg_clear_page(dp, 3); }
+void map_prg_clear_page_1k(uint dp) { map_prg_clear_page(dp, 0); }
+void map_prg_clear_page_2k(uint dp) { map_prg_clear_page(dp, 1); }
+void map_prg_clear_page_4k(uint dp) { map_prg_clear_page(dp, 2); }
+void map_prg_clear_page_8k(uint dp) { map_prg_clear_page(dp, 3); }
+void map_prg_clear_page_16k(uint dp) { map_prg_clear_page(dp, 4); }
+void map_prg_clear_page_32k(uint dp) { map_prg_clear_page(dp, 5); }
 
-void map_prg_rom_page_4k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 0); };
-void map_prg_rom_page_8k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 1); };
-void map_prg_rom_page_16k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 2); };
-void map_prg_rom_page_32k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 3); };
+void map_prg_rom_page_1k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 0); };
+void map_prg_rom_page_2k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 1); };
+void map_prg_rom_page_4k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 2); };
+void map_prg_rom_page_8k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 3); };
+void map_prg_rom_page_16k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 4); };
+void map_prg_rom_page_32k(uint sp, uint dp) { map_prg_rom_page(sp, dp, 5); };
 
-void map_prg_ram_page_4k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 0, readonly); };
-void map_prg_ram_page_8k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 1, readonly); };
-void map_prg_ram_page_16k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 2, readonly); };
-void map_prg_ram_page_32k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 3, readonly); };
+void map_prg_ram_page_1k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 0, readonly); };
+void map_prg_ram_page_2k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 1, readonly); };
+void map_prg_ram_page_4k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 2, readonly); };
+void map_prg_ram_page_8k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 3, readonly); };
+void map_prg_ram_page_16k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 4, readonly); };
+void map_prg_ram_page_32k(uint sp, uint dp, bool readonly) { map_prg_ram_page(sp, dp, 5, readonly); };
 
 void map_chr_page_1k(uint sp, uint dp) { map_chr_page(sp, dp, 0); }
 void map_chr_page_2k(uint sp, uint dp) { map_chr_page(sp, dp, 1); }
@@ -280,7 +283,7 @@ void map_chr_page_8k(uint sp, uint dp) { map_chr_page(sp, dp, 3); }
 
 void map_ciram_page(uint sp, uint dp)
 {
-  u8* src = map.vram + sp * MAP_PPU_PAGE_SIZE;
+  u8* src = map.vram + sp * MAP_PAGE_SIZE;
   map_dyn.ppu_read_page[dp] = src;
   map_dyn.ppu_write_page[dp] = src;
   map_dyn.ppu_read_page[dp + 4] = src;
@@ -332,8 +335,9 @@ static void map_nrom_load()
   map_prg_rom_page_16k(0, 2);
   map_prg_rom_page_16k(-1, 3);
 
-  map_prg_ram_page_4k(0, 6, false); // ram may have < 8k
-  map_prg_ram_page_4k(1, 7, false);
+  for (uint i = 0; i < 8; ++i) { // ram may have < 8k
+    map_prg_ram_page_1k(i, 24 + i, false);
+  }
 
   for (uint i = 0; i < 8; ++i) { // rom may have < 8k
     map_chr_page_1k(i, i);
