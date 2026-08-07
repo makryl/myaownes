@@ -873,7 +873,7 @@ typedef struct
   u8 namco_175;
   u8 namco_340;
   u8 chr[12];
-  u8 data[0x80]; // todo: save this to ".sav"?
+  u8 data[0x80]; // todo: save this to ".sav" or map this to prg-ram?
 } map_namco_163;
 static_assert(sizeof(map_namco_163) <= MAP_REG_SIZE);
 
@@ -1143,10 +1143,173 @@ static void map_namco_3425_load()
   map_set_cpu_write_cb(map_namco_118_cpu_write);
 }
 
+typedef struct
+{
+  u16 irq_latch;
+  u16 irq_counter;
+  u8 irq_enabled;
+  u8 irq_ack;
+  u8 lz93d50;
+  u8 prg_page;
+  u8 has_outer_prg;
+  u8 has_wram;
+  u8 has_barcode;
+  u8 has_eeprom128;
+} map_bandai_fcg;
+static_assert(sizeof(map_bandai_fcg) <= MAP_REG_SIZE);
+
+static bool map_bandai_fcg_cpu_read(u16 addr, u8* val, bool)
+{
+  map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
+  if (reg->lz93d50 && !reg->has_wram && addr >= 0x6000 && addr <= 0x7FFF) {
+    u8 data = 0; // todo: eeprom (use prg-ram memory?)
+    u8 barcode = 0;
+    if (reg->has_barcode) {
+      // todo: second barcode eeprom
+    }
+    *val = (*val & 0xEF) | (data & 0x10) | (barcode & 0x08);
+    return true;
+  }
+  return false;
+}
+
+static bool map_bandai_fcg_cpu_write(u16 addr, u8 val)
+{
+  map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
+  if (reg->lz93d50 ? (addr & 0x8000) : ((addr & 0xE000) == 0x6000)) {
+    switch (addr & 0x000F) {
+      case 0x00:
+      case 0x01:
+      case 0x02:
+      case 0x03:
+        if (reg->has_outer_prg) {
+          uint outer_page = ((val & 1) << 4);
+          reg->prg_page = outer_page | (reg->prg_page & 0x0F);
+          map_prg_rom_page_16k(reg->prg_page, 2);
+          map_prg_rom_page_16k(outer_page | 0x0F, 3);
+          return true;
+        }
+        if (reg->has_barcode) {
+          // todo: barcode
+          return true;
+        }
+      case 0x04:
+      case 0x05:
+      case 0x06:
+      case 0x07:
+        if (!reg->has_outer_prg && !reg->has_barcode) {
+          map_chr_page_1k(val, addr & 7);
+        }
+        return true;
+      case 0x08:
+        reg->prg_page = (reg->prg_page & 0xF0) | (val & 0x0F);
+        map_prg_rom_page_16k(reg->prg_page, 2);
+        return true;
+      case 0x09:
+        switch (val & 3) {
+          case 0: map_ciram_vert_mirror(); break;
+          case 1: map_ciram_horiz_mirror(); break;
+          case 2: map_ciram_single_low(); break;
+          case 3: map_ciram_single_high(); break;
+        }
+        return true;
+      case 0x0A: {
+        if (reg->lz93d50) {
+          reg->irq_counter = reg->irq_latch;
+        }
+        reg->irq_enabled = (val & 0x01);
+        map_irq(false);
+        return true;
+      }
+      case 0x0B:
+        reg->irq_latch = (reg->irq_latch & 0xFF00) | val;
+        if (!reg->lz93d50) {
+          reg->irq_counter = reg->irq_latch;
+        }
+        return true;
+      case 0x0C:
+        reg->irq_latch = (reg->irq_latch & 0x00FF) | (val << 8);
+        if (!reg->lz93d50) {
+          reg->irq_counter = reg->irq_latch;
+        }
+        return true;
+      case 0x0D:
+        if (reg->lz93d50) {
+          if (reg->has_wram) {
+            if (val & 0x20) {
+              map_prg_ram_page_8k(0, 3, false);
+            } else {
+              map_prg_clear_page_8k(3);
+            }
+          } else if (reg->has_barcode) {
+            // todo: eeprom, barcode
+          } else {
+            // todo: eeprom
+          }
+        }
+        return true;
+    }
+  }
+  return false;
+}
+
+static void map_bandai_fcg_cpu_cyc()
+{
+  map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
+  if (reg->irq_enabled) {
+    if (reg->irq_counter == 0) {
+      map_irq(true);
+    } else {
+      --reg->irq_counter;
+    }
+  }
+}
+
+static void map_bandai_fcg_load_cb()
+{
+  map_set_cpu_read_cb(map_bandai_fcg_cpu_read);
+  map_set_cpu_write_cb(map_bandai_fcg_cpu_write);
+  map_set_cpu_cyc_cb(map_bandai_fcg_cpu_cyc);
+}
+
+static void map_bandai_fcg_load()
+{
+  map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
+  mn_rom rom = mn_rom_get();
+  reg->lz93d50 = (rom->submapper == 5);
+  map_bandai_fcg_load_cb();
+}
+
+static void map_bandai_fcg_wram_load()
+{
+  map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
+  reg->lz93d50 = true;
+  reg->has_outer_prg = true;
+  reg->has_wram = true;
+  map_bandai_fcg_load_cb();
+}
+
+static void map_bandai_fcg_barcode_load()
+{
+  map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
+  reg->lz93d50 = true;
+  reg->has_barcode = true;
+  map_bandai_fcg_load_cb();
+}
+
+static void map_bandai_fcg_eeprom128_load()
+{
+  map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
+  reg->lz93d50 = true;
+  reg->has_eeprom128 = true;
+  map_bandai_fcg_load_cb();
+}
+
 bool map_other_load()
 {
   mn_rom rom = mn_rom_get();
   switch (rom->mapper) {
+    case 16: map_bandai_fcg_load(); break;
     case 18: map_jaleco_ss_load(); break;
     case 19: map_namco_163_load(); break;
     case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
@@ -1166,7 +1329,10 @@ bool map_other_load()
     case 85: map_vrc7_load(); break;
     case 88: map_namco_3433_load(); break;
     case 95: map_namco_3425_load(); break;
+    case 153: map_bandai_fcg_wram_load(); break;
     case 154: map_namco_3453_load(); break;
+    case 157: map_bandai_fcg_barcode_load(); break;
+    case 159: map_bandai_fcg_eeprom128_load(); break;
     case 206: map_namco_118_load(); break;
     case 210: map_namco_175_340_load(); break;
     default: return false;

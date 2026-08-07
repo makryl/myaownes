@@ -231,7 +231,9 @@ void map_prg_rom_page(uint sp, uint dp, uint shift)
 
 void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly)
 {
-  if (map_dyn.rom->prg_ram_size) {
+  if (map_dyn.rom->prg_ram_size < MAP_PAGE_SIZE) {
+    // probably eeprom
+  } else {
     uint pages = (1 << shift);
     sp = map_page_clamp(sp, map_dyn.rom->prg_ram_size, MAP_PAGE_SHIFT + shift);
     map_cpu_read_pages(map_dyn.rom->prg_ram, sp * pages, dp * pages, pages);

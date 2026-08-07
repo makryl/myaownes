@@ -84,6 +84,13 @@ bool imp_init()
   // test = "GoodNES/Japan/Quinty (J) [!].nes"; // Namco-3433
   // test = "GoodNES/Japan/Devil Man (J) [!].nes"; // Namco-3453
   // test = "GoodNES/Japan/Dragon Buster (J) [!].nes"; // Namco-3425
+  // test = "GoodNES/Japan/Akuma-kun - Makai no Wana (J) [!].nes"; // Bandai FCG-2
+  // test = "GoodNES/Japan/Crayon Shin-chan - Ora to Poi Poi (J) [!].nes"; // Bandai LZ93D50
+  // test = "GoodNES/Japan/Dragon Ball - Daimaou Fukkatsu (J) [!].nes"; // Bandai FCG-1
+  // test = "GoodNES/Japan/Dragon Ball 3 - Gokuu Den (J) (V1.1) [!].nes"; // Bandai FCG-2
+  // test = "GoodNES/Japan/Dragon Ball Z II - Gekishin Freeza!! (J) (V1.1) [!].nes"; // Bandai LZ93D50 EEPROM 256
+  // test = "GoodNES/Japan/Dragon Ball Z - Kyoushuu! Saiya Jin (J) (V1.1) [!].nes"; // Bandai LZ93D50 EEPROM 128
+  // test = "GoodNES/Japan/Famicom Jump II - Saikyou no 7 Nin (J) [!].nes"; // Bandai LZ93D50 WRAM
 
   if (test) {
     chdir("../../tmp");
