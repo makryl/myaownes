@@ -146,6 +146,140 @@ static void map_sunsoft3_load()
 
 typedef struct
 {
+  uint timer;
+  u8 has_prg_ext;
+  u8 prg_ext;
+  u8 wram_enabled;
+  u8 ctrl;
+  u8 nt[2];
+} map_sunsoft4;
+static_assert(sizeof(map_sunsoft4) <= MAP_REG_SIZE);
+
+static void map_sunsoft4_nt_page(uint sp, uint dp)
+{
+  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  if (reg->ctrl & 0x10) {
+    map_chr_page_1k(reg->nt[sp], dp);
+    map_chr_page_1k(reg->nt[sp], dp + 4);
+  } else {
+    map_ciram_page(sp, dp);
+    map_ciram_page(sp, dp + 4);
+  }
+}
+
+static void map_sunsoft4_nt_update()
+{
+  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  switch (reg->ctrl & 3) {
+    case 0:
+      map_sunsoft4_nt_page(0, 0x8);
+      map_sunsoft4_nt_page(1, 0x9);
+      map_sunsoft4_nt_page(0, 0xA);
+      map_sunsoft4_nt_page(1, 0xB);
+      break;
+    case 1:
+      map_sunsoft4_nt_page(0, 0x8);
+      map_sunsoft4_nt_page(0, 0x9);
+      map_sunsoft4_nt_page(1, 0xA);
+      map_sunsoft4_nt_page(1, 0xB);
+      break;
+    case 2:
+      map_sunsoft4_nt_page(0, 0x8);
+      map_sunsoft4_nt_page(0, 0x9);
+      map_sunsoft4_nt_page(0, 0xA);
+      map_sunsoft4_nt_page(0, 0xB);
+      break;
+    case 3:
+      map_sunsoft4_nt_page(1, 0x8);
+      map_sunsoft4_nt_page(1, 0x9);
+      map_sunsoft4_nt_page(1, 0xA);
+      map_sunsoft4_nt_page(1, 0xB);
+      break;
+  }
+}
+
+static bool map_sunsoft4_cpu_read(u16 addr, u8* val, bool)
+{
+  if (addr >= 0x8000 && addr <= 0xBFFF) {
+    map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+    if (reg->prg_ext && !reg->timer) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static bool map_sunsoft4_cpu_write(u16 addr, u8 val)
+{
+  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  if (!reg->wram_enabled && addr >= 0x6000 && addr < 0x7FFF) {
+    reg->timer = 1024 * 105;
+    return true;
+  }
+  if (addr < 0x8000) {
+    return false;
+  }
+  switch (addr & 0xF000) {
+    case 0x8000: map_chr_page_2k(val, 0); break;
+    case 0x9000: map_chr_page_2k(val, 1); break;
+    case 0xA000: map_chr_page_2k(val, 2); break;
+    case 0xB000: map_chr_page_2k(val, 3); break;
+    case 0xC000:
+      reg->nt[0] = (val | 0x80);
+      map_sunsoft4_nt_update();
+      break;
+    case 0xD000:
+      reg->nt[1] = (val | 0x80);
+      map_sunsoft4_nt_update();
+      break;
+    case 0xE000:
+      reg->ctrl = val;
+      map_sunsoft4_nt_update();
+      break;
+    case 0xF000: {
+      reg->wram_enabled = (val & 0x10);
+      if (reg->wram_enabled) {
+        map_prg_ram_page_8k(0, 3, false);
+      } else {
+        map_prg_clear_page_8k(3);
+      }
+      uint prg_page = 0;
+      if (reg->has_prg_ext) {
+        reg->prg_ext = !(val & 0x08);
+        prg_page = (val & 0x07) | (reg->prg_ext ? 0x08 : 0);
+      } else {
+        prg_page = (val & 0x0F);
+      }
+      map_prg_rom_page_16k(prg_page, 2);
+      break;
+    }
+  }
+  return true;
+}
+
+static void map_sunsoft4_cpu_cyc()
+{
+  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  if (reg->timer) {
+    --reg->timer;
+  }
+}
+
+static void map_sunsoft4_load()
+{
+  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  mn_rom rom = mn_rom_get();
+  reg->has_prg_ext = (rom->submapper == 1);
+  if (reg->has_prg_ext) {
+    map_prg_rom_page_16k(0x07, 3);
+    map_set_cpu_cyc_cb(map_sunsoft4_cpu_cyc);
+    map_set_cpu_read_cb(map_sunsoft4_cpu_read);
+  }
+  map_set_cpu_write_cb(map_sunsoft4_cpu_write);
+}
+
+typedef struct
+{
   u16 irq_counter;
   u8 irq_enabled;
   u8 irq_counter_enabled;
@@ -1529,7 +1663,7 @@ bool map_other_load()
     case 19: map_namco_163_load(); break;
     case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
     case 67: map_sunsoft3_load(); break;
-    // case 68: map_sunsoft4_load(); break;
+    case 68: map_sunsoft4_load(); break;
     case 69: map_sunsoft_fme7_load(); break;
     case 21:
     case 22:

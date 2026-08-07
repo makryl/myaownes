@@ -94,7 +94,16 @@ bool imp_init()
   // test = "MegaPack/USA/Klax (U).nes"; // Tengen Rambo-1
   // test = "MegaPack/USA/Skull & Crossbones (U).nes"; // Tengen Rambo-1
   // test = "MegaPack/USA/Shinobi (U).nes"; // Tengen Rambo-1
-  // test = "MegaPack/USA/Alien Syndrome (U).nes"; // Tengen Rambo-1 800037 rom header bug
+  // test = "no-intro-2025/Games/Alien Syndrome (USA) (Unl).nes"; // Tengen Rambo-1 800037
+  // test = "no-intro-2025/Games/After Burner (USA) (Unl).nes"; // Sunsoft-4
+  // test = "no-intro-2025/Maharaja (Japan).nes"; // Sunsoft-4
+  // test = "GoodNES/Japan/Nantettatte!! Baseball (J) [!].nes"; // Sunsoft-4
+  // test
+  //   = "GoodNES/Japan/Nantettatte!! Baseball + Nantettatte!! Baseball - Ko-Game Cassette - OB All Star Hen (J)
+  //   [!].nes"; // Sunsoft-4 with external rom
+  // test
+  //   = "GoodNES/Japan/Nantettatte!! Baseball + Nantettatte!! Baseball - Ko-Game Cassette - '91 Kaimaku Hen (J)
+  //   [!].nes"; // Sunsoft-4 with external rom
 
   if (test) {
     chdir("../../tmp");
