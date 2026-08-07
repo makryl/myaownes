@@ -1148,7 +1148,6 @@ typedef struct
   u16 irq_latch;
   u16 irq_counter;
   u8 irq_enabled;
-  u8 irq_ack;
   u8 lz93d50;
   u8 prg_page;
   u8 has_outer_prg;
@@ -1305,6 +1304,222 @@ static void map_bandai_fcg_eeprom128_load()
   map_bandai_fcg_load_cb();
 }
 
+typedef struct
+{
+  u16 irq_addr;
+  u8 irq_filter;
+  u8 irq_counter;
+  u8 irq_latch;
+  u8 irq_reload;
+  u8 irq_mode;
+  u8 irq_prescaler;
+  u8 irq_enabled;
+  u8 irq_delay;
+  u8 chr0;
+  u8 chr1;
+  u8 chr2;
+  u8 chr3;
+  u8 chr4;
+  u8 chr5;
+  u8 prg0;
+  u8 prg1;
+  u8 chr6;
+  u8 chr7;
+  u8 prg2;
+  u8 ctrl;
+  u8 alt_mirror;
+} map_tengen_rambo1;
+static_assert(sizeof(map_tengen_rambo1) <= MAP_REG_SIZE);
+
+static void map_tengen_rambo1_update()
+{
+  map_tengen_rambo1* reg = (map_tengen_rambo1*)map_reg();
+  uint chr0 = reg->chr0;
+  uint chr1 = reg->chr1;
+  uint chr2 = reg->chr2;
+  uint chr3 = reg->chr3;
+  uint chr4 = reg->chr4;
+  uint chr5 = reg->chr5;
+  uint chr6 = reg->chr6;
+  uint chr7 = reg->chr7;
+  if (reg->alt_mirror) {
+    chr0 &= 0x7F;
+    chr1 &= 0x7F;
+    chr2 &= 0x7F;
+    chr3 &= 0x7F;
+    chr4 &= 0x7F;
+    chr5 &= 0x7F;
+    chr6 &= 0x7F;
+    chr7 &= 0x7F;
+    if (reg->ctrl & 0x80) {
+      map_ciram_page(reg->chr4 >> 7, 0x8);
+      map_ciram_page(reg->chr5 >> 7, 0x9);
+      map_ciram_page(reg->chr6 >> 7, 0xA);
+      map_ciram_page(reg->chr7 >> 7, 0xB);
+    } else {
+      map_ciram_page(reg->chr0 >> 7, 0x8);
+      map_ciram_page(reg->chr0 >> 7, 0x9);
+      map_ciram_page(reg->chr2 >> 7, 0xA);
+      map_ciram_page(reg->chr2 >> 7, 0xB);
+    }
+  }
+  if (reg->ctrl & 0x80) {
+    if (reg->ctrl & 0x20) {
+      map_chr_page_1k(chr0, 4);
+      map_chr_page_1k(chr1, 5);
+      map_chr_page_1k(chr2, 6);
+      map_chr_page_1k(chr3, 7);
+    } else {
+      map_chr_page_2k(chr0 >> 1, 2);
+      map_chr_page_2k(chr2 >> 1, 3);
+    }
+    map_chr_page_1k(chr4, 0);
+    map_chr_page_1k(chr5, 1);
+    map_chr_page_1k(chr6, 2);
+    map_chr_page_1k(chr7, 3);
+  } else {
+    if (reg->ctrl & 0x20) {
+      map_chr_page_1k(chr0, 0);
+      map_chr_page_1k(chr1, 1);
+      map_chr_page_1k(chr2, 2);
+      map_chr_page_1k(chr3, 3);
+    } else {
+      map_chr_page_2k(chr0 >> 1, 0);
+      map_chr_page_2k(chr2 >> 1, 1);
+    }
+    map_chr_page_1k(chr4, 4);
+    map_chr_page_1k(chr5, 5);
+    map_chr_page_1k(chr6, 6);
+    map_chr_page_1k(chr7, 7);
+  }
+  if (reg->ctrl & 0x40) {
+    map_prg_rom_page_8k(reg->prg2, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
+    map_prg_rom_page_8k(reg->prg0, 6);
+    map_prg_rom_page_8k(-1, 7);
+  } else {
+    map_prg_rom_page_8k(reg->prg0, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
+    map_prg_rom_page_8k(reg->prg2, 6);
+    map_prg_rom_page_8k(-1, 7);
+  }
+}
+
+static bool map_tengen_rambo1_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_tengen_rambo1* reg = (map_tengen_rambo1*)map_reg();
+  switch (addr & 0xE001) {
+    case 0x8000:
+      reg->ctrl = val;
+      map_tengen_rambo1_update();
+      break;
+    case 0x8001:
+      switch (reg->ctrl & 0x0F) {
+        case 0x0: reg->chr0 = val; break;
+        case 0x1: reg->chr2 = val; break;
+        case 0x2: reg->chr4 = val; break;
+        case 0x3: reg->chr5 = val; break;
+        case 0x4: reg->chr6 = val; break;
+        case 0x5: reg->chr7 = val; break;
+        case 0x6: reg->prg0 = val; break;
+        case 0x7: reg->prg1 = val; break;
+        case 0x8: reg->chr1 = val; break;
+        case 0x9: reg->chr3 = val; break;
+        case 0xF: reg->prg2 = val; break;
+      }
+      map_tengen_rambo1_update();
+      break;
+    case 0xA000:
+      if (!mn_rom_get()->alt_mirror && !reg->alt_mirror) {
+        if (val & 1) {
+          map_ciram_horiz_mirror();
+        } else {
+          map_ciram_vert_mirror();
+        }
+      }
+      break;
+    case 0xA001: break;
+    case 0xC000: reg->irq_latch = val; break;
+    case 0xC001:
+      reg->irq_mode = (val & 1);
+      reg->irq_prescaler = 0;
+      reg->irq_reload = true;
+      break;
+    case 0xE000:
+      reg->irq_enabled = false;
+      map_irq(false);
+      break;
+    case 0xE001: reg->irq_enabled = true; break;
+  }
+  return true;
+}
+
+static void map_tengen_rambo1_irq_clock()
+{
+  map_tengen_rambo1* reg = (map_tengen_rambo1*)map_reg();
+  if (reg->irq_counter == 0 || reg->irq_reload) {
+    reg->irq_counter = reg->irq_latch;
+    if (reg->irq_reload && reg->irq_latch != 0 && reg->irq_latch != 0xFF) {
+      ++reg->irq_counter; // hw bug?
+    }
+  } else {
+    --reg->irq_counter;
+  }
+  if (reg->irq_counter == 0 && reg->irq_enabled) {
+    reg->irq_delay = 2;
+  }
+  reg->irq_reload = false;
+}
+
+static void map_tengen_rambo1_ppu_addr(u16 addr)
+{
+  map_tengen_rambo1* reg = (map_tengen_rambo1*)map_reg();
+  reg->irq_addr = addr;
+}
+
+static void map_tengen_rambo1_cpu_cyc()
+{
+  map_tengen_rambo1* reg = (map_tengen_rambo1*)map_reg();
+  if (reg->irq_delay > 0) {
+    if (--reg->irq_delay == 0) {
+      map_irq(true);
+    }
+  }
+  if (reg->irq_mode == 0) {
+    if (reg->irq_addr & 0x1000) {
+      if (reg->irq_filter == 0) {
+        map_tengen_rambo1_irq_clock();
+      }
+      reg->irq_filter = 5;
+    } else if (reg->irq_filter > 0) {
+      --reg->irq_filter;
+    }
+  } else {
+    if (++reg->irq_prescaler == 4) {
+      reg->irq_prescaler = 0;
+      map_tengen_rambo1_irq_clock();
+    }
+  }
+}
+
+static void map_tengen_rambo1_load()
+{
+  map_set_cpu_write_cb(map_tengen_rambo1_cpu_write);
+  map_set_ppu_addr_cb(map_tengen_rambo1_ppu_addr);
+  map_set_cpu_cyc_cb(map_tengen_rambo1_cpu_cyc);
+  map_tengen_rambo1_update();
+}
+
+static void map_tengen_rambo1_800037_load()
+{
+  map_tengen_rambo1* reg = (map_tengen_rambo1*)map_reg();
+  reg->alt_mirror = true;
+  map_tengen_rambo1_load();
+}
+
 bool map_other_load()
 {
   mn_rom rom = mn_rom_get();
@@ -1323,6 +1538,7 @@ bool map_other_load()
     case 27: map_vrc2_vrc4_load(); break;
     case 24: map_vrc6a_load(); break;
     case 26: map_vrc6b_load(); break;
+    case 64: map_tengen_rambo1_load(); break; // MMC3-like
     case 73: map_vrc3_load(); break;
     case 75: map_vrc1_load(); break;
     case 76: map_namco_3446_load(); break;
@@ -1332,6 +1548,7 @@ bool map_other_load()
     case 153: map_bandai_fcg_wram_load(); break;
     case 154: map_namco_3453_load(); break;
     case 157: map_bandai_fcg_barcode_load(); break;
+    case 158: map_tengen_rambo1_800037_load(); break; // MMC3-like
     case 159: map_bandai_fcg_eeprom128_load(); break;
     case 206: map_namco_118_load(); break;
     case 210: map_namco_175_340_load(); break;

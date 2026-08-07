@@ -91,6 +91,10 @@ bool imp_init()
   // test = "GoodNES/Japan/Dragon Ball Z II - Gekishin Freeza!! (J) (V1.1) [!].nes"; // Bandai LZ93D50 EEPROM 256
   // test = "GoodNES/Japan/Dragon Ball Z - Kyoushuu! Saiya Jin (J) (V1.1) [!].nes"; // Bandai LZ93D50 EEPROM 128
   // test = "GoodNES/Japan/Famicom Jump II - Saikyou no 7 Nin (J) [!].nes"; // Bandai LZ93D50 WRAM
+  // test = "MegaPack/USA/Klax (U).nes"; // Tengen Rambo-1
+  // test = "MegaPack/USA/Skull & Crossbones (U).nes"; // Tengen Rambo-1
+  // test = "MegaPack/USA/Shinobi (U).nes"; // Tengen Rambo-1
+  // test = "MegaPack/USA/Alien Syndrome (U).nes"; // Tengen Rambo-1 800037 rom header bug
 
   if (test) {
     chdir("../../tmp");
