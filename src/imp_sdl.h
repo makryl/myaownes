@@ -217,7 +217,7 @@ static void imp_rom_update()
                rom->alt_mirror ? "Alt" : "", rom->has_trainer ? "TR" : "");
   SDL_snprintf(imp.rom_info[2], sizeof(imp.rom_info[0]), "PRG-ROM %5dK", rom->prg_rom_size >> 10);
   SDL_snprintf(imp.rom_info[3], sizeof(imp.rom_info[0]), "%-8s %4d%1s",
-               rom->prg_has_battery ? (rom->prg_ram_size < 1024 ? "EEP-ROM" : "PRG-SRAM") : "PRG-RAM",
+               rom->prg_has_battery ? (rom->prg_ram_size < 1024 ? "EEPROM" : "PRG-SRAM") : "PRG-RAM",
                rom->prg_ram_size < 1024 ? rom->prg_ram_size : rom->prg_ram_size >> 10,
                (rom->prg_ram_size > 0 && rom->prg_ram_size < 1024) ? "" : "K");
   SDL_snprintf(imp.rom_info[4], sizeof(imp.rom_info[0]), "CHR-ROM %5dK", rom->chr_rom_size >> 10);
