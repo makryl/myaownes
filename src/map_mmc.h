@@ -643,10 +643,10 @@ static bool map_mmc5_cpu_write(u16 addr, u8 val)
     u8 nt3 = addr >> 6;
 
 
-  map_ciram_page(0x8, map_dyn.vram + MAP_PPU_PAGE_SIZE * 0);
-  map_ciram_page(0x9, map_dyn.vram + MAP_PPU_PAGE_SIZE * 1);
-  map_ciram_page(0xA, map_dyn.vram + MAP_PPU_PAGE_SIZE * 2);
-  map_ciram_page(0xB, map_dyn.vram + MAP_PPU_PAGE_SIZE * 3);
+  map_ciram_page(0x8, map_dyn.ciram + MAP_PPU_PAGE_SIZE * 0);
+  map_ciram_page(0x9, map_dyn.ciram + MAP_PPU_PAGE_SIZE * 1);
+  map_ciram_page(0xA, map_dyn.ciram + MAP_PPU_PAGE_SIZE * 2);
+  map_ciram_page(0xB, map_dyn.ciram + MAP_PPU_PAGE_SIZE * 3);
   }
   // if (addr >= MAP_MMC5_ERAM && map_dyn.eram[MAP_MMC5_EXT_MODE] > 2) { // eram write protect
   //   return true;

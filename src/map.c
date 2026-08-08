@@ -36,7 +36,7 @@ MN_CACHE_LINE static struct
 {
   bool apu_irq;
   bool irq;
-  MN_CACHE_LINE u8 vram[0x1000];
+  MN_CACHE_LINE u8 ciram[0x1000];
   MN_CACHE_LINE u8 reg[MAP_REG_SIZE];
 } map;
 
@@ -285,7 +285,7 @@ void map_chr_page_8k(uint sp, uint dp) { map_chr_page(sp, dp, 3); }
 
 void map_ciram_page(uint sp, uint dp)
 {
-  u8* src = map.vram + sp * MAP_PAGE_SIZE;
+  u8* src = map.ciram + sp * MAP_PAGE_SIZE;
   map_dyn.ppu_read_page[dp] = src;
   map_dyn.ppu_write_page[dp] = src;
   map_dyn.ppu_read_page[dp + 4] = src;
