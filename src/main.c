@@ -104,6 +104,15 @@ bool imp_init()
   // test
   //   = "GoodNES/Japan/Nantettatte!! Baseball + Nantettatte!! Baseball - Ko-Game Cassette - '91 Kaimaku Hen (J)
   //   [!].nes"; // Sunsoft-4 with external rom
+  // test = "no-intro-2025/Don Doko Don (Japan).nes"; // Taito tc0190
+  // test = "no-intro-2025/Games/Don Doko Don 2 (Japan).nes"; // Taito tc0690
+  // test = "no-intro-2025/Games/Flintstones, The - The Rescue of Dino & Hoppy (Japan).nes"; // Taito tc0690
+  // test = "no-intro-2025/Games/Jetsons, The - Cogswell's Caper (Japan).nes"; // Taito tc0690 (submapper 1)
+  // test = "no-intro-2025/Kyonshiizu 2 (Japan).nes"; // Taito x1-005
+  // test = "no-intro-2025/Games/Fudou Myouou Den (Japan).nes"; // Taito x1-005a
+  // test = "no-intro-2025/Games/SD Keiji - Blader (Japan).nes"; // Taito x1-017
+  // test = "no-intro-2025/Kyuukyoku Harikiri Stadium III (Japan).nes"; // Taito x1-017
+  // test = "no-intro-2025/Games/Kyuukyoku Harikiri Koushien (Japan).nes"; // Taito x1-017
 
   if (test) {
     chdir("../../tmp");

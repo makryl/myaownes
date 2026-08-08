@@ -1175,15 +1175,15 @@ typedef struct
   u8 is_3433;
   u8 is_3453;
   u8 is_3425;
-} map_namco_118;
-static_assert(sizeof(map_namco_118) <= MAP_REG_SIZE);
+} map_namco_108;
+static_assert(sizeof(map_namco_108) <= MAP_REG_SIZE);
 
-static bool map_namco_118_cpu_write(u16 addr, u8 val)
+static bool map_namco_108_cpu_write(u16 addr, u8 val)
 {
   if (addr < 0x8000) {
     return false;
   }
-  map_namco_118* reg = (map_namco_118*)map_reg();
+  map_namco_108* reg = (map_namco_108*)map_reg();
   switch (addr & 0xE001) {
     case 0x8000: map_reg()[0] = val; break;
     case 0x8001:
@@ -1241,40 +1241,40 @@ static bool map_namco_118_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static void map_namco_118_load()
+static void map_namco_108_load()
 {
-  map_namco_118* reg = (map_namco_118*)map_reg();
+  map_namco_108* reg = (map_namco_108*)map_reg();
   mn_rom rom = mn_rom_get();
   reg->no_prg = (rom->submapper == 1);
-  map_set_cpu_write_cb(map_namco_118_cpu_write);
+  map_set_cpu_write_cb(map_namco_108_cpu_write);
 }
 
 static void map_namco_3446_load()
 {
-  map_namco_118* reg = (map_namco_118*)map_reg();
+  map_namco_108* reg = (map_namco_108*)map_reg();
   reg->is_3446 = true;
-  map_set_cpu_write_cb(map_namco_118_cpu_write);
+  map_set_cpu_write_cb(map_namco_108_cpu_write);
 }
 
 static void map_namco_3433_load()
 {
-  map_namco_118* reg = (map_namco_118*)map_reg();
+  map_namco_108* reg = (map_namco_108*)map_reg();
   reg->is_3433 = true;
-  map_set_cpu_write_cb(map_namco_118_cpu_write);
+  map_set_cpu_write_cb(map_namco_108_cpu_write);
 }
 
 static void map_namco_3453_load()
 {
-  map_namco_118* reg = (map_namco_118*)map_reg();
+  map_namco_108* reg = (map_namco_108*)map_reg();
   reg->is_3453 = true;
-  map_set_cpu_write_cb(map_namco_118_cpu_write);
+  map_set_cpu_write_cb(map_namco_108_cpu_write);
 }
 
 static void map_namco_3425_load()
 {
-  map_namco_118* reg = (map_namco_118*)map_reg();
+  map_namco_108* reg = (map_namco_108*)map_reg();
   reg->is_3425 = true;
-  map_set_cpu_write_cb(map_namco_118_cpu_write);
+  map_set_cpu_write_cb(map_namco_108_cpu_write);
 }
 
 typedef struct
@@ -1654,6 +1654,315 @@ static void map_tengen_rambo1_800037_load()
   map_tengen_rambo1_load();
 }
 
+
+static bool map_taito_tc0190_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  switch (addr & 0xA003) {
+    case 0x8000:
+      if (val & 0x40) {
+        map_ciram_horiz_mirror();
+      } else {
+        map_ciram_vert_mirror();
+      }
+      map_prg_rom_page_8k(val & 0x3F, 4);
+      break;
+    case 0x8001: map_prg_rom_page_8k(val & 0x3F, 5); break;
+    case 0x8002: map_chr_page_2k(val, 0); break;
+    case 0x8003: map_chr_page_2k(val, 1); break;
+    case 0xA000: map_chr_page_1k(val, 4); break;
+    case 0xA001: map_chr_page_1k(val, 5); break;
+    case 0xA002: map_chr_page_1k(val, 6); break;
+    case 0xA003: map_chr_page_1k(val, 7); break;
+  }
+  return true;
+}
+
+typedef struct
+{
+  u16 irq_addr;
+  u8 irq_filter;
+  u8 irq_counter;
+  u8 irq_latch;
+  u8 irq_reload;
+  u8 irq_enabled;
+  u8 irq_delay;
+} map_taito_tc0690;
+static_assert(sizeof(map_taito_tc0690) <= MAP_REG_SIZE);
+
+static bool map_taito_tc0690_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_taito_tc0690* reg = (map_taito_tc0690*)map_reg();
+  switch (addr & 0xE003) {
+    case 0x8000: map_prg_rom_page_8k(val, 4); break;
+    case 0x8001: map_prg_rom_page_8k(val, 5); break;
+    case 0x8002: map_chr_page_2k(val, 0); break;
+    case 0x8003: map_chr_page_2k(val, 1); break;
+    case 0xA000: map_chr_page_1k(val, 4); break;
+    case 0xA001: map_chr_page_1k(val, 5); break;
+    case 0xA002: map_chr_page_1k(val, 6); break;
+    case 0xA003: map_chr_page_1k(val, 7); break;
+    case 0xC000: reg->irq_latch = (val ^ 0xFF); break;
+    case 0xC001: reg->irq_reload = true; break;
+    case 0xC002: reg->irq_enabled = true; break;
+    case 0xC003:
+      reg->irq_enabled = false;
+      map_irq(false);
+      break;
+    case 0xE000:
+      if (val & 0x40) {
+        map_ciram_horiz_mirror();
+      } else {
+        map_ciram_vert_mirror();
+      }
+      break;
+  }
+  return false;
+}
+
+static void map_taito_tc0690_ppu_addr(u16 addr)
+{
+  map_tengen_rambo1* reg = (map_tengen_rambo1*)map_reg();
+  reg->irq_addr = addr;
+}
+
+static void map_taito_tc0690_cpu_cyc()
+{
+  map_taito_tc0690* reg = (map_taito_tc0690*)map_reg();
+  if (reg->irq_delay > 0) {
+    if (--reg->irq_delay == 0) {
+      map_irq(true);
+    }
+  }
+  if (reg->irq_addr & 0x1000) {
+    if (reg->irq_filter == 0) {
+      // IRQ similar to RAMBO-1 (or MMC3, but filter on CPU)
+      if (reg->irq_counter == 0 || reg->irq_reload) {
+        reg->irq_counter = reg->irq_latch;
+      } else {
+        --reg->irq_counter;
+      }
+      if (reg->irq_counter == 0 && reg->irq_enabled) {
+        // nesdev says 4, but 19-23 works fine (numbers also depends on irq_filter=5)
+        reg->irq_delay = mn_rom_get()->submapper == 1 ? 5 : 21;
+      }
+      reg->irq_reload = false;
+    }
+    reg->irq_filter = 5;
+  } else if (reg->irq_filter > 0) {
+    --reg->irq_filter;
+  }
+}
+
+static void map_taito_tc0690_load()
+{
+  map_set_cpu_cyc_cb(map_taito_tc0690_cpu_cyc);
+  map_set_cpu_write_cb(map_taito_tc0690_cpu_write);
+  map_set_ppu_addr_cb(map_taito_tc0690_ppu_addr);
+}
+
+typedef struct
+{
+  u8 ram_enabled;
+  u8 alt_mirror;
+} map_taito_x1005;
+static_assert(sizeof(map_taito_x1005) <= MAP_REG_SIZE);
+
+static bool map_taito_x1005_cpu_read(u16 addr, u8* val, bool)
+{
+  map_taito_x1005* reg = (map_taito_x1005*)map_reg();
+  if (reg->ram_enabled && (addr & 0xFF00) == 0x7F00) {
+    mn_rom rom = mn_rom_get();
+    *val = rom->prg_ram[addr & 0x7F];
+    return true;
+  }
+  return false;
+}
+
+static bool map_taito_x1005_cpu_write(u16 addr, u8 val)
+{
+  map_taito_x1005* reg = (map_taito_x1005*)map_reg();
+  if (reg->ram_enabled && (addr & 0xFF00) == 0x7F00) {
+    mn_rom rom = mn_rom_get();
+    rom->prg_ram[addr & 0x7F] = val;
+    return true;
+  }
+  switch (addr & 0xFF7F) {
+    case 0x7E70:
+      if (reg->alt_mirror) {
+        uint ciram_page = (val >> 7);
+        val &= 0x7F;
+        map_ciram_page(ciram_page, 0x8);
+        map_ciram_page(ciram_page, 0x9);
+      }
+      map_chr_page_2k(val >> 1, 0);
+      return true;
+    case 0x7E71:
+      if (reg->alt_mirror) {
+        uint ciram_page = (val >> 7);
+        val &= 0x7F;
+        map_ciram_page(ciram_page, 0xA);
+        map_ciram_page(ciram_page, 0xB);
+      }
+      map_chr_page_2k(val >> 1, 1);
+      return true;
+    case 0x7E72: map_chr_page_1k(val, 4); return true;
+    case 0x7E73: map_chr_page_1k(val, 5); return true;
+    case 0x7E74: map_chr_page_1k(val, 6); return true;
+    case 0x7E75: map_chr_page_1k(val, 7); return true;
+    case 0x7E76:
+      if (!reg->alt_mirror) {
+        if (val & 1) {
+          map_ciram_vert_mirror();
+        } else {
+          map_ciram_horiz_mirror();
+        }
+      }
+      return true;
+    case 0x7E78:
+    case 0x7E79: reg->ram_enabled = (val == 0xA3); return true;
+    case 0x7E7A:
+    case 0x7E7B: map_prg_rom_page_8k(val, 4); return true;
+    case 0x7E7C:
+    case 0x7E7D: map_prg_rom_page_8k(val, 5); return true;
+    case 0x7E7E:
+    case 0x7E7F: map_prg_rom_page_8k(val, 6); return true;
+  }
+  return false;
+}
+
+static void map_taito_x1005_load()
+{
+  map_prg_clear_page_8k(3);
+  map_set_cpu_read_cb(map_taito_x1005_cpu_read);
+  map_set_cpu_write_cb(map_taito_x1005_cpu_write);
+}
+
+static void map_taito_x1005a_load()
+{
+  map_taito_x1005* reg = (map_taito_x1005*)map_reg();
+  reg->alt_mirror = true;
+  map_taito_x1005_load();
+}
+
+typedef struct
+{
+  u8 chr[6];
+  u8 chr_inverse;
+  u8 ram[3];
+} map_taito_x1017;
+static_assert(sizeof(map_taito_x1017) <= MAP_REG_SIZE);
+
+static void map_taito_x1017_chr_update()
+{
+  map_taito_x1017* reg = (map_taito_x1017*)map_reg();
+  if (reg->chr_inverse) {
+    map_chr_page_2k(reg->chr[0] >> 1, 2);
+    map_chr_page_2k(reg->chr[1] >> 1, 3);
+    map_chr_page_1k(reg->chr[2], 0);
+    map_chr_page_1k(reg->chr[3], 1);
+    map_chr_page_1k(reg->chr[4], 2);
+    map_chr_page_1k(reg->chr[5], 3);
+  } else {
+    map_chr_page_2k(reg->chr[0] >> 1, 0);
+    map_chr_page_2k(reg->chr[1] >> 1, 1);
+    map_chr_page_1k(reg->chr[2], 4);
+    map_chr_page_1k(reg->chr[3], 5);
+    map_chr_page_1k(reg->chr[4], 6);
+    map_chr_page_1k(reg->chr[5], 7);
+  }
+}
+
+static uint map_taito_x1017_reverse_bits(u8 val)
+{
+  uint b0 = (val & 0x01) << 7;
+  uint b1 = (val & 0x02) << 5;
+  uint b2 = (val & 0x04) << 3;
+  uint b3 = (val & 0x08) << 1;
+  uint b4 = (val & 0x10) >> 1;
+  uint b5 = (val & 0x20) >> 3;
+  uint b6 = (val & 0x40) >> 5;
+  uint b7 = (val & 0x80) >> 7;
+  return b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7;
+}
+
+static bool map_taito_x1017_cpu_read(u16 addr, u8* val, bool)
+{
+  map_taito_x1017* reg = (map_taito_x1017*)map_reg();
+  if ((addr >= 0x6000 && addr <= 0x67FF && !reg->ram[0]) || (addr >= 0x6800 && addr <= 0x6FFF && !reg->ram[1])
+      || (addr >= 0x7000 && addr <= 0x73FF && !reg->ram[2]) || (addr >= 0x7400 && addr <= 0x7FFF))
+  {
+    *val = 0; // must return 0 instead of openbus when ram disabled
+    return true;
+  }
+  return false;
+}
+
+static bool map_taito_x1017_cpu_write(u16 addr, u8 val)
+{
+  map_taito_x1017* reg = (map_taito_x1017*)map_reg();
+  switch (addr & 0xFF7F) {
+    case 0x7E70:
+    case 0x7E71:
+    case 0x7E72:
+    case 0x7E73:
+    case 0x7E74:
+    case 0x7E75:
+      reg->chr[addr & 7] = val;
+      map_taito_x1017_chr_update();
+      return true;
+    case 0x7E76:
+      if (val & 1) {
+        map_ciram_vert_mirror();
+      } else {
+        map_ciram_horiz_mirror();
+      }
+      reg->chr_inverse = (val & 2);
+      map_taito_x1017_chr_update();
+      return true;
+    case 0x7E77:
+      reg->ram[0] = (val == 0xCA);
+      if (reg->ram[0]) {
+        map_prg_ram_page_2k(0, 12, false);
+      } else {
+        map_prg_clear_page_2k(12);
+      }
+      return true;
+    case 0x7E78:
+      reg->ram[1] = (val == 0x69);
+      if (reg->ram[1]) {
+        map_prg_ram_page_2k(1, 13, false);
+      } else {
+        map_prg_clear_page_2k(13);
+      }
+      return true;
+    case 0x7E79:
+      reg->ram[2] = (val == 0x84);
+      if (reg->ram[2]) {
+        map_prg_ram_page_1k(4, 28, false);
+      } else {
+        map_prg_clear_page_1k(28);
+      }
+      return true;
+    case 0x7E7A: map_prg_rom_page_8k(map_taito_x1017_reverse_bits(val) >> 2, 4); return true;
+    case 0x7E7B: map_prg_rom_page_8k(map_taito_x1017_reverse_bits(val) >> 2, 5); return true;
+    case 0x7E7C: map_prg_rom_page_8k(map_taito_x1017_reverse_bits(val) >> 2, 6); return true;
+  }
+  return false;
+}
+
+static void map_taito_x1017_load()
+{
+  map_prg_clear_page_8k(3);
+  map_set_cpu_read_cb(map_taito_x1017_cpu_read);
+  map_set_cpu_write_cb(map_taito_x1017_cpu_write);
+}
+
 bool map_other_load()
 {
   mn_rom rom = mn_rom_get();
@@ -1672,20 +1981,26 @@ bool map_other_load()
     case 27: map_vrc2_vrc4_load(); break;
     case 24: map_vrc6a_load(); break;
     case 26: map_vrc6b_load(); break;
-    case 64: map_tengen_rambo1_load(); break; // MMC3-like
+    case 33: map_set_cpu_write_cb(map_taito_tc0190_cpu_write); break;
+    case 48: map_taito_tc0690_load(); break;
+    case 64: map_tengen_rambo1_load(); break;
     case 73: map_vrc3_load(); break;
     case 75: map_vrc1_load(); break;
     case 76: map_namco_3446_load(); break;
+    case 80: map_taito_x1005_load(); break;
+    case 82: map_taito_x1017_load(); break;
     case 85: map_vrc7_load(); break;
     case 88: map_namco_3433_load(); break;
     case 95: map_namco_3425_load(); break;
     case 153: map_bandai_fcg_wram_load(); break;
     case 154: map_namco_3453_load(); break;
     case 157: map_bandai_fcg_barcode_load(); break;
-    case 158: map_tengen_rambo1_800037_load(); break; // MMC3-like
+    case 158: map_tengen_rambo1_800037_load(); break;
     case 159: map_bandai_fcg_eeprom128_load(); break;
-    case 206: map_namco_118_load(); break;
+    case 206: map_namco_108_load(); break;
+    case 207: map_taito_x1005a_load(); break;
     case 210: map_namco_175_340_load(); break;
+    case 552: map_taito_x1017_load(); break;
     default: return false;
   }
   return true;
