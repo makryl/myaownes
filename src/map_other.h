@@ -1952,6 +1952,11 @@ static bool map_taito_x1017_cpu_write(u16 addr, u8 val)
     case 0x7E7A: map_prg_rom_page_8k(map_taito_x1017_reverse_bits(val) >> 2, 4); return true;
     case 0x7E7B: map_prg_rom_page_8k(map_taito_x1017_reverse_bits(val) >> 2, 5); return true;
     case 0x7E7C: map_prg_rom_page_8k(map_taito_x1017_reverse_bits(val) >> 2, 6); return true;
+    case 0x7E7D:
+    case 0x7E7E:
+    case 0x7E7F:
+      // irq not used in real games
+      break;
   }
   return false;
 }
