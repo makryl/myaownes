@@ -2132,11 +2132,6 @@ bool map_other_load()
     case 16: map_bandai_fcg_load(); break;
     case 18: map_jaleco_ss_load(); break;
     case 19: map_namco_163_load(); break;
-    case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
-    case 32: map_irem_g101_load(); break;
-    case 67: map_sunsoft3_load(); break;
-    case 68: map_sunsoft4_load(); break;
-    case 69: map_sunsoft_fme7_load(); break;
     case 21:
     case 22:
     case 23:
@@ -2144,10 +2139,15 @@ bool map_other_load()
     case 27: map_vrc2_vrc4_load(); break;
     case 24: map_vrc6a_load(); break;
     case 26: map_vrc6b_load(); break;
+    case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
+    case 32: map_irem_g101_load(); break;
     case 33: map_set_cpu_write_cb(map_taito_tc0190_cpu_write); break;
     case 48: map_taito_tc0690_load(); break;
     case 64: map_tengen_rambo1_load(); break;
     case 65: map_irem_h3001_load(); break;
+    case 67: map_sunsoft3_load(); break;
+    case 68: map_sunsoft4_load(); break;
+    case 69: map_sunsoft_fme7_load(); break;
     case 73: map_vrc3_load(); break;
     case 75: map_vrc1_load(); break;
     case 76: map_namco_3446_load(); break;
