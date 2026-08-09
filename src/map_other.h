@@ -198,7 +198,7 @@ static void map_sunsoft4_nt_update()
   }
 }
 
-static bool map_sunsoft4_cpu_read(u16 addr, u8* val, bool)
+static bool map_sunsoft4_cpu_read(u16 addr, u8*, bool)
 {
   if (addr >= 0x8000 && addr <= 0xBFFF) {
     map_sunsoft4* reg = (map_sunsoft4*)map_reg();
@@ -1374,11 +1374,12 @@ static bool map_bandai_fcg_cpu_write(u16 addr, u8 val)
             } else {
               map_prg_clear_page_8k(3);
             }
-          } else if (reg->has_barcode) {
-            // todo: eeprom, barcode
-          } else {
-            // todo: eeprom
           }
+          // else if (reg->has_barcode) {
+          //  // todo: eeprom, barcode
+          // } else {
+          //  // todo: eeprom
+          // }
         }
         return true;
     }

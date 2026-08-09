@@ -118,6 +118,7 @@ bool imp_init()
   // test = "no-intro-2025/Kaiketsu Yanchamaru (Japan).nes"; // Irem TAM-S1
   // test = "no-intro-2025/Games/Daiku no Gen-san 2 - Akage no Dan no Gyakushuu (Japan).nes"; // Irem H3001
   // test = "no-intro-2025/Kaiketsu Yanchamaru 3 - Taiketsu! Zouringen (Japan).nes"; // Irem H3001
+  // test = "no-intro-2025/Moero!! Pro Yakyuu (Japan) (Rev 3).nes"; // Jaleco JF-13
 
   if (test) {
     chdir("../../tmp");

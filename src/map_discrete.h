@@ -204,6 +204,18 @@ static bool map_j87_cpu_write(u16 addr, u8 val)
   return false;
 }
 
+static bool map_jaleco_jf13_cpu_write(u16 addr, u8 val)
+{
+  switch (addr & 0xF000) {
+    case 0x6000:
+      map_prg_rom_page_32k((val & 0x30) >> 4, 1);
+      map_chr_page_8k(((val & 0x40) >> 4) | (val & 3), 0);
+      return true;
+    case 0x7000: return true; // no audio impl
+  }
+  return false;
+}
+
 static bool map_camerica071_cpu_write(u16 addr, u8 val)
 {
   bool result = false;
@@ -372,6 +384,7 @@ bool map_discrete_load()
     case 78: map_discrete_prg_chr_mir(0x07, 0, 0, 16, 0xF0, 4, 0, 8, 0x08, (rom->alt_mirror || rom->submapper == 3) ? MAP_MIRROR_HORIZ_VERT : MAP_MIRROR_SINGLE_LO_HI, 1); break;
     case 79: map_discrete_common_load(0xE100, 0x4100, 0x08, 3, 0, 32, 0x07, 0, 0, 8, 0, 0, 0); break; // NINA-003-006
     case 81: map_discrete_prg_chr(0x0C, 2, 0, 16, 0x03, 0, 0, 8, 0); break;
+    case 86: map_set_cpu_write_cb(map_jaleco_jf13_cpu_write); break; // Jaleco JF-13, no audio impl
     case 87: map_set_cpu_write_cb(map_j87_cpu_write); break;
     case 89: map_set_cpu_write_cb(map_sunsoft089_cpu_write); break;
     case 92: map_set_cpu_write_cb(map_jaleco_072_092_cpu_write); break; // Jaleco JF-19, no audio impl
