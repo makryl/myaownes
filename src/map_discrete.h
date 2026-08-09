@@ -347,7 +347,7 @@ static bool map_jaleco_072_092_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static void map_077_load()
+static void map_irem_077_load()
 {
   map_chr_page_2k(0, 0);
   map_chr_page_2k(-1, 1);
@@ -380,7 +380,7 @@ bool map_discrete_load()
     case 70: map_discrete_prg_chr(0xF0, 4, 0, 16, 0x0F, 0, 0, 8, 1); break;
     case 71: map_set_cpu_write_cb(map_camerica071_cpu_write); break;
     case 72: map_set_cpu_write_cb(map_jaleco_072_092_cpu_write); break; // Jaleco JF-17, no audio impl
-    case 77: map_077_load(); break;
+    case 77: map_irem_077_load(); break; // Irem
     case 78: map_discrete_prg_chr_mir(0x07, 0, 0, 16, 0xF0, 4, 0, 8, 0x08, (rom->alt_mirror || rom->submapper == 3) ? MAP_MIRROR_HORIZ_VERT : MAP_MIRROR_SINGLE_LO_HI, 1); break;
     case 79: map_discrete_common_load(0xE100, 0x4100, 0x08, 3, 0, 32, 0x07, 0, 0, 8, 0, 0, 0); break; // NINA-003-006
     case 81: map_discrete_prg_chr(0x0C, 2, 0, 16, 0x03, 0, 0, 8, 0); break;
