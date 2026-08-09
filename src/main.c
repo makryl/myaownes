@@ -119,6 +119,7 @@ bool imp_init()
   // test = "no-intro-2025/Games/Daiku no Gen-san 2 - Akage no Dan no Gyakushuu (Japan).nes"; // Irem H3001
   // test = "no-intro-2025/Kaiketsu Yanchamaru 3 - Taiketsu! Zouringen (Japan).nes"; // Irem H3001
   // test = "no-intro-2025/Moero!! Pro Yakyuu (Japan) (Rev 3).nes"; // Jaleco JF-13
+  test = "no-intro-2025/Games/Dragon Ball Z 5 (Taiwan) (En,Zh-Hant) (Pirate).nes"; // MMC3A Huang-1
 
   if (test) {
     chdir("../../tmp");

@@ -161,6 +161,9 @@ typedef struct
   u8 old_irq;
   u8 alt_mirror;
   u8 use_chr_ram;
+  u8 has_outer_chr;
+  u8 outer_chr0;
+  u8 outer_chr1;
 } map_mmc3;
 static_assert(sizeof(map_mmc3) <= MAP_REG_SIZE);
 
@@ -173,6 +176,8 @@ static void map_mmc3_update()
   uint chr3 = reg->chr3;
   uint chr4 = reg->chr4;
   uint chr5 = reg->chr5;
+  uint outer_chr0 = (reg->outer_chr0 << 8);
+  uint outer_chr1 = (reg->outer_chr1 << 8);
   if (reg->alt_mirror) {
     chr0 &= 0x7F;
     chr1 &= 0x7F;
@@ -208,19 +213,19 @@ static void map_mmc3_update()
     chr5 += (reg->chr5 & 0x40) ? ram_offset : 0;
   }
   if (reg->ctrl & 0x80) {
-    map_chr_page_2k(chr0 >> 1, 2);
-    map_chr_page_2k(chr1 >> 1, 3);
-    map_chr_page_1k(chr2, 0);
-    map_chr_page_1k(chr3, 1);
-    map_chr_page_1k(chr4, 2);
-    map_chr_page_1k(chr5, 3);
+    map_chr_page_2k((outer_chr1 | chr0) >> 1, 2);
+    map_chr_page_2k((outer_chr1 | chr1) >> 1, 3);
+    map_chr_page_1k(reg->outer_chr0 | chr2, 0);
+    map_chr_page_1k(reg->outer_chr0 | chr3, 1);
+    map_chr_page_1k(reg->outer_chr0 | chr4, 2);
+    map_chr_page_1k(reg->outer_chr0 | chr5, 3);
   } else {
-    map_chr_page_2k(chr0 >> 1, 0);
-    map_chr_page_2k(chr1 >> 1, 1);
-    map_chr_page_1k(chr2, 4);
-    map_chr_page_1k(chr3, 5);
-    map_chr_page_1k(chr4, 6);
-    map_chr_page_1k(chr5, 7);
+    map_chr_page_2k((outer_chr0 | chr0) >> 1, 0);
+    map_chr_page_2k((outer_chr0 | chr1) >> 1, 1);
+    map_chr_page_1k(outer_chr1 | chr2, 4);
+    map_chr_page_1k(outer_chr1 | chr3, 5);
+    map_chr_page_1k(outer_chr1 | chr4, 6);
+    map_chr_page_1k(outer_chr1 | chr5, 7);
   }
   if (reg->ctrl & 0x40) {
     map_prg_rom_page_8k(-2, 4);
@@ -272,6 +277,11 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
       return true;
     case 0xE001: reg->enabled = 1; return true;
   }
+  if (reg->has_outer_chr && (addr & 0xE100)) {
+    reg->outer_chr0 = (val & 1);
+    reg->outer_chr1 = ((val & 0x10) >> 4);
+    map_mmc3_update();
+  }
   return false;
 }
 
@@ -320,10 +330,11 @@ static void map_mmc3_load()
   map_mmc3_update();
 }
 
-static void map_mmc3a_load()
+static void map_mmc3a_huang1_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->old_irq = true;
+  reg->has_outer_chr = true;
   map_mmc3_set_cb();
   map_mmc3_update();
 }
@@ -714,7 +725,7 @@ bool map_mmc_load(bool init)
     // case 5: map_mmc5_load(); break;
     case 9: map_mmc2_load(init); break;
     case 10: map_mmc4_load(init); break;
-    case 12: map_mmc3a_load(); break;
+    case 12: map_mmc3a_huang1_load(); break;
     case 118: map_mmc3_txsrom_load(); break;
     case 119: map_mmc3_tqrom_load(); break;
     case 155: map_mmc1a_load(init); break;
