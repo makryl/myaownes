@@ -1968,6 +1968,162 @@ static void map_taito_x1017_load()
   map_set_cpu_write_cb(map_taito_x1017_cpu_write);
 }
 
+typedef struct
+{
+  u8 ctrl;
+  u8 prg0;
+  u8 prg1;
+  u8 no_9000;
+} map_irem_g101;
+static_assert(sizeof(map_irem_g101) <= MAP_REG_SIZE);
+
+static void map_irem_g101_update()
+{
+  map_irem_g101* reg = (map_irem_g101*)map_reg();
+  if (reg->ctrl & 2) {
+    map_prg_rom_page_8k(-2, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
+    map_prg_rom_page_8k(reg->prg0, 6);
+    map_prg_rom_page_8k(-1, 7);
+  } else {
+    map_prg_rom_page_8k(reg->prg0, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
+    map_prg_rom_page_8k(-2, 6);
+    map_prg_rom_page_8k(-1, 7);
+  }
+}
+
+static bool map_irem_g101_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_irem_g101* reg = (map_irem_g101*)map_reg();
+  switch (addr & 0xF000) {
+    case 0x8000:
+      reg->prg0 = (val & 0x1F);
+      map_irem_g101_update();
+      break;
+    case 0x9000:
+      if (!reg->no_9000) {
+        if (val & 1) {
+          map_ciram_horiz_mirror();
+        } else {
+          map_ciram_vert_mirror();
+        }
+        reg->ctrl = val;
+        map_irem_g101_update();
+      }
+      break;
+    case 0xA000:
+      reg->prg1 = (val & 0x1F);
+      map_irem_g101_update();
+      break;
+    case 0xB000: map_chr_page_1k(val, addr & 7); break;
+  }
+  return true;
+}
+
+static void map_irem_g101_load()
+{
+  map_irem_g101* reg = (map_irem_g101*)map_reg();
+  mn_rom rom = mn_rom_get();
+  if (rom->submapper == 1) {
+    reg->no_9000 = true;
+    map_ciram_single_low();
+  }
+  map_set_cpu_write_cb(map_irem_g101_cpu_write);
+}
+
+typedef struct
+{
+  u16 irq_latch;
+  u16 irq_counter;
+  u8 irq_enabled;
+  u8 ctrl;
+  u8 prg0;
+  u8 prg1;
+} map_irem_h3001;
+static_assert(sizeof(map_irem_h3001) <= MAP_REG_SIZE);
+
+static void map_irem_h3001_update()
+{
+  map_irem_h3001* reg = (map_irem_h3001*)map_reg();
+  if (reg->ctrl & 2) {
+    map_prg_rom_page_8k(-2, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
+    map_prg_rom_page_8k(reg->prg0, 6);
+    map_prg_rom_page_8k(-1, 7);
+  } else {
+    map_prg_rom_page_8k(reg->prg0, 4);
+    map_prg_rom_page_8k(reg->prg1, 5);
+    map_prg_rom_page_8k(-2, 6);
+    map_prg_rom_page_8k(-1, 7);
+  }
+}
+
+static bool map_irem_h3001_cpu_write(u16 addr, u8 val)
+{
+  if (addr < 0x8000) {
+    return false;
+  }
+  map_irem_h3001* reg = (map_irem_h3001*)map_reg();
+  switch (addr & 0xF000) {
+    case 0x8000:
+      reg->prg0 = (val & 0x1F);
+      map_irem_h3001_update();
+      break;
+    case 0x9000:
+      switch (addr & 7) {
+        case 0:
+          reg->ctrl = val;
+          map_irem_h3001_update();
+          break;
+        case 1:
+          switch (val >> 6) {
+            case 0: map_ciram_vert_mirror(); break;
+            case 2: map_ciram_horiz_mirror(); break;
+            case 1:
+            case 3: map_ciram_single_low(); break;
+          }
+          break;
+        case 3:
+          reg->irq_enabled = (val >> 7);
+          map_irq(false);
+          break;
+        case 4:
+          reg->irq_counter = reg->irq_latch;
+          map_irq(false);
+          break;
+        case 5: reg->irq_latch = (reg->irq_latch & 0x00FF) | (val << 8); break;
+        case 6: reg->irq_latch = (reg->irq_latch & 0xFF00) | val; break;
+      }
+      break;
+    case 0xA000:
+      reg->prg1 = (val & 0x1F);
+      map_irem_h3001_update();
+      break;
+    case 0xB000: map_chr_page_1k(val, addr & 7); break;
+  }
+  return true;
+}
+
+static void map_irem_h3001_cpu_cyc()
+{
+  map_irem_h3001* reg = (map_irem_h3001*)map_reg();
+  if (reg->irq_enabled && reg->irq_counter) {
+    if (--reg->irq_counter == 0) {
+      map_irq(true);
+    }
+  }
+}
+
+static void map_irem_h3001_load()
+{
+  map_set_cpu_write_cb(map_irem_h3001_cpu_write);
+  map_set_cpu_cyc_cb(map_irem_h3001_cpu_cyc);
+}
+
 bool map_other_load()
 {
   mn_rom rom = mn_rom_get();
@@ -1976,6 +2132,7 @@ bool map_other_load()
     case 18: map_jaleco_ss_load(); break;
     case 19: map_namco_163_load(); break;
     case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
+    case 32: map_irem_g101_load(); break;
     case 67: map_sunsoft3_load(); break;
     case 68: map_sunsoft4_load(); break;
     case 69: map_sunsoft_fme7_load(); break;
@@ -1989,6 +2146,7 @@ bool map_other_load()
     case 33: map_set_cpu_write_cb(map_taito_tc0190_cpu_write); break;
     case 48: map_taito_tc0690_load(); break;
     case 64: map_tengen_rambo1_load(); break;
+    case 65: map_irem_h3001_load(); break;
     case 73: map_vrc3_load(); break;
     case 75: map_vrc1_load(); break;
     case 76: map_namco_3446_load(); break;

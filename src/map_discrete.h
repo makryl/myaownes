@@ -344,6 +344,12 @@ static void map_077_load()
   map_discrete_prg_chr(0x0F, 0, 0, 32, 0xF0, 4, 0, 2, 1);
 }
 
+static void map_irem_tams1_load()
+{
+  map_prg_rom_page_16k(-1, 2);
+  map_discrete_prg_mir(0x1F, 0, 1, 16, 0x80, MAP_MIRROR_HORIZ_VERT, 0);
+}
+
 bool map_discrete_load()
 {
   mn_rom rom = mn_rom_get();
@@ -371,6 +377,7 @@ bool map_discrete_load()
     case 92: map_set_cpu_write_cb(map_jaleco_072_092_cpu_write); break; // Jaleco JF-19, no audio impl
     case 93: map_discrete_prg(0x70, 4, 0, 16, 1); break; // Sunsoft-2
     case 94: map_discrete_prg(0x1C, 2, 0, 16, 1); break; // UxROM
+    case 97: map_irem_tams1_load(); break;
     case 101: map_discrete_common_load(0xE000, 0x6000, 0, 0, 0, 0, 0xFF, 0, 0, 8, 0, 0, 0); break; // CxROM-like
     case 107: map_discrete_prg_chr(0xFE, 1, 0, 32, 0xFF, 0, 0, 8, 0); break; // GxROM-like
     case 113: map_set_cpu_write_cb(map_113_cpu_write); break;

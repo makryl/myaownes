@@ -113,6 +113,11 @@ bool imp_init()
   // test = "no-intro-2025/Games/SD Keiji - Blader (Japan).nes"; // Taito x1-017
   // test = "no-intro-2025/Kyuukyoku Harikiri Stadium III (Japan).nes"; // Taito x1-017
   // test = "no-intro-2025/Games/Kyuukyoku Harikiri Koushien (Japan).nes"; // Taito x1-017
+  // test = "no-intro-2025/Kaiketsu Yanchamaru 2 - Karakuri Land (Japan).nes"; // Irem G-101
+  // test = "no-intro-2025/Major League (Japan).nes"; // Irem G-101 (submapper 1)
+  // test = "no-intro-2025/Kaiketsu Yanchamaru (Japan).nes"; // Irem TAM-S1
+  // test = "no-intro-2025/Games/Daiku no Gen-san 2 - Akage no Dan no Gyakushuu (Japan).nes"; // Irem H3001
+  // test = "no-intro-2025/Kaiketsu Yanchamaru 3 - Taiketsu! Zouringen (Japan).nes"; // Irem H3001
 
   if (test) {
     chdir("../../tmp");
