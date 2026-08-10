@@ -102,6 +102,15 @@ static TestParams tests[] = {
     0,
     { { 0x3235473C, 100, 0, 0 }, { 0x07673647, 50, 0, 0 }, { 0x8233D68A, 20, 0, 1 } } }, //
   { "cpu_timing_test6/cpu_timing_test.nes", MN_REGION_NTSC, 0, { { 0x3751F886, 613, 0, 0 } } }, //
+  { "dma_sync_test_v2/dma_sync_test.nes",
+    MN_REGION_NTSC,
+    0,
+    { { 0x07673647, 20, 0, 0 }, { 0xFCE2DB72, 10, MN_INPUT_RIGHT, 0 } } }, //
+  { "dma_sync_test/dma_sync_test_odd.nes", MN_REGION_NTSC, 0, { { 0xFCE2DB72, 20, 0, 0 } } }, //
+  { "dma_sync_test/dma_sync_test.nes",
+    MN_REGION_NTSC,
+    0,
+    { { 0x07673647, 20, 0, 0 }, { 0xFCE2DB72, 10, MN_INPUT_RIGHT, 0 } } }, //
   { "dmc_dma_during_read4/dma_2007_read.nes", MN_REGION_NTSC, 0, { { 0x8D3CE006, 23, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/dma_2007_write.nes", MN_REGION_NTSC, 0, { { 0x94175082, 28, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/dma_4016_read.nes", MN_REGION_NTSC, 0, { { 0x441C2F34, 16, 0x00, 0 } } }, //

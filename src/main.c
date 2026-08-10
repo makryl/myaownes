@@ -14,13 +14,6 @@ bool imp_init()
   // test = "nes-test-roms/ppu_sprite_hit/rom_singles/09-timing.nes";
   // test = "nes-test-roms/ppu_sprite_overflow/rom_singles/03-timing.nes";
   // test = "nes-test-roms/tvpassfail/tv.nes";
-
-  // test = "nes-test-roms/dma_sync_test/dma_sync_test_odd.nes"; // ??
-  // test = "nes-test-roms/dma_sync_test/dma_sync_test.nes"; // ??
-  // test = "nes-test-roms/dmc_tests/buffer_retained.nes"; // ??
-  // test = "nes-test-roms/dmc_tests/latency.nes"; // ??
-  // test = "nes-test-roms/dmc_tests/status_irq.nes"; // ??
-  // test = "nes-test-roms/dmc_tests/status.nes"; // ??
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";

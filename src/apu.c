@@ -19,6 +19,7 @@ enum : u8
   APU_STATUS_TRIANGLE = (1 << 2),
   APU_STATUS_NOISE = (1 << 3),
   APU_STATUS_DMC = (1 << 4),
+  APU_STATUS_OPENBUS = (1 << 5),
   APU_STATUS_FRAME_IRQ = (1 << 6),
   APU_STATUS_DMC_IRQ = (1 << 7),
 };
@@ -422,7 +423,7 @@ void apu_bus_read(u16 addr, u8* val, bool trace)
         apu.frame_irq = false;
         // apu_trace_dmc("read $%04X=$%02X", addr, status);
       }
-      *val = status;
+      *val = (*val & APU_STATUS_OPENBUS) | status;
     }
   }
 }

@@ -68,7 +68,7 @@ void mn_frame(u8 joy1, u8 joy2)
     cpu_tick();
   } while (vblank_before || !ppu_vblank());
 #if MN_TRACE_BLARGG
-  tracef("\e[2J\e[Hstatus=%02X\n%s\n", *map_prg_ram(), (const char*)map_prg_ram() + 4);
+  tracef("\e[2J\e[Hstatus=%02X\n%s\n", *mn_rom_get()->prg_ram, (const char*)mn_rom_get()->prg_ram + 4);
 #endif
 }
 
