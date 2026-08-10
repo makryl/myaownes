@@ -9,7 +9,7 @@ enum
   APU_FILTER_HP = 10,
   APU_FILTER_LP = 14000,
   APU_FILTER_DITHER = 1,
-  APU_FILTER_DMC = 1,
+  APU_FILTER_DMC = 0, // todo: make optional, nice pop filter, but fails apu_mixer tests
 };
 
 enum : u8
@@ -147,6 +147,7 @@ MN_CACHE_LINE static struct Apu
   uint dmc_out_bit;
   uint dmc_out;
   uint dmc_val;
+  uint dmc_val_pending;
   uint dmc_val_filtered;
   u16 dmc_sample_addr;
   u16 dmc_addr;
@@ -155,6 +156,8 @@ MN_CACHE_LINE static struct Apu
   bool mode5;
   bool frame_irq_disabled;
   bool frame_irq;
+  bool step_env;
+  bool step_len;
 
   bool dmc_enabled;
   bool dmc_irq_enabled;
@@ -162,6 +165,7 @@ MN_CACHE_LINE static struct Apu
   bool dmc_has_buf;
   bool dmc_loop;
   bool dmc_silence;
+  bool dmc_pending;
 
   bool pulse1_enabled;
   bool pulse1_halt;
@@ -227,15 +231,13 @@ static u8 apu_get_status()
   return status;
 }
 
-#if MN_TRACE_APU // todo: keep only apu_trace
+#if MN_TRACE_APU
 #define apu_trace(fmt, ...)                                                                                     \
   tracef("APU phase=%s cpu_cyc=%-10d apu_half_cyc=%-10d status=%02X  " fmt "\n", cpu_cyc() & 1 ? "PUT" : "GET", \
          cpu_cyc(), apu.cyc, apu_get_status() __VA_OPT__(, ) __VA_ARGS__)
-#define apu_trace_dmc(fmt, ...)                                                      \
-  tracef(fmt                                                                         \
-         " | %s | CPU CYC:%10d | APU HALF CYC:%10d | dmc_len:%d | dmc_has_buf:%d | " \
-         "dmc_out_bit:%d\n" __VA_OPT__(, ) __VA_ARGS__,                              \
-         cpu_cyc() & 1 ? "PUT" : "GET", cpu_cyc(), apu.cyc, apu.dmc_len, apu.dmc_has_buf, apu.dmc_out_bit)
+#define apu_trace_dmc(fmt, ...)                                                                                       \
+  apu_trace(fmt " dmc_len=%d dmc_has_buf=%d dmc_out_bit=%d" __VA_OPT__(, ) __VA_ARGS__, apu.dmc_len, apu.dmc_has_buf, \
+            apu.dmc_out_bit)
 #else
 #define apu_trace(fmt, ...) (void)0
 #define apu_trace_dmc(fmt, ...) (void)0
@@ -361,7 +363,7 @@ void apu_power()
   // scale table values to i16 and upscale to << 10, reserving 6 bit for accum sum (~40 samples)
   apu_dyn.pulse_table[0] = 0;
   for (uint i = 1; i < 31; ++i) {
-    double val = 95.52 / (8128.0 / i + 100.0); // 95.88 or 95.52?
+    double val = 95.88 / (8128.0 / i + 100.0);
     apu_dyn.pulse_table[i] = (uint)(val * 32767.0 * 1024.0 + 0.5);
   }
 
@@ -396,6 +398,8 @@ void apu_reset()
   apu.dmc_len = 0;
 
   apu.dmc_val = 0;
+  apu.dmc_val_pending = 0;
+  apu.dmc_pending = false;
 
   apu.pulse1_enabled = false;
   apu.pulse2_enabled = false;
@@ -416,7 +420,7 @@ void apu_bus_read(u16 addr, u8* val, bool trace)
       u8 status = apu_get_status();
       if (!trace) {
         apu.frame_irq = false;
-        // apu_trace_dmc("APU READ $4015=%02X  ", status);
+        // apu_trace_dmc("read $%04X=$%02X", addr, status);
       }
       *val = status;
     }
@@ -425,6 +429,7 @@ void apu_bus_read(u16 addr, u8* val, bool trace)
 
 void apu_bus_write(u16 addr, u8 val)
 {
+  apu_trace("write $%04X=$%02X", addr, val);
   switch (addr & 0x1F) {
     case 0x00:
       apu.pulse1_duty = (val >> 6);
@@ -505,11 +510,13 @@ void apu_bus_write(u16 addr, u8 val)
         apu.dmc_irq = false;
       }
       break;
-    case 0x11: apu.dmc_val = (val & 0x7F); break;
+    case 0x11:
+      apu.dmc_val_pending = (val & 0x7F);
+      apu.dmc_pending = true;
+      break;
     case 0x12: apu.dmc_sample_addr = 0xC000 + (val * 64); break;
     case 0x13: apu.dmc_sample_len = (val * 16) + 1; break;
     case 0x15: {
-      apu_trace_dmc("APU WRITE $4015=%02X ", val);
       apu.pulse1_enabled = (val & APU_STATUS_PULSE1);
       apu.pulse2_enabled = (val & APU_STATUS_PULSE2);
       apu.triangle_enabled = (val & APU_STATUS_TRIANGLE);
@@ -551,7 +558,7 @@ void apu_bus_write(u16 addr, u8 val)
 
 void apu_dmc_dma(u8 val)
 {
-  apu_trace_dmc("APU DMC DMA=%02X     ", val);
+  apu_trace_dmc("dmc_dma=%02X", val);
   apu.dmc_buf = val;
   apu.dmc_has_buf = true;
   apu.dmc_addr = 0x8000 | (apu.dmc_addr + 1);
@@ -619,7 +626,7 @@ static void apu_dmc_tick()
     apu.dmc_timer = apu_dyn.dmc_period_table[apu.dmc_period];
     if (apu.dmc_out_bit == 0) {
       if (apu.dmc_has_buf) {
-        apu_trace_dmc("APU DMC SHIFT=%04X ", apu.dmc_addr);
+        apu_trace_dmc("dmc_out_bit=0 dmc_addr=%04X", apu.dmc_addr);
         apu.dmc_out = apu.dmc_buf;
         apu.dmc_has_buf = false;
         apu.dmc_silence = false;
@@ -628,7 +635,7 @@ static void apu_dmc_tick()
         }
       } else {
         if (!apu.dmc_silence) {
-          apu_trace_dmc("APU DMC SILENCE    ");
+          apu_trace_dmc("dmc_silence");
         }
         apu.dmc_silence = true;
       }
@@ -637,11 +644,13 @@ static void apu_dmc_tick()
     if (!apu.dmc_silence) {
       if (apu.dmc_out & 1) {
         if (apu.dmc_val <= 125) {
-          apu.dmc_val += 2;
+          apu.dmc_val_pending = apu.dmc_val + 2;
+          apu.dmc_pending = true;
         }
       } else {
         if (apu.dmc_val >= 2) {
-          apu.dmc_val -= 2;
+          apu.dmc_val_pending = apu.dmc_val - 2;
+          apu.dmc_pending = true;
         }
       }
     }
@@ -650,9 +659,14 @@ static void apu_dmc_tick()
   }
   --apu.dmc_timer;
 
+  if (apu.dmc_pending) { // conflict 4011 with dmc_timer
+    apu.dmc_val = apu.dmc_val_pending;
+    apu.dmc_pending = false;
+  }
+
   if (apu.dmc_start > 0) {
     if (--apu.dmc_start == 0 && !apu.dmc_has_buf && apu.dmc_len > 0) {
-      apu_trace_dmc("APU DMC START=%04X ", apu.dmc_addr);
+      apu_trace_dmc("dmc_start=0 dmc_addr=%04X ", apu.dmc_addr);
       cpu_dmc(apu.dmc_addr);
     }
   }
@@ -845,14 +859,11 @@ void apu_tick()
   if (apu.cyc_reset > 0) {
     if (--apu.cyc_reset == 0) {
       apu.cyc = 0;
-      if (apu.mode5) {
-        apu_update_len_get();
-        apu_update_len_put();
-      }
+      apu_trace("reset");
     }
   }
 
-  if (apu.cyc & 1) {
+  if (!(apu.cyc & 1)) { // better results with GET phase in apu_mixer/square.nes
     apu_pulse1_tick();
     apu_pulse2_tick();
   }
@@ -862,17 +873,27 @@ void apu_tick()
   apu_mix();
 
   uint last_step = (apu.mode5 ? apu.step5 : apu.step4);
-  if (apu.cyc == apu.step1 + 1 || apu.cyc == apu.step2 + 1 || apu.cyc == apu.step3 + 1 || apu.cyc == last_step + 1) {
+  if (apu.step_env) {
+    apu.step_env = false;
     apu_update_env();
-    apu_trace("env");
+    apu_trace("env pulse1_decay=%d pulse2_decay=%d triangle_linear=%d noise_decay=%d", apu.pulse1_env_decay,
+              apu.pulse2_env_decay, apu.triangle_linear_val, apu.noise_env_decay);
+  } else if (apu.cyc == apu.step1 || apu.cyc == apu.step2 || apu.cyc == apu.step3 || apu.cyc == last_step
+             || (apu.mode5 && apu.cyc_reset == 2))
+  {
+    apu.step_env = true;
   }
-  if (apu.cyc == apu.step2 || apu.cyc == last_step) {
+
+  if (apu.step_len) {
+    apu.step_len = false;
+    apu_update_len_put();
+    apu_trace("len pulse1_len=%d pulse2_len=%d triangle_len=%d noise_len=%d", apu.pulse1_len, apu.pulse2_len,
+              apu.triangle_len, apu.noise_len);
+  } else if (apu.cyc == apu.step2 || apu.cyc == last_step || (apu.mode5 && apu.cyc_reset == 2)) {
+    apu.step_len = true;
     apu_update_len_get();
   }
-  if (apu.cyc == apu.step2 + 1 || apu.cyc == last_step + 1) {
-    apu_update_len_put();
-    apu_trace("len");
-  }
+
   if (apu.cyc == last_step || apu.cyc == last_step + 1 || apu.cyc == last_step + 2) {
     if (!apu.mode5) {
       apu.frame_irq = true;

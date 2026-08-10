@@ -14,17 +14,13 @@ bool imp_init()
   // test = "nes-test-roms/ppu_sprite_hit/rom_singles/09-timing.nes";
   // test = "nes-test-roms/ppu_sprite_overflow/rom_singles/03-timing.nes";
   // test = "nes-test-roms/tvpassfail/tv.nes";
-  // test = "nes-test-roms/apu_mixer/square.nes";
-  // test = "nes-test-roms/apu_mixer/triangle.nes";
-  // test = "nes-test-roms/apu_mixer/noise.nes";
-  // test = "nes-test-roms/apu_mixer/dmc.nes";
-  // test = "nes-test-roms/dma_sync_test/dma_sync_test_odd.nes";
-  // test = "nes-test-roms/dma_sync_test/dma_sync_test.nes";
-  // test = "nes-test-roms/dmc_tests/buffer_retained.nes";
-  // test = "nes-test-roms/dmc_tests/latency.nes";
-  // test = "nes-test-roms/dmc_tests/status_irq.nes";
-  // test = "nes-test-roms/dmc_tests/status.nes";
-  // test = "nes-test-roms/volume_tests/volumes.nes";
+
+  // test = "nes-test-roms/dma_sync_test/dma_sync_test_odd.nes"; // ??
+  // test = "nes-test-roms/dma_sync_test/dma_sync_test.nes"; // ??
+  // test = "nes-test-roms/dmc_tests/buffer_retained.nes"; // ??
+  // test = "nes-test-roms/dmc_tests/latency.nes"; // ??
+  // test = "nes-test-roms/dmc_tests/status_irq.nes"; // ??
+  // test = "nes-test-roms/dmc_tests/status.nes"; // ??
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
@@ -119,7 +115,7 @@ bool imp_init()
   // test = "no-intro-2025/Games/Daiku no Gen-san 2 - Akage no Dan no Gyakushuu (Japan).nes"; // Irem H3001
   // test = "no-intro-2025/Kaiketsu Yanchamaru 3 - Taiketsu! Zouringen (Japan).nes"; // Irem H3001
   // test = "no-intro-2025/Moero!! Pro Yakyuu (Japan) (Rev 3).nes"; // Jaleco JF-13
-  test = "no-intro-2025/Games/Dragon Ball Z 5 (Taiwan) (En,Zh-Hant) (Pirate).nes"; // MMC3A Huang-1
+  // test = "no-intro-2025/Games/Dragon Ball Z 5 (Taiwan) (En,Zh-Hant) (Pirate).nes"; // MMC3A Huang-1
 
   if (test) {
     chdir("../../tmp");
