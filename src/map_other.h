@@ -155,45 +155,36 @@ typedef struct
 } map_sunsoft4;
 static_assert(sizeof(map_sunsoft4) <= MAP_REG_SIZE);
 
-static void map_sunsoft4_nt_page(uint sp, uint dp)
-{
-  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
-  if (reg->ctrl & 0x10) {
-    map_chr_page_1k(reg->nt[sp], dp);
-    map_chr_page_1k(reg->nt[sp], dp + 4);
-  } else {
-    map_ciram_page(sp, dp);
-    map_ciram_page(sp, dp + 4);
-  }
-}
-
 static void map_sunsoft4_nt_update()
 {
   map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  bool use_chr = (reg->ctrl & 0x10);
+  uint sp0 = use_chr ? reg->nt[0] : 0;
+  uint sp1 = use_chr ? reg->nt[1] : 1;
   switch (reg->ctrl & 3) {
     case 0:
-      map_sunsoft4_nt_page(0, 0x8);
-      map_sunsoft4_nt_page(1, 0x9);
-      map_sunsoft4_nt_page(0, 0xA);
-      map_sunsoft4_nt_page(1, 0xB);
+      map_nt_page(sp0, 0x8, use_chr);
+      map_nt_page(sp1, 0x9, use_chr);
+      map_nt_page(sp0, 0xA, use_chr);
+      map_nt_page(sp1, 0xB, use_chr);
       break;
     case 1:
-      map_sunsoft4_nt_page(0, 0x8);
-      map_sunsoft4_nt_page(0, 0x9);
-      map_sunsoft4_nt_page(1, 0xA);
-      map_sunsoft4_nt_page(1, 0xB);
+      map_nt_page(sp0, 0x8, use_chr);
+      map_nt_page(sp0, 0x9, use_chr);
+      map_nt_page(sp1, 0xA, use_chr);
+      map_nt_page(sp1, 0xB, use_chr);
       break;
     case 2:
-      map_sunsoft4_nt_page(0, 0x8);
-      map_sunsoft4_nt_page(0, 0x9);
-      map_sunsoft4_nt_page(0, 0xA);
-      map_sunsoft4_nt_page(0, 0xB);
+      map_nt_page(sp0, 0x8, use_chr);
+      map_nt_page(sp0, 0x9, use_chr);
+      map_nt_page(sp0, 0xA, use_chr);
+      map_nt_page(sp0, 0xB, use_chr);
       break;
     case 3:
-      map_sunsoft4_nt_page(1, 0x8);
-      map_sunsoft4_nt_page(1, 0x9);
-      map_sunsoft4_nt_page(1, 0xA);
-      map_sunsoft4_nt_page(1, 0xB);
+      map_nt_page(sp1, 0x8, use_chr);
+      map_nt_page(sp1, 0x9, use_chr);
+      map_nt_page(sp1, 0xA, use_chr);
+      map_nt_page(sp1, 0xB, use_chr);
       break;
   }
 }
@@ -761,21 +752,127 @@ static void map_vrc6_update()
   map_prg_rom_page_16k(reg->prg0, 2);
   map_prg_rom_page_8k(reg->prg1, 6);
 
-  // simplified W.PN MMDD -> W.10 MM00
-  map_chr_page_1k(reg->chr[0], 0);
-  map_chr_page_1k(reg->chr[1], 1);
-  map_chr_page_1k(reg->chr[2], 2);
-  map_chr_page_1k(reg->chr[3], 3);
-  map_chr_page_1k(reg->chr[4], 4);
-  map_chr_page_1k(reg->chr[5], 5);
-  map_chr_page_1k(reg->chr[6], 6);
-  map_chr_page_1k(reg->chr[7], 7);
+  switch (reg->ctrl & 3) {
+    case 0:
+      map_chr_page_1k(reg->chr[0], 0);
+      map_chr_page_1k(reg->chr[1], 1);
+      map_chr_page_1k(reg->chr[2], 2);
+      map_chr_page_1k(reg->chr[3], 3);
+      map_chr_page_1k(reg->chr[4], 4);
+      map_chr_page_1k(reg->chr[5], 5);
+      map_chr_page_1k(reg->chr[6], 6);
+      map_chr_page_1k(reg->chr[7], 7);
+      break;
+    case 1:
+      if (reg->ctrl & 0x20) {
+        map_chr_page_2k(reg->chr[0] >> 1, 0);
+        map_chr_page_2k(reg->chr[1] >> 1, 1);
+        map_chr_page_2k(reg->chr[2] >> 1, 2);
+        map_chr_page_2k(reg->chr[3] >> 1, 3);
+      } else {
+        map_chr_page_1k(reg->chr[0], 0);
+        map_chr_page_1k(reg->chr[0], 1);
+        map_chr_page_1k(reg->chr[1], 2);
+        map_chr_page_1k(reg->chr[1], 3);
+        map_chr_page_1k(reg->chr[2], 4);
+        map_chr_page_1k(reg->chr[2], 5);
+        map_chr_page_1k(reg->chr[3], 6);
+        map_chr_page_1k(reg->chr[3], 7);
+      }
+      break;
+    case 2:
+    case 3:
+      map_chr_page_1k(reg->chr[0], 0);
+      map_chr_page_1k(reg->chr[1], 1);
+      map_chr_page_1k(reg->chr[2], 2);
+      map_chr_page_1k(reg->chr[3], 3);
+      if (reg->ctrl & 0x20) {
+        map_chr_page_2k(reg->chr[4] >> 1, 2);
+        map_chr_page_2k(reg->chr[5] >> 1, 3);
+      } else {
+        map_chr_page_1k(reg->chr[4], 4);
+        map_chr_page_1k(reg->chr[4], 5);
+        map_chr_page_1k(reg->chr[5], 6);
+        map_chr_page_1k(reg->chr[5], 7);
+      }
+      break;
+  }
 
-  switch ((reg->ctrl >> 2) & 3) {
-    case 0: map_ciram_vert_mirror(); break;
-    case 1: map_ciram_horiz_mirror(); break;
-    case 2: map_ciram_single_low(); break;
-    case 3: map_ciram_single_high(); break;
+  uint nt4 = reg->chr[4];
+  uint nt5 = reg->chr[5];
+  uint nt6 = reg->chr[6];
+  uint nt7 = reg->chr[7];
+  uint nt60 = (nt6 & 0xFE) | 0;
+  uint nt61 = (nt6 & 0xFE) | 1;
+  uint nt70 = (nt7 & 0xFE) | 0;
+  uint nt71 = (nt7 & 0xFE) | 1;
+  bool use_chr = (reg->ctrl & 0x10);
+  if (!use_chr) {
+    nt4 &= 1;
+    nt5 &= 1;
+    nt6 &= 1;
+    nt7 &= 1;
+    nt60 &= 1;
+    nt61 &= 1;
+    nt70 &= 1;
+    nt71 &= 1;
+  }
+
+  switch (reg->ctrl & 0x2F) {
+    case 0x20:
+    case 0x27:
+      map_nt_page(nt60, 0x8, use_chr);
+      map_nt_page(nt61, 0x9, use_chr);
+      map_nt_page(nt70, 0xA, use_chr);
+      map_nt_page(nt71, 0xB, use_chr);
+      break;
+    case 0x23:
+    case 0x24:
+      map_nt_page(nt60, 0x8, use_chr);
+      map_nt_page(nt70, 0x9, use_chr);
+      map_nt_page(nt61, 0xA, use_chr);
+      map_nt_page(nt71, 0xB, use_chr);
+      break;
+    case 0x28:
+    case 0x2F:
+      map_nt_page(nt60, 0x8, use_chr);
+      map_nt_page(nt60, 0x9, use_chr);
+      map_nt_page(nt70, 0xA, use_chr);
+      map_nt_page(nt70, 0xB, use_chr);
+      break;
+    case 0x2B:
+    case 0x2C:
+      map_nt_page(nt61, 0x8, use_chr);
+      map_nt_page(nt71, 0x9, use_chr);
+      map_nt_page(nt61, 0xA, use_chr);
+      map_nt_page(nt71, 0xB, use_chr);
+      break;
+    default:
+      switch (reg->ctrl & 7) {
+        case 0:
+        case 6:
+        case 7:
+          map_nt_page(nt6, 0x8, use_chr);
+          map_nt_page(nt6, 0x9, use_chr);
+          map_nt_page(nt7, 0xA, use_chr);
+          map_nt_page(nt7, 0xB, use_chr);
+          break;
+        case 1:
+        case 5:
+          map_nt_page(nt4, 0x8, use_chr);
+          map_nt_page(nt5, 0x9, use_chr);
+          map_nt_page(nt6, 0xA, use_chr);
+          map_nt_page(nt7, 0xB, use_chr);
+          break;
+        case 2:
+        case 3:
+        case 4:
+          map_nt_page(nt6, 0x8, use_chr);
+          map_nt_page(nt7, 0x9, use_chr);
+          map_nt_page(nt6, 0xA, use_chr);
+          map_nt_page(nt7, 0xB, use_chr);
+          break;
+      }
   }
 }
 
@@ -793,11 +890,24 @@ static bool map_vrc6_cpu_write(u16 addr, u8 val)
     case 0x8001:
     case 0x8002:
     case 0x8003: reg->prg0 = (val & 0x0F); break;
+    case 0x9000:
+    case 0x9001:
+    case 0x9002:
+    case 0x9003:
+    case 0xA000:
+    case 0xA001:
+    case 0xA002:
+    case 0xA003:
+    case 0xB000:
+    case 0xB001:
+    case 0xB002:
+      // todo: audio
+      break;
+    case 0xB003: reg->ctrl = val; break;
     case 0xC000:
     case 0xC001:
     case 0xC002:
     case 0xC003: reg->prg1 = (val & 0x1F); break;
-    case 0xB003: reg->ctrl = val; break;
     case 0xD000:
     case 0xD001:
     case 0xD002:
@@ -809,13 +919,6 @@ static bool map_vrc6_cpu_write(u16 addr, u8 val)
     case 0xF000: reg->irq.latch = val; break;
     case 0xF001: map_vrc_irq_ctrl(val); break;
     case 0xF002: map_vrc_irq_ack(); break;
-    case 0x9000:
-    case 0xA000:
-    case 0xB000:
-    case 0xB001:
-    case 0xB002:
-      // todo: audio
-      break;
   }
   map_vrc6_update();
   return true;
@@ -1020,21 +1123,17 @@ static void map_namco_163_chr_update()
     }
   } else {
     for (uint i = 0; i < 12; ++i) {
-      bool use_nt = false;
+      bool use_ciram = false;
       if (reg->chr[i] >= 0xE0) {
         if (i < 4) {
-          use_nt = !(reg->ctrl & 0x40);
+          use_ciram = !(reg->ctrl & 0x40);
         } else if (i < 8) {
-          use_nt = !(reg->ctrl & 0x80);
+          use_ciram = !(reg->ctrl & 0x80);
         } else {
-          use_nt = true;
+          use_ciram = true;
         }
       }
-      if (use_nt) {
-        map_ciram_page(reg->chr[i] & 1, i);
-      } else {
-        map_chr_page_1k(reg->chr[i], i);
-      }
+      map_nt_page(use_ciram ? (reg->chr[i] & 1) : reg->chr[i], i, !use_ciram);
     }
   }
 }
@@ -2125,6 +2224,15 @@ static void map_irem_h3001_load()
   map_set_cpu_cyc_cb(map_irem_h3001_cpu_cyc);
 }
 
+static bool map_homebrew_nsf_subset_cpu_write(u16 addr, u8 val)
+{
+  if ((addr & 0xF000) == 0x5000) {
+    map_prg_rom_page_4k(val, 8 + (addr & 7));
+    return true;
+  }
+  return false;
+}
+
 bool map_other_load()
 {
   mn_rom rom = mn_rom_get();
@@ -2140,6 +2248,7 @@ bool map_other_load()
     case 24: map_vrc6a_load(); break;
     case 26: map_vrc6b_load(); break;
     case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
+    case 31: map_set_cpu_write_cb(map_homebrew_nsf_subset_cpu_write); break;
     case 32: map_irem_g101_load(); break;
     case 33: map_set_cpu_write_cb(map_taito_tc0190_cpu_write); break;
     case 48: map_taito_tc0690_load(); break;

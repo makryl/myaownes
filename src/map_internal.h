@@ -36,6 +36,7 @@ void map_prg_rom_page(uint sp, uint dp, uint shift);
 void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly);
 void map_chr_page(uint sp, uint dp, uint shift);
 
+void map_nt_page(uint sp, uint dp, bool use_chr);
 void map_ciram_page(uint sp, uint dp);
 void map_ciram_single_low();
 void map_ciram_single_high();

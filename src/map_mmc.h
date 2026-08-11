@@ -10,6 +10,8 @@ typedef struct
   u8 prg;
   u8 shift;
   u8 delay;
+  u8 no_prg;
+  u8 mmc1a;
 } map_mmc1;
 static_assert(sizeof(map_mmc1) <= MAP_REG_SIZE);
 
@@ -34,7 +36,14 @@ static void map_mmc1_update()
 
   bool szrom = (rom->prg_ram_size == 16 * 1024 && (rom->chr_rom_size >= 16 * 1024 || rom->chr_ram_size >= 16 * 1024));
 
-  if (snrom) {
+  if (reg->mmc1a) {
+    if (reg->prg & 0x10) {
+      prg_sup0 |= (prg_page & 0x08);
+      prg_sup1 |= (prg_page & 0x08);
+      prg_page &= 7;
+      prg_last &= 7;
+    }
+  } else if (snrom) {
     prg_ram_disabled = (chr_page0 & 0x10);
   } else {
     prg_ram_disabled = (reg->prg & 0x10);
@@ -49,8 +58,8 @@ static void map_mmc1_update()
   }
 
   if (rom->prg_rom_size == 512 * 1024) {
-    prg_sup0 = chr_page0 & 0x10;
-    prg_sup1 = chr_page1 & 0x10;
+    prg_sup0 |= chr_page0 & 0x10;
+    prg_sup1 |= chr_page1 & 0x10;
   }
 
   if (!rom->alt_mirror) {
@@ -75,17 +84,19 @@ static void map_mmc1_update()
     map_chr_page_8k(chr_page0 >> 1, 0);
   }
 
-  switch (ctrl_prg) {
-    case 0:
-    case 1: map_prg_rom_page_32k((prg_sup0 | prg_page) >> 1, 1); break;
-    case 2:
-      map_prg_rom_page_16k(prg_sup0, 2);
-      map_prg_rom_page_16k((prg_sup1 | prg_page), 3);
-      break;
-    case 3:
-      map_prg_rom_page_16k(prg_sup0 | prg_page, 2);
-      map_prg_rom_page_16k(prg_sup1 | prg_last, 3);
-      break;
+  if (!reg->no_prg) {
+    switch (ctrl_prg) {
+      case 0:
+      case 1: map_prg_rom_page_32k((prg_sup0 | prg_page) >> 1, 1); break;
+      case 2:
+        map_prg_rom_page_16k(prg_sup0, 2);
+        map_prg_rom_page_16k((prg_sup1 | prg_page), 3);
+        break;
+      case 3:
+        map_prg_rom_page_16k(prg_sup0 | prg_page, 2);
+        map_prg_rom_page_16k(prg_sup1 | prg_last, 3);
+        break;
+    }
   }
 }
 
@@ -128,6 +139,8 @@ static void map_mmc1_cpu_cyc()
 static void map_mmc1_load(bool init)
 {
   map_mmc1* reg = (map_mmc1*)map_reg();
+  mn_rom rom = mn_rom_get();
+  reg->no_prg = (rom->submapper == 5);
   map_set_cpu_write_cb(map_mmc1_cpu_write);
   map_set_cpu_cyc_cb(map_mmc1_cpu_cyc);
   if (init) {
@@ -140,7 +153,12 @@ static void map_mmc1_load(bool init)
   map_mmc1_update();
 }
 
-static void map_mmc1a_load(bool init) { map_mmc1_load(init); }
+static void map_mmc1a_load(bool init)
+{
+  map_mmc1* reg = (map_mmc1*)map_reg();
+  reg->mmc1a = true;
+  map_mmc1_load(init);
+}
 
 typedef struct
 {

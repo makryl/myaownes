@@ -38,6 +38,24 @@ typedef struct
 } TestParams;
 
 static TestParams tests[] = {
+  { "2_test_src/2_test_0.nes", MN_REGION_NTSC, 0, { { 0x017D7F4C, 46, 0x00, 0 } } }, //
+  { "2_test_src/2_test_1.nes", MN_REGION_NTSC, 0, { { 0x4A859513, 46, 0x00, 0 } } }, //
+  { "2_test_src/2_test_2.nes", MN_REGION_NTSC, 0, { { 0x017D7F4C, 46, 0x00, 0 } } }, //
+  { "3_test_src/3_test_0.nes", MN_REGION_NTSC, 0, { { 0x414DEEF5, 44, 0x00, 0 } } }, //
+  { "3_test_src/3_test_1.nes", MN_REGION_NTSC, 0, { { 0x3D7DCD16, 44, 0x00, 0 } } }, //
+  { "3_test_src/3_test_2.nes", MN_REGION_NTSC, 0, { { 0x414DEEF5, 44, 0x00, 0 } } }, //
+  { "7_test_src/7_test_0.nes", MN_REGION_NTSC, 0, { { 0x31643FF1, 46, 0x00, 0 } } }, //
+  { "7_test_src/7_test_1.nes", MN_REGION_NTSC, 0, { { 0x31643FF1, 46, 0x00, 0 } } }, //
+  { "7_test_src/7_test_2.nes", MN_REGION_NTSC, 0, { { 0x417AB4E6, 46, 0x00, 0 } } }, //
+  { "31_test_roms/31_test_16.nes", MN_REGION_NTSC, 0, { { 0x76940301, 116, 0x00, 0 } } }, //
+  { "31_test_roms/31_test_32.nes", MN_REGION_NTSC, 0, { { 0x8828FA76, 116, 0x00, 0 } } }, //
+  { "31_test_roms/31_test_64.nes", MN_REGION_NTSC, 0, { { 0x4B58E3E6, 116, 0x00, 0 } } }, //
+  { "31_test_roms/31_test_128.nes", MN_REGION_NTSC, 0, { { 0x8853D728, 116, 0x00, 0 } } }, //
+  { "31_test_roms/31_test_256.nes", MN_REGION_NTSC, 0, { { 0xC46DF783, 116, 0x00, 0 } } }, //
+  { "31_test_roms/31_test_512.nes", MN_REGION_NTSC, 0, { { 0x58DE4C5F, 116, 0x00, 0 } } }, //
+  { "31_test_roms/31_test_1024.nes", MN_REGION_NTSC, 0, { { 0xCB66CDDB, 116, 0x00, 0 } } }, //
+  { "34_test_src/34_test_1.nes", MN_REGION_NTSC, 0, { { 0xFCDB7FD7, 54, 0x00, 0 } } }, //
+  { "34_test_src/34_test_2.nes", MN_REGION_NTSC, 0, { { 0xA01A3864, 58, 0x00, 0 } } }, //
   { "apu_mixer/dmc.nes", MN_REGION_NTSC, 1, { { 0x7EB27F53, 900, 0, 0 } } }, //
   { "apu_mixer/noise.nes", MN_REGION_NTSC, 1, { { 0x51E28623, 1400, 0, 0 } } }, //
   { "apu_mixer/square.nes", MN_REGION_NTSC, 1, { { 0x16336B17, 1200, 0, 0 } } }, //
@@ -78,9 +96,13 @@ static TestParams tests[] = {
   { "blargg_ppu_tests_2005.09.15b/sprite_ram.nes", MN_REGION_NTSC, 0, { { 0x2886AFFC, 18, 0x00, 0 } } }, //
   { "blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes", MN_REGION_NTSC, 0, { { 0x2886AFFC, 23, 0x00, 0 } } }, //
   { "blargg_ppu_tests_2005.09.15b/vram_access.nes", MN_REGION_NTSC, 0, { { 0x2886AFFC, 18, 0x00, 0 } } }, //
+  { "bntest/bntest_aorom.nes", MN_REGION_NTSC, 0, { { 0x2904F001, 10, 0x00, 0 } } }, //
+  { "bntest/bntest_h.nes", MN_REGION_NTSC, 0, { { 0x3B40E181, 10, 0x00, 0 } } }, //
+  { "bntest/bntest_v.nes", MN_REGION_NTSC, 0, { { 0x13DACC05, 10, 0x00, 0 } } }, //
   { "branch_timing_tests/1.Branch_Basics.nes", MN_REGION_NTSC, 0, { { 0xB6A4872B, 13, 0x00, 0 } } }, //
   { "branch_timing_tests/2.Backward_Branch.nes", MN_REGION_NTSC, 0, { { 0x36D590FE, 15, 0x00, 0 } } }, //
   { "branch_timing_tests/3.Forward_Branch.nes", MN_REGION_NTSC, 0, { { 0x6D0B3B45, 15, 0x00, 0 } } }, //
+  { "bxrom_512k_test_src/bxrom_512k_test.nes", MN_REGION_NTSC, 0, { { 0x3B545602, 457, 0x00, 0 } } }, //
   { "cpu_dummy_reads/cpu_dummy_reads.nes", MN_REGION_NTSC, 0, { { 0xA942A3CF, 47, 0x00, 0 } } }, //
   { "cpu_dummy_writes/cpu_dummy_writes_oam.nes", MN_REGION_NTSC, 0, { { 0x5A174153, 331, 0x00, 0 } } }, //
   { "cpu_dummy_writes/cpu_dummy_writes_ppumem.nes", MN_REGION_NTSC, 0, { { 0xB9CCCCC0, 236, 0x00, 0 } } }, //
@@ -121,6 +143,8 @@ static TestParams tests[] = {
     MN_REGION_NTSC,
     0,
     { { 0x4C78B1D5, 10, 0x00, 0 }, { 0x649F38C9, 216, 0xA0, 0 } } }, //
+  { "fme7acktest-r1/fme7acktest.nes", MN_REGION_NTSC, 0, { { 0xD9408008, 16, 0x00, 0 } } }, //
+  { "fme7ramtest-r1/fme7ramtest.nes", MN_REGION_NTSC, 0, { { 0x20F7E45B, 13, 0x00, 0 } } }, //
   { "full_palette/flowing_palette.nes", MN_REGION_NTSC, 0, { { 0xA23B43F2, 30, 0, 0 } } }, //
   { "full_palette/full_palette_smooth.nes", MN_REGION_NTSC, 0, { { 0xB9E4C8FC, 30, 0, 0 } } }, //
   { "full_palette/full_palette.nes", MN_REGION_NTSC, 0, { { 0xA6FC042E, 30, 0, 0 } } }, //
@@ -208,6 +232,8 @@ static TestParams tests[] = {
   { "instr_timing/rom_singles/2-branch_timing.nes", MN_REGION_NTSC, 0, { { 0xB8E3CDB8, 140, 0x00, 0 } } }, //
   { "instr_timing/instr_timing.nes", MN_REGION_NTSC, 0, { { 0x6F1BAA40, 1302, 0, 0 } } }, //
   { "MMC1_A12/mmc1_a12.nes", MN_REGION_NTSC, 0, { { 0xD19AE5E0, 27, 0x00, 0 } } }, //
+  { "mmc1atest-0.01/mmc1atest-sn.nes", MN_REGION_NTSC, 0, { { 0x34AB9BFB, 5, 0x00, 0 } } }, //
+  { "mmc1atest-0.01/mmc1atest.nes", MN_REGION_NTSC, 0, { { 0x34AB9BFB, 5, 0x00, 0 } } }, //
   { "mmc3_irq_tests/1.Clocking.nes", MN_REGION_NTSC, 0, { { 0xB732D83F, 18, 0x00, 0 } } }, //
   { "mmc3_irq_tests/2.Details.nes", MN_REGION_NTSC, 0, { { 0x3E64BDBE, 23, 0x00, 0 } } }, //
   { "mmc3_irq_tests/3.A12_clocking.nes", MN_REGION_NTSC, 0, { { 0x9A45FD7C, 18, 0x00, 0 } } }, //
@@ -226,6 +252,10 @@ static TestParams tests[] = {
   { "mmc3_test_2/rom_singles/4-scanline_timing.nes", MN_REGION_NTSC, 0, { { 0xF6D14A7E, 319, 0x00, 0 } } }, //
   { "mmc3_test_2/rom_singles/5-MMC3.nes", MN_REGION_NTSC, 0, { { 0xFAF35560, 25, 0x00, 0 } } }, //
   { "mmc3_test_2/rom_singles/6-MMC3_alt_m12.nes", MN_REGION_NTSC, 0, { { 0x09093FB9, 24, 0x00, 0 } } }, //
+  { "mmc3bigchrram-0.01/mmc3bigchrram.nes",
+    MN_REGION_NTSC,
+    0,
+    { { 0xF54230B4, 10, 0x00, 0 }, { 0, 70, MN_INPUT_START, 0 } } }, //
   // { "mmc5test_v2/mmc5test.nes", MN_REGION_NTSC, 0, {} }, // todo
   { "nes_instr_test/rom_singles/01-implied.nes", MN_REGION_NTSC, 0, { { 0x0F76F905, 63, 0x00, 0 } } }, //
   { "nes_instr_test/rom_singles/02-immediate.nes", MN_REGION_NTSC, 0, { { 0x60452B1E, 57, 0x00, 0 } } }, //
@@ -250,6 +280,7 @@ static TestParams tests[] = {
   { "oam_stress/oam_stress.nes", MN_REGION_NTSC, 0, { { 0x596023FD, 1703, 0x00, 0 } } }, //
   { "oamtest3/oam3.nes", MN_REGION_NTSC, 0, { { 0xA87189F4, 10, 0x00, 0 } } }, //
   { "other/midscanline.nes", MN_REGION_NTSC, 0, { { 0x80BE54D6, 20, 0x00, 0 } } }, //
+  { "other/mmc3irqtest.nes", MN_REGION_NTSC, 0, { { 0x14A7B673, 20, 0x00, 0 } } }, //
   { "other/nestest.nes",
     MN_REGION_NTSC,
     0,
@@ -324,6 +355,7 @@ static TestParams tests[] = {
   { "scanline/scanline.nes", MN_REGION_NTSC, 0, { { 0x629D1349, 80, 0, 0 } } }, // area1 flickering pixels after line
   { "scanline-a1/scanline.nes", MN_REGION_NTSC, 0, { { 0x629D1349, 80, 0, 0 } } }, // same as above
   { "scrolltest/scroll.nes", MN_REGION_NTSC, 0, { { 0x95F078BC, 7, 0, 0 }, { 0xF0427789, 60, 0xA0, 0 } } }, //
+  { "serom/serom.nes", MN_REGION_NTSC, 0, { { 0x6C5F9EDD, 10, 0x00, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes", MN_REGION_NTSC, 0, { { 0xF4998922, 139, 0x00, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes", MN_REGION_NTSC, 0, { { 0x42149129, 143, 0x00, 0 } } }, //
   { "sprite_hit_tests_2005.10.05/01.basics.nes", MN_REGION_NTSC, 0, { { 0xAC38F2AD, 33, 0x00, 0 } } }, //
@@ -365,6 +397,14 @@ static TestParams tests[] = {
   { "test_apu_timers/square_pitch.nes", MN_REGION_NTSC, 1, { { 0x1BEBE1DD, 200, 0, 0 } } }, //
   { "test_apu_timers/triangle_pitch.nes", MN_REGION_NTSC, 1, { { 0x89E6DFA9, 200, 0, 0 } } }, //
   { "test_tri_lin_ctr/lin_ctr.nes", MN_REGION_NTSC, 1, { { 0xEA763048, 600, 0, 0 } } }, //
+  { "test28-0.04/test28-8Mbit.nes",
+    MN_REGION_NTSC,
+    0,
+    { { 0xF1D3104A, 10, 0x00, 0 }, { 0x28BF334B, 2100, MN_INPUT_START, 0 }, { 0xE87350E8, 10, 0, 1 } } }, //
+  { "test28-0.04/test28.nes",
+    MN_REGION_NTSC,
+    0,
+    { { 0xF1D3104A, 10, 0x00, 0 }, { 0xE4FDA8DC, 1100, MN_INPUT_START, 0 }, { 0xE87350E8, 10, 0, 1 } } }, //
   { "vbl_nmi_timing/1.frame_basics.nes", MN_REGION_NTSC, 0, { { 0x509B862D, 176, 0x00, 0 } } }, //
   { "vbl_nmi_timing/2.vbl_timing.nes", MN_REGION_NTSC, 0, { { 0xACDD6906, 154, 0x00, 0 } } }, //
   { "vbl_nmi_timing/3.even_odd_frames.nes", MN_REGION_NTSC, 0, { { 0xF2D9B6C9, 99, 0x00, 0 } } }, //
@@ -373,6 +413,8 @@ static TestParams tests[] = {
   { "vbl_nmi_timing/6.nmi_disable.nes", MN_REGION_NTSC, 0, { { 0xFD58C6AA, 109, 0x00, 0 } } }, //
   { "vbl_nmi_timing/7.nmi_timing.nes", MN_REGION_NTSC, 0, { { 0xE5553CE0, 109, 0x00, 0 } } }, //
   { "volume_tests/volumes.nes", MN_REGION_NTSC, 1, { { 0x77C017BD, 10, 0, 0 }, { 0x645F6B2B, 1000, 1, 0 } } }, //
+  { "vrc6test/vrc6test24.nes", MN_REGION_NTSC, 0, { { 0xB164284C, 540, 0x00, 0 } } }, //
+  { "vrc6test/vrc6test26.nes", MN_REGION_NTSC, 0, { { 0xB164284C, 540, 0x00, 0 } } }, //
   { "vrctest/vrctest21s0.nes", MN_REGION_NTSC, 0, { { 0x579C0323, 5, 0x00, 0 } } }, //
   { "vrctest/vrctest21s1.nes", MN_REGION_NTSC, 0, { { 0x24AFA780, 5, 0x00, 0 } } }, //
   { "vrctest/vrctest21s2.nes", MN_REGION_NTSC, 0, { { 0x3AB4BA0C, 5, 0x00, 0 } } }, //
@@ -584,12 +626,12 @@ static bool run_test(TestParams params)
     params.steps[0].frames = frames_pass;
     run_test_steps(params, 0);
 
-    printf("  { \"%s\", %s, { { 0x%08X, %d, 0x%02X, %d } } }, //\n", params.path,
+    printf("  { \"%s\", %s, %d, { { 0x%08X, %d, 0x%02X, %d } } }, //\n", params.path,
            params.region == MN_REGION_NTSC    ? "MN_REGION_NTSC"
            : params.region == MN_REGION_PAL   ? "MN_REGION_PAL"
            : params.region == MN_REGION_DENDY ? "MN_REGION_DENDY"
                                               : "MN_REGION_AUTO",
-           params.steps[0].hash, params.steps[0].frames, params.steps[0].joy1, params.steps[0].reset);
+           params.audio, params.steps[0].hash, params.steps[0].frames, params.steps[0].joy1, params.steps[0].reset);
   } else {
     uint hash = 0;
     result = run_test_steps(params, &hash);

@@ -283,6 +283,16 @@ void map_chr_page_2k(uint sp, uint dp) { map_chr_page(sp, dp, 1); }
 void map_chr_page_4k(uint sp, uint dp) { map_chr_page(sp, dp, 2); }
 void map_chr_page_8k(uint sp, uint dp) { map_chr_page(sp, dp, 3); }
 
+void map_nt_page(uint sp, uint dp, bool use_chr)
+{
+  if (use_chr) {
+    map_chr_page_1k(sp, dp);
+    map_chr_page_1k(sp, dp + 4);
+  } else {
+    map_ciram_page(sp, dp);
+  }
+}
+
 void map_ciram_page(uint sp, uint dp)
 {
   u8* src = map.ciram + sp * MAP_PAGE_SIZE;
