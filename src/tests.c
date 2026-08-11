@@ -69,7 +69,7 @@ static TestParams tests[] = {
     { { 0x03085F30, 20, 0, 0 }, { 0x8BECFD90, 20, 0, 1 }, { 0x2421E3A9, 20, 0, 1 } } }, //
   { "apu_reset/irq_flag_cleared.nes", MN_REGION_NTSC, 0, { { 0x03085F30, 20, 0, 0 }, { 0x6157F5A6, 20, 0, 1 } } }, //
   { "apu_reset/len_ctrs_enabled.nes", MN_REGION_NTSC, 0, { { 0x03085F30, 20, 0, 0 }, { 0xB62FEAE3, 20, 0, 1 } } }, //
-  { "apu_reset/works_immediately.nes", MN_REGION_NTSC, 0, { { 0x03085F30, 20, 0, 0 }, { 0x0000839C, 20, 0, 1 } } }, //
+  { "apu_reset/works_immediately.nes", MN_REGION_NTSC, 0, { { 0x03085F30, 20, 0, 0 }, { 0x0000839C, 20, 0, 1 } } },
   { "apu_test/rom_singles/1-len_ctr.nes", MN_REGION_NTSC, 0, { { 0x8E3C39E5, 19, 0x00, 0 } } }, //
   { "apu_test/rom_singles/2-len_table.nes", MN_REGION_NTSC, 0, { { 0x0D477786, 14, 0x00, 0 } } }, //
   { "apu_test/rom_singles/3-irq_flag.nes", MN_REGION_NTSC, 0, { { 0xBA4FC3FB, 18, 0x00, 0 } } }, //
@@ -113,7 +113,7 @@ static TestParams tests[] = {
   { "cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes", MN_REGION_NTSC, 0, { { 0xEA3D7CA3, 105, 0x00, 0 } } }, //
   { "cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes", MN_REGION_NTSC, 0, { { 0xB47C1A9A, 125, 0x00, 0 } } }, //
   { "cpu_interrupts_v2/rom_singles/4-irq_and_dma.nes", MN_REGION_NTSC, 0, { { 0x62782874, 68, 0x00, 0 } } }, //
-  { "cpu_interrupts_v2/rom_singles/5-branch_delays_irq.nes", MN_REGION_NTSC, 0, { { 0x709B36CC, 383, 0x00, 0 } } }, //
+  { "cpu_interrupts_v2/rom_singles/5-branch_delays_irq.nes", MN_REGION_NTSC, 0, { { 0x709B36CC, 383, 0x00, 0 } } },
   { "cpu_interrupts_v2/cpu_interrupts.nes", MN_REGION_NTSC, 0, { { 0x12619948, 725, 0, 0 } } }, //
   { "cpu_reset/ram_after_reset.nes",
     MN_REGION_NTSC,
@@ -144,6 +144,7 @@ static TestParams tests[] = {
     0,
     { { 0x4C78B1D5, 10, 0x00, 0 }, { 0x649F38C9, 216, 0xA0, 0 } } }, //
   { "fme7acktest-r1/fme7acktest.nes", MN_REGION_NTSC, 0, { { 0xD9408008, 16, 0x00, 0 } } }, //
+  { "fme7ramtest-r1/fme7ramtest_128k.nes", MN_REGION_NTSC, 0, { { 0x0EB36897, 13, 0x00, 0 } } }, //
   { "fme7ramtest-r1/fme7ramtest.nes", MN_REGION_NTSC, 0, { { 0x20F7E45B, 13, 0x00, 0 } } }, //
   { "full_palette/flowing_palette.nes", MN_REGION_NTSC, 0, { { 0xA23B43F2, 30, 0, 0 } } }, //
   { "full_palette/full_palette_smooth.nes", MN_REGION_NTSC, 0, { { 0xB9E4C8FC, 30, 0, 0 } } }, //
@@ -255,7 +256,7 @@ static TestParams tests[] = {
   { "mmc3bigchrram-0.01/mmc3bigchrram.nes",
     MN_REGION_NTSC,
     0,
-    { { 0xF54230B4, 10, 0x00, 0 }, { 0, 70, MN_INPUT_START, 0 } } }, //
+    { { 0xF54230B4, 10, 0x00, 0 }, { 0x44A5C30F, 70, MN_INPUT_START, 0 } } }, //
   // { "mmc5test_v2/mmc5test.nes", MN_REGION_NTSC, 0, {} }, // todo
   { "nes_instr_test/rom_singles/01-implied.nes", MN_REGION_NTSC, 0, { { 0x0F76F905, 63, 0x00, 0 } } }, //
   { "nes_instr_test/rom_singles/02-immediate.nes", MN_REGION_NTSC, 0, { { 0x60452B1E, 57, 0x00, 0 } } }, //
