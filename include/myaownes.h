@@ -68,3 +68,4 @@ void mn_frame(u8 joy1, u8 joy2);
 bool mn_save(const char* path);
 bool mn_load(const char* path);
 void mn_palette(uint palette[64]);
+void mn_apu_test_mode(bool enabled);

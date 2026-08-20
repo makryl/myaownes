@@ -112,6 +112,7 @@ MN_CACHE_LINE static struct Apu
   uint pulse1_sweep_period;
   uint pulse1_sweep_shift;
   uint pulse1_sweep_timer;
+  uint pulse1_val;
 
   uint pulse2_len;
   uint pulse2_period;
@@ -124,6 +125,7 @@ MN_CACHE_LINE static struct Apu
   uint pulse2_sweep_period;
   uint pulse2_sweep_shift;
   uint pulse2_sweep_timer;
+  uint pulse2_val;
 
   uint triangle_len;
   uint triangle_period;
@@ -131,6 +133,7 @@ MN_CACHE_LINE static struct Apu
   uint triangle_phase;
   uint triangle_reload_val;
   uint triangle_linear_val;
+  uint triangle_val;
 
   uint noise_len;
   uint noise_period;
@@ -139,21 +142,26 @@ MN_CACHE_LINE static struct Apu
   uint noise_env_vol;
   uint noise_env_timer;
   uint noise_env_decay;
+  uint noise_val;
 
   uint dmc_timer;
   uint dmc_sample_len;
   uint dmc_len;
-  uint dmc_start;
+  uint dmc_load;
+  uint dmc_reload;
+  uint dmc_stop;
   uint dmc_period;
   uint dmc_out_bit;
   uint dmc_out;
   uint dmc_val;
   uint dmc_val_pending;
   uint dmc_val_filtered;
+  uint dmc_wait_buf;
   u16 dmc_sample_addr;
   u16 dmc_addr;
   u8 dmc_buf;
 
+  bool test_mode;
   bool mode5;
   bool frame_irq_disabled;
   bool frame_irq;
@@ -164,9 +172,9 @@ MN_CACHE_LINE static struct Apu
   bool dmc_irq_enabled;
   bool dmc_irq;
   bool dmc_has_buf;
+  bool dmc_has_out;
   bool dmc_loop;
-  bool dmc_silence;
-  bool dmc_pending;
+  bool dmc_val_changed;
 
   bool pulse1_enabled;
   bool pulse1_halt;
@@ -204,6 +212,9 @@ void* apu_data() { return &apu; }
 i16* mn_audio_data() { return apu_dyn.out_data; }
 uint mn_audio_size() { return apu.out_size * sizeof(i16); }
 void apu_reset_out() { apu.out_size = 0; }
+void mn_apu_test_mode(bool enabled) { apu.test_mode = enabled; }
+static bool apu_is_put_phase() { return (cpu_cyc() & 1); }
+static bool apu_is_get_phase() { return !apu_is_put_phase(); }
 
 static u8 apu_get_status()
 {
@@ -233,9 +244,9 @@ static u8 apu_get_status()
 }
 
 #if MN_TRACE_APU
-#define apu_trace(fmt, ...)                                                                                     \
-  tracef("APU phase=%s cpu_cyc=%-10d apu_half_cyc=%-10d status=%02X  " fmt "\n", cpu_cyc() & 1 ? "PUT" : "GET", \
-         cpu_cyc(), apu.cyc, apu_get_status() __VA_OPT__(, ) __VA_ARGS__)
+#define apu_trace(fmt, ...)                                                                                          \
+  tracef("APU phase=%s status=%02X apu_half_cyc=%-10d cpu_cyc=%-10d  " fmt "\n", apu_is_put_phase() ? "PUT" : "GET", \
+         apu_get_status(), apu.cyc, cpu_cyc() __VA_OPT__(, ) __VA_ARGS__)
 #define apu_trace_dmc(fmt, ...)                                                                                       \
   apu_trace(fmt " dmc_len=%d dmc_has_buf=%d dmc_out_bit=%d" __VA_OPT__(, ) __VA_ARGS__, apu.dmc_len, apu.dmc_has_buf, \
             apu.dmc_out_bit)
@@ -289,8 +300,6 @@ static uint apu_pulse2_sample()
   return sample * volume;
 }
 
-static uint apu_triangle_sample() { return apu_triangle_table[apu.triangle_phase]; }
-
 static uint apu_noise_sample()
 {
   if (apu.noise_len == 0) {
@@ -318,8 +327,11 @@ static uint apu_dmc_sample()
 
 static uint apu_sample()
 {
-  uint pulse = apu_dyn.pulse_table[apu_pulse1_sample() + apu_pulse2_sample()];
-  uint tnd = apu_dyn.tnd_table[apu_triangle_sample()][apu_noise_sample()][apu_dmc_sample()];
+  apu.pulse1_val = apu_pulse1_sample();
+  apu.pulse2_val = apu_pulse2_sample();
+  apu.noise_val = apu_noise_sample();
+  uint pulse = apu_dyn.pulse_table[apu.pulse1_val + apu.pulse2_val];
+  uint tnd = apu_dyn.tnd_table[apu.triangle_val][apu.noise_val][apu_dmc_sample()];
   return pulse + tnd;
 }
 
@@ -400,7 +412,7 @@ void apu_reset()
 
   apu.dmc_val = 0;
   apu.dmc_val_pending = 0;
-  apu.dmc_pending = false;
+  apu.dmc_val_changed = false;
 
   apu.pulse1_enabled = false;
   apu.pulse2_enabled = false;
@@ -411,7 +423,7 @@ void apu_reset()
   apu.frame_irq = false;
   apu.dmc_irq = false;
 
-  apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4;
+  apu.cyc_reset = apu_is_put_phase() ? 3 : 4;
 }
 
 void apu_bus_read(u16 addr, u8* val, bool trace)
@@ -421,16 +433,24 @@ void apu_bus_read(u16 addr, u8* val, bool trace)
       u8 status = apu_get_status();
       if (!trace) {
         apu.frame_irq = false;
-        // apu_trace_dmc("read $%04X=$%02X", addr, status);
       }
-      *val = (*val & APU_STATUS_OPENBUS) | status;
+      *val = (*val & APU_STATUS_OPENBUS) | status; // todo: bit 5 open bus or always one? (test_cpu_flag_concurrency)
+      break;
     }
   }
+  if (apu.test_mode) {
+    switch (addr & 0x1F) {
+      case 0x18: *val = apu.pulse1_val + apu.pulse2_val; break;
+      case 0x19: *val = apu.triangle_val | (apu.noise_val << 4); break;
+      case 0x1A: *val = apu.dmc_val; break;
+    }
+  }
+  apu_trace("read addr=%04X val=%02X", addr, *val);
 }
 
 void apu_bus_write(u16 addr, u8 val)
 {
-  apu_trace("write $%04X=$%02X", addr, val);
+  apu_trace("write addr=%04X val=%02X", addr, val);
   switch (addr & 0x1F) {
     case 0x00:
       apu.pulse1_duty = (val >> 6);
@@ -513,7 +533,7 @@ void apu_bus_write(u16 addr, u8 val)
       break;
     case 0x11:
       apu.dmc_val_pending = (val & 0x7F);
-      apu.dmc_pending = true;
+      apu.dmc_val_changed = true;
       break;
     case 0x12: apu.dmc_sample_addr = 0xC000 + (val * 64); break;
     case 0x13: apu.dmc_sample_len = (val * 16) + 1; break;
@@ -536,11 +556,9 @@ void apu_bus_write(u16 addr, u8 val)
         apu.noise_len = 0;
       }
       if (!apu.dmc_enabled) {
-        apu.dmc_len = 0;
+        apu.dmc_stop = apu_is_put_phase() ? 2 : 3;
       } else if (apu.dmc_len == 0) {
-        apu.dmc_addr = apu.dmc_sample_addr;
-        apu.dmc_len = apu.dmc_sample_len;
-        apu.dmc_start = (cpu_cyc() & 1) ? 2 : 3;
+        apu.dmc_load = apu_is_put_phase() ? 2 : 3;
       }
       apu.dmc_irq = false;
       break;
@@ -551,28 +569,13 @@ void apu_bus_write(u16 addr, u8 val)
       if (apu.frame_irq_disabled) {
         apu.frame_irq = false;
       }
-      apu.cyc_reset = (cpu_cyc() & 1) ? 3 : 4;
+      apu.cyc_reset = apu_is_put_phase() ? 3 : 4;
       break;
     }
-  }
-}
-
-void apu_dmc_dma(u8 val)
-{
-  apu_trace_dmc("dmc_dma=%02X", val);
-  apu.dmc_buf = val;
-  apu.dmc_has_buf = true;
-  apu.dmc_addr = 0x8000 | (apu.dmc_addr + 1);
-
-  if (apu.dmc_len > 0) {
-    if (--apu.dmc_len == 0) {
-      if (apu.dmc_loop) {
-        apu.dmc_addr = apu.dmc_sample_addr;
-        apu.dmc_len = apu.dmc_sample_len;
-      } else {
-        apu.dmc_irq = true;
-      }
-    }
+    case 0x1A:
+      // todo: W$401A: [L..T TTTT] - set state of triangle's sequencer to T, and lock all channels if L=1
+      // (pulse+noise always output current volume, triangle/DPCM no longer advance)
+      break;
   }
 }
 
@@ -602,6 +605,7 @@ static void apu_triangle_tick()
     apu.triangle_timer = apu.triangle_period;
     if (apu.triangle_len > 0 && apu.triangle_linear_val > 0 && apu.triangle_period > 2) {
       apu.triangle_phase = (apu.triangle_phase + 1) & 31;
+      apu.triangle_val = apu_triangle_table[apu.triangle_phase];
     }
   } else {
     --apu.triangle_timer;
@@ -621,54 +625,96 @@ static void apu_noise_tick()
   --apu.noise_timer;
 }
 
+void apu_dmc_dma(u8 val)
+{
+  apu_trace_dmc("dmc dma val=%02X cpu_cyc_corrected=%d", val, cpu_cyc() - 1);
+  apu.dmc_buf = val;
+  apu.dmc_has_buf = true;
+  if (apu.dmc_len > 0) {
+    apu.dmc_addr = 0x8000 | (apu.dmc_addr + 1);
+    if (--apu.dmc_len == 0) {
+      if (apu.dmc_loop) {
+        apu.dmc_addr = apu.dmc_sample_addr;
+        apu.dmc_len = apu.dmc_sample_len;
+      } else {
+        apu.dmc_irq = true;
+        apu.dmc_stop = 3; // NES bug: implicit stop
+      }
+    }
+  }
+}
+
 static void apu_dmc_tick()
 {
   if (apu.dmc_timer == 0) {
     apu.dmc_timer = apu_dyn.dmc_period_table[apu.dmc_period];
-    if (apu.dmc_out_bit == 0) {
-      if (apu.dmc_has_buf) {
-        apu_trace_dmc("dmc_out_bit=0 dmc_addr=%04X", apu.dmc_addr);
-        apu.dmc_out = apu.dmc_buf;
-        apu.dmc_has_buf = false;
-        apu.dmc_silence = false;
-        if (apu.dmc_len > 0) {
-          cpu_dmc(apu.dmc_addr);
-        }
-      } else {
-        if (!apu.dmc_silence) {
-          apu_trace_dmc("dmc_silence");
-        }
-        apu.dmc_silence = true;
-      }
-      apu.dmc_out_bit = 8;
-    }
-    if (!apu.dmc_silence) {
+    if (apu.dmc_has_out) {
       if (apu.dmc_out & 1) {
         if (apu.dmc_val <= 125) {
           apu.dmc_val_pending = apu.dmc_val + 2;
-          apu.dmc_pending = true;
+          apu.dmc_val_changed = true;
         }
       } else {
         if (apu.dmc_val >= 2) {
           apu.dmc_val_pending = apu.dmc_val - 2;
-          apu.dmc_pending = true;
+          apu.dmc_val_changed = true;
         }
       }
+      apu.dmc_out >>= 1;
     }
-    apu.dmc_out >>= 1;
+    if (apu.dmc_out_bit == 0) {
+      apu.dmc_out_bit = 8;
+      apu.dmc_has_out = false;
+      apu.dmc_wait_buf = 4; // NES bug: unexpected DMA may occur before reload
+      if (apu.dmc_len > 0 && !apu.dmc_has_buf) {
+        apu.dmc_reload = 3;
+      }
+    }
     --apu.dmc_out_bit;
   }
   --apu.dmc_timer;
 
-  if (apu.dmc_pending) { // conflict 4011 with dmc_timer
-    apu.dmc_val = apu.dmc_val_pending;
-    apu.dmc_pending = false;
+  if (apu.dmc_wait_buf > 0) {
+    --apu.dmc_wait_buf;
+    if (apu.dmc_has_buf) {
+      apu_trace_dmc("dmc swap");
+      apu.dmc_out = apu.dmc_buf;
+      apu.dmc_has_buf = false;
+      apu.dmc_has_out = true;
+      apu.dmc_wait_buf = 0;
+      if (apu.dmc_len > 0) {
+        apu.dmc_reload = apu_is_put_phase() ? 2 : 3;
+      }
+    }
   }
 
-  if (apu.dmc_start > 0) {
-    if (--apu.dmc_start == 0 && !apu.dmc_has_buf && apu.dmc_len > 0) {
-      apu_trace_dmc("dmc_start=0 dmc_addr=%04X ", apu.dmc_addr);
-      cpu_dmc(apu.dmc_addr);
+  if (apu.dmc_val_changed) { // conflict 4011 with dmc_timer
+    apu.dmc_val = apu.dmc_val_pending;
+    apu.dmc_val_changed = false;
+  }
+
+  if (apu.dmc_load > 0) {
+    if (--apu.dmc_load == 0) {
+      apu.dmc_addr = apu.dmc_sample_addr;
+      apu.dmc_len = apu.dmc_sample_len;
+      if (apu.dmc_len > 0 && !apu.dmc_has_buf) {
+        cpu_dmc(true, apu.dmc_addr);
+        apu_trace_dmc("dmc load dmc_addr=%04X", apu.dmc_addr);
+      }
+    }
+  }
+  if (apu.dmc_reload > 0) {
+    if (--apu.dmc_reload == 0) {
+      cpu_dmc(true, apu.dmc_addr);
+      apu_trace_dmc("dmc reload dmc_addr=%04X", apu.dmc_addr);
+    }
+  }
+  if (apu.dmc_stop > 0) {
+    if (--apu.dmc_stop == 0) {
+      apu.dmc_len = 0;
+      apu.dmc_reload = 0;
+      cpu_dmc(false, 0);
+      apu_trace_dmc("dmc stop");
     }
   }
 }
@@ -864,7 +910,7 @@ void apu_tick()
     }
   }
 
-  if (!(apu.cyc & 1)) { // better results with GET phase in apu_mixer/square.nes
+  if (apu_is_get_phase()) { // better results with GET phase in apu_mixer/square.nes
     apu_pulse1_tick();
     apu_pulse2_tick();
   }

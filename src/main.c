@@ -13,9 +13,14 @@ bool imp_init()
   // test = "nes-test-roms/nmi_sync/demo_pal.nes";
   // test = "nes-test-roms/ppu_sprite_hit/rom_singles/09-timing.nes";
   // test = "nes-test-roms/ppu_sprite_overflow/rom_singles/03-timing.nes";
+  // test = "nes-test-roms/apu_test/rom_singles/7-dmc_basics.nes";
+  // test = "nes-test-roms/apu_test/rom_singles/8-dmc_rates.nes";
   // test = "nes-test-roms/tvpassfail/tv.nes";
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
-  // test = "nes-test-roms/other/n163test.nes"; // fail audio
+  // test = "nes-test-roms/other/n163test.nes"; // todo fail audio
+  // test = "nes-test-roms/duty_cycles_test/duty_cycles_test_ntsc.nes"; // todo
+  // test = "nes-test-roms/duty_cycles_test/duty_cycles_test_dendy.nes"; // todo
+  // test = "nes-test-roms/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // openbus bit in apu status?
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";
