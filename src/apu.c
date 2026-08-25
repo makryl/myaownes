@@ -434,7 +434,7 @@ void apu_bus_read(u16 addr, u8* val, bool trace)
       if (!trace) {
         apu.frame_irq = false;
       }
-      *val = (*val & APU_STATUS_OPENBUS) | status; // todo: bit 5 open bus or always one? (test_cpu_flag_concurrency)
+      *val = (*val & APU_STATUS_OPENBUS) | status;
       break;
     }
   }

@@ -20,7 +20,6 @@ bool imp_init()
   // test = "nes-test-roms/other/n163test.nes"; // todo fail audio
   // test = "nes-test-roms/duty_cycles_test/duty_cycles_test_ntsc.nes"; // todo
   // test = "nes-test-roms/duty_cycles_test/duty_cycles_test_dendy.nes"; // todo
-  // test = "nes-test-roms/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // openbus bit in apu status?
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";

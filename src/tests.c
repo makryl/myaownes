@@ -301,6 +301,7 @@ static TestParams tests[] = {
   { "oam_read/oam_read.nes", MN_REGION_NTSC, 0, 0, { { 0xA35A57E7, 32, 0x00, 0 } } }, //
   { "oam_stress/oam_stress.nes", MN_REGION_NTSC, 0, 0, { { 0x596023FD, 1703, 0x00, 0 } } }, //
   { "oamtest3/oam3.nes", MN_REGION_NTSC, 0, 0, { { 0xA87189F4, 10, 0x00, 0 } } }, //
+  { "other/4015_open_bus_test.nes", MN_REGION_NTSC, 0, 0, { { 0xF96B60A2, 5, 0x00, 0 } } }, //
   { "other/midscanline.nes", MN_REGION_NTSC, 0, 0, { { 0x80BE54D6, 20, 0x00, 0 } } }, //
   { "other/mmc3irqtest.nes", MN_REGION_NTSC, 0, 0, { { 0x14A7B673, 20, 0x00, 0 } } }, //
   { "other/nestest.nes",

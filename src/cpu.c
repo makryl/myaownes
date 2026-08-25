@@ -59,7 +59,8 @@ MN_CACHE_LINE static struct Cpu
   u8 y;
   u8 joy_pending[2];
   u8 joy_shift[2];
-  u8 open_bus;
+  u8 internal_open_bus;
+  u8 external_open_bus;
   bool reset;
   bool nmi;
   bool irq;
@@ -147,7 +148,7 @@ static u8 cpu_joy_poll(u16 addr, bool trace)
     val = (cpu.joy_shift[idx] & 1);
   }
   val |= (val & 1) << 1;
-  return val | (cpu.open_bus & 0xE0);
+  return val | (cpu.external_open_bus & 0xE0);
 }
 
 static void cpu_joy_shift()
@@ -193,7 +194,7 @@ static void cpu_cyc_end()
 
 static u8 cpu_read_addr_raw(u16 addr, bool trace)
 {
-  u8 val = cpu.open_bus;
+  u8 val;
   if (addr < 0x2000) {
     val = cpu.ram[addr & 0x07FF];
   } else if (addr < 0x4000) {
@@ -202,9 +203,11 @@ static u8 cpu_read_addr_raw(u16 addr, bool trace)
     if (addr == 0x4016 || addr == 0x4017) {
       val = cpu_joy_poll(addr, trace);
     } else {
+      val = cpu.internal_open_bus;
       apu_bus_read(addr, &val, trace);
     }
   } else {
+    val = cpu.external_open_bus;
     map_cpu_read(addr, &val, trace);
   }
   return val;
@@ -214,16 +217,19 @@ static u8 cpu_read_addr_direct(u16 addr)
 {
   cpu_cyc_begin();
   if ((cpu.addr & 0xFFE0) == 0x4000) {
-    cpu.open_bus = cpu_read_addr_raw(addr, false);
+    cpu.internal_open_bus = cpu_read_addr_raw(addr, false);
     u16 internal_addr = (0x4000 | (addr & 0x1F));
     if (addr != internal_addr && internal_addr >= 0x4015 && internal_addr <= 0x4017) {
-      cpu.open_bus = cpu_read_addr_raw(internal_addr, false); // NES bug: internal addr conflict
+      cpu.internal_open_bus = cpu_read_addr_raw(internal_addr, false); // NES bug: internal addr conflict
     }
-  } else if ((addr & 0xFFE0) != 0x4000) {
-    cpu.open_bus = cpu_read_addr_raw(addr, false);
+  } else {
+    if ((addr & 0xFFE0) != 0x4000) {
+      cpu.external_open_bus = cpu_read_addr_raw(addr, false);
+    }
+    cpu.internal_open_bus = cpu.external_open_bus;
   }
   cpu_cyc_end();
-  return cpu.open_bus;
+  return cpu.internal_open_bus;
 }
 
 static u8 cpu_read_addr(u16 addr)
@@ -235,7 +241,8 @@ static u8 cpu_read_addr(u16 addr)
 static void cpu_write_addr_direct(u16 addr, u8 val)
 {
   cpu.write = true;
-  cpu.open_bus = val;
+  cpu.internal_open_bus = val;
+  cpu.external_open_bus = val;
   cpu_cyc_begin();
   if (addr < 0x2000) {
     cpu.ram[addr & 0x07FF] = val;
