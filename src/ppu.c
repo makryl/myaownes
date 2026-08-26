@@ -790,10 +790,8 @@ static void ppu_render_mask(uint x)
     r *= rf;
     g *= gf;
     b *= bf;
-    rgb = (r << 16) | (g << 8) | b;
+    rgb = 0xFF000000 | (r << 16) | (g << 8) | b;
   }
-
-  rgb |= 0xFF000000;
 
   uint out_idx = (ppu.sl << 8) | x;
   ppu_out[out_idx] = rgb;

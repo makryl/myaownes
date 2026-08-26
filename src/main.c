@@ -8,6 +8,7 @@ bool imp_init()
 
   // test = "nes-test-roms/other/nestest.nes";
   // test = "nes-test-roms/240pee/240pee.nes";
+  // test = "nes-test-roms/other/AccuracyCoin.nes"; // todo
   // test = "nes-test-roms/ppu_vbl_nmi/ppu_vbl_nmi.nes";
   // test = "nes-test-roms/nmi_sync/demo_ntsc.nes";
   // test = "nes-test-roms/nmi_sync/demo_pal.nes";
@@ -18,19 +19,20 @@ bool imp_init()
   // test = "nes-test-roms/tvpassfail/tv.nes";
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
   // test = "nes-test-roms/other/n163test.nes"; // todo fail audio
-  // test = "nes-test-roms/duty_cycles_test/duty_cycles_test_ntsc.nes"; // todo
-  // test = "nes-test-roms/duty_cycles_test/duty_cycles_test_dendy.nes"; // todo
+  // test = "nes-test-roms/other/2nd2006_next_level.nes"; // todo
+  // test = "nes-test-roms/other/sprite_evaluation_test(2).nes"; // todo
+  // test = "nes-test-roms/other/sprite_evaluation_test.nes"; // todo
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";
   // test = "GoodNES/Japan/Fire Emblem Gaiden (J) [!].nes";
   // test = "MegaPack/Translated/Fire Emblem Gaiden (J) [T-Eng97b2].nes";
 
-  // test = "GoodNES/USA/Battletoads (U) [!].nes";
+  // test = "no-intro-2025/Games/Battletoads (USA).nes";
   // test = "MegaPack/USA/Micro Machines (U).nes";
   // test = "GoodNES/USA/Marble Madness (U) [!].nes";
   // test = "GoodNES/USA/Crystalis (U) [!].nes";
-  // test = "GoodNES/USA/Super Mario Bros. + Duck Hunt (U) [!].nes";
+  // test = "no-intro-2025/Super Mario Bros. + Duck Hunt (USA).nes";
   // test = "GoodNES/USA/Super Mario Bros. 3 (U) (V1.1) [!].nes";
   // test = "GoodNES/USA/Rad Racer (U) [!].nes";
   // test = "GoodNES/USA/Legend of Zelda, The (U) (V1.1) [!].nes";

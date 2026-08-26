@@ -445,7 +445,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   SDL_ResumeAudioStreamDevice(imp.stream);
   int samples;
   SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(imp.stream), &spec, &samples);
-  SDL_Log("Audio: %d %s%d%s %d %d", spec.freq,
+  SDL_Log("Audio: %s %d %s%d%s %d %d", SDL_GetCurrentAudioDriver(), spec.freq,
           SDL_AUDIO_ISFLOAT(spec.format)      ? "F"
           : SDL_AUDIO_ISUNSIGNED(spec.format) ? "U"
                                               : "S",
