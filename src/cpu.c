@@ -44,7 +44,7 @@ enum
 MN_CACHE_LINE static struct Cpu
 {
   uint cyc;
-  uint joy_idx;
+  uint joy_shift_idx;
   uint joy_shift_delay;
   uint dmc_dma_delay;
   u16 dmc_dma_addr;
@@ -61,12 +61,14 @@ MN_CACHE_LINE static struct Cpu
   u8 joy_shift[2];
   u8 internal_open_bus;
   u8 external_open_bus;
+  u8 out;
   bool reset;
   bool nmi;
   bool irq;
   bool brk;
   bool dmc_dma_halt;
   bool dmc_dma_wait;
+  bool dmc_dma_done;
   bool oam_dma_trig;
   bool oam_dma_active;
   bool joy_strobe;
@@ -136,13 +138,11 @@ static u8 cpu_joy_poll(u16 addr, bool trace)
 {
   u8 val;
   uint idx = (addr & 1);
-  if (!trace) {
-    cpu.joy_idx = idx;
-  }
   if (cpu.joy_strobe) {
     val = (cpu.joy_pending[idx] & 1);
   } else {
     if (!trace) {
+      cpu.joy_shift_idx = idx;
       cpu.joy_shift_delay = 2;
     }
     val = (cpu.joy_shift[idx] & 1);
@@ -151,21 +151,18 @@ static u8 cpu_joy_poll(u16 addr, bool trace)
   return val | (cpu.external_open_bus & 0xE0);
 }
 
-static void cpu_joy_shift()
+static void cpu_joy_strobe()
 {
-  if (cpu.joy_shift_delay > 0) {
-    if (--cpu.joy_shift_delay == 0) {
-      cpu.joy_shift[cpu.joy_idx] = (cpu.joy_shift[cpu.joy_idx] >> 1) | 0x80;
+  if (cpu.cyc & 1) {
+    if (cpu.out & 1) {
+      cpu.joy_shift[0] = cpu.joy_pending[0];
+      cpu.joy_shift[1] = cpu.joy_pending[1];
     }
   }
-}
-
-static void cpu_joy_strobe(u8 val)
-{
-  cpu.joy_strobe = (val & 1);
-  if (cpu.joy_strobe) {
-    cpu.joy_shift[0] = cpu.joy_pending[0];
-    cpu.joy_shift[1] = cpu.joy_pending[1];
+  if (cpu.joy_shift_delay > 0) {
+    if (--cpu.joy_shift_delay == 0) {
+      cpu.joy_shift[cpu.joy_shift_idx] = (cpu.joy_shift[cpu.joy_shift_idx] >> 1) | 0x80;
+    }
   }
 }
 
@@ -178,13 +175,13 @@ static void cpu_cyc_begin()
   cpu_poll();
   ppu_tick();
   ppu_tick();
+  cpu_joy_strobe();
   apu_tick();
   map_cpu_cyc();
 }
 
 static void cpu_cyc_end()
 {
-  cpu_joy_shift();
   ppu_tick();
   if (cpu.pal && (cpu.cyc % 5) == 4) {
     ppu_tick();
@@ -253,7 +250,7 @@ static void cpu_write_addr_direct(u16 addr, u8 val)
       cpu.oam_dma_addr = val << 8;
       cpu.oam_dma_trig = true;
     } else if (addr == 0x4016) {
-      cpu_joy_strobe(val);
+      cpu.out = val;
     } else {
       apu_bus_write(addr, val);
     }
@@ -690,29 +687,21 @@ static void cpu_op_XAS(u8 am)
   cpu_write_addr(addr, cpu.s & ((addr >> 8) + 1));
 } // unstable
 
-static void cpu_op_SXA(u8 am)
+static void cpu_sxa_sya(u8 am, u8 val)
 {
   u16 addr = cpu_addr(am, false);
-  u8 op = addr >> 8;
+  u8 hi = addr >> 8;
   if (cpu.page_crossed) {
-    u8 val = cpu.x & op;
-    cpu_write_addr((val << 8) | (addr & 0xFF), val);
-  } else {
-    cpu_write_addr(addr, cpu.x & ++op);
+    addr &= ((hi & val) << 8) | 0xFF;
   }
-} // unstable
+  if (!cpu.dmc_dma_done) {
+    val &= cpu.page_crossed ? hi : hi + 1;
+  }
+  cpu_write_addr(addr, val);
+}
 
-static void cpu_op_SYA(u8 am)
-{
-  u16 addr = cpu_addr(am, false);
-  u8 op = addr >> 8;
-  if (cpu.page_crossed) {
-    u8 val = cpu.y & op;
-    cpu_write_addr((val << 8) | (addr & 0xFF), val);
-  } else {
-    cpu_write_addr(addr, cpu.y & ++op);
-  }
-} // unstable
+static void cpu_op_SXA(u8 am) { cpu_sxa_sya(am, cpu.x); } // unstable
+static void cpu_op_SYA(u8 am) { cpu_sxa_sya(am, cpu.y); } // unstable
 
 static void cpu_itr_exec()
 {
@@ -771,6 +760,7 @@ static void cpu_dmc_read()
 
 static void cpu_dmc_dma()
 {
+  cpu.dmc_dma_done = false;
   if (cpu.oam_dma_active) {
     if (cpu.dmc_dma_halt) {
       cpu.dmc_dma_delay = (cpu_cyc() & 1) ? 3 : 2; // halt/dummy/align can overlap with oam dma
@@ -792,6 +782,7 @@ static void cpu_dmc_dma()
         cpu_dma_align();
         cpu_dmc_read();
       }
+      cpu.dmc_dma_done = true;
     }
   }
 }

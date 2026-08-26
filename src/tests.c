@@ -75,8 +75,8 @@ static TestParams tests[] = {
     0,
     0,
     { { 0x03085F30, 20, 0, 0 }, { 0x8BECFD90, 20, 0, 1 }, { 0x2421E3A9, 20, 0, 1 } } }, //
-  { "apu_reset/irq_flag_cleared.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0x6157F5A6, 20, 0, 1 } } }, //
-  { "apu_reset/len_ctrs_enabled.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0xB62FEAE3, 20, 0, 1 } } }, //
+  { "apu_reset/irq_flag_cleared.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0x6157F5A6, 20, 0, 1 } } },
+  { "apu_reset/len_ctrs_enabled.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0xB62FEAE3, 20, 0, 1 } } },
   { "apu_reset/works_immediately.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0x0000839C, 20, 0, 1 } } },
   { "apu_test/rom_singles/1-len_ctr.nes", MN_REGION_NTSC, 0, 0, { { 0x8E3C39E5, 19, 0x00, 0 } } }, //
   { "apu_test/rom_singles/2-len_table.nes", MN_REGION_NTSC, 0, 0, { { 0x0D477786, 14, 0x00, 0 } } }, //
@@ -116,7 +116,7 @@ static TestParams tests[] = {
   { "cpu_dummy_writes/cpu_dummy_writes_ppumem.nes", MN_REGION_NTSC, 0, 0, { { 0xB9CCCCC0, 236, 0x00, 0 } } }, //
   { "cpu_exec_space/test_cpu_exec_space_apu.nes", MN_REGION_NTSC, 0, 0, { { 0xACA38C28, 301, 0x00, 0 } } }, //
   { "cpu_exec_space/test_cpu_exec_space_ppuio.nes", MN_REGION_NTSC, 0, 0, { { 0xB1E7AB62, 45, 0x00, 0 } } }, //
-  { "cpu_flag_concurrency/test_cpu_flag_concurrency.nes", MN_REGION_NTSC, 0, 0, { { 0x55FE9C5D, 855, 0x00, 0 } } }, //
+  { "cpu_flag_concurrency/test_cpu_flag_concurrency.nes", MN_REGION_NTSC, 0, 0, { { 0x55FE9C5D, 855, 0x00, 0 } } },
   { "cpu_interrupts_v2/rom_singles/1-cli_latency.nes", MN_REGION_NTSC, 0, 0, { { 0x04E43C3C, 14, 0x00, 0 } } }, //
   { "cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes", MN_REGION_NTSC, 0, 0, { { 0xEA3D7CA3, 105, 0x00, 0 } } }, //
   { "cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes", MN_REGION_NTSC, 0, 0, { { 0xB47C1A9A, 125, 0x00, 0 } } }, //
@@ -312,6 +312,16 @@ static TestParams tests[] = {
       { 0x99F7E65B, 20, 0x08, 0 },
       { 0xCA5865AF, 10, 0x04, 0 },
       { 0xB2B3DDF1, 20, 0x08, 0 } } }, //
+  { "other/oam_read_vbl_wait.nes", MN_REGION_NTSC, 0, 0, { { 0xEE5E359A, 47, 0x00, 0 } } }, //
+  { "other/out_timing_test.nes",
+    MN_REGION_NTSC,
+    0,
+    0,
+    { { 0x64B962A8, 5, 0x00, 0 },
+      { 0x64B962A8, 5, MN_INPUT_A, 0 },
+      { 0x7C518553, 5, 0, 0 },
+      { 0x7C518553, 5, MN_INPUT_B, 0 },
+      { 0x7C518553, 5, 0, 0 } } }, //
   { "other/read2004.nes", MN_REGION_NTSC, 0, 0, { { 0x519A9E5E, 20, 0x00, 0 } } }, //
   { "pal_apu_tests/01.len_ctr.nes", MN_REGION_PAL, 0, 0, { { 0x2660164C, 20, 0x00, 0 } } }, //
   { "pal_apu_tests/02.len_table.nes", MN_REGION_PAL, 0, 0, { { 0x82A8B32F, 20, 0x00, 0 } } }, //
@@ -377,10 +387,13 @@ static TestParams tests[] = {
       { 0x3952B9C7, 10, 0x80, 0 },
       { 0x9C94D0D4, 10, 0, 0 } } }, //
   { "read_joy3/thorough_test.nes", MN_REGION_NTSC, 0, 0, { { 0x6ECF1F4B, 123, 0x00, 0 } } }, //
-  { "scanline/scanline.nes", MN_REGION_NTSC, 0, 0, { { 0x629D1349, 80, 0, 0 } } }, // area1 flickering pixels after line
+  { "scanline/scanline.nes", MN_REGION_NTSC, 0, 0, { { 0x629D1349, 80, 0, 0 } } }, // area1 flicker pixels after line
   { "scanline-a1/scanline.nes", MN_REGION_NTSC, 0, 0, { { 0x629D1349, 80, 0, 0 } } }, // same as above
   { "scrolltest/scroll.nes", MN_REGION_NTSC, 0, 0, { { 0x95F078BC, 7, 0, 0 }, { 0xF0427789, 60, 0xA0, 0 } } }, //
   { "serom/serom.nes", MN_REGION_NTSC, 0, 0, { { 0x6C5F9EDD, 10, 0x00, 0 } } }, //
+  { "shxdma/shxdma.nes", MN_REGION_NTSC, 0, 0, { { 0xF12EEF31, 101, 0x00, 0 } } }, //
+  { "shxing1/shxing1.nes", MN_REGION_NTSC, 0, 0, { { 0xA07B475E, 186, 0x00, 0 } } }, //
+  { "shxing2/shxing2.nes", MN_REGION_NTSC, 0, 0, { { 0xA07B475E, 111, 0x00, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes", MN_REGION_NTSC, 0, 0, { { 0xF4998922, 143, 0x00, 0 } } }, //
   { "sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes", MN_REGION_NTSC, 0, 0, { { 0x42149129, 143, 0x00, 0 } } }, //
   { "sprite_hit_tests_2005.10.05/01.basics.nes", MN_REGION_NTSC, 0, 0, { { 0xAC38F2AD, 33, 0x00, 0 } } }, //
