@@ -54,7 +54,6 @@ static const uint apu_dmc_period_ntsc[16] = { 428, 380, 340, 320, 286, 254, 226,
 static const uint apu_dmc_period_pal[16] = { 398, 354, 316, 298, 266, 236, 210, 198, //
                                              176, 148, 132, 118, 98,  78,  66,  50 };
 
-// todo: Dendy 0 2 1 3?
 static const uint apu_duty_table[4][8] = {
   { 0, 0, 0, 0, 0, 0, 0, 1 },
   { 0, 0, 0, 0, 0, 0, 1, 1 },
@@ -72,6 +71,7 @@ static const uint apu_noise_period_pal[16] = { 4,   8,   14,  30,  60,  88,  118
 
 MN_CACHE_LINE static struct
 {
+  MN_CACHE_LINE uint duty_table[4][8];
   MN_CACHE_LINE uint noise_period_table[16];
   MN_CACHE_LINE uint dmc_period_table[16];
   MN_CACHE_LINE uint pulse_table[31];
@@ -285,7 +285,7 @@ static uint apu_pulse1_sample()
   if (apu.pulse1_len == 0 || apu_sweep_mute(apu.pulse1_period, apu_pulse1_sweep())) {
     return 0;
   }
-  uint sample = apu_duty_table[apu.pulse1_duty][apu.pulse1_phase];
+  uint sample = apu_dyn.duty_table[apu.pulse1_duty][apu.pulse1_phase];
   uint volume = apu.pulse1_env_const ? apu.pulse1_env_vol : apu.pulse1_env_decay;
   return sample * volume;
 }
@@ -295,7 +295,7 @@ static uint apu_pulse2_sample()
   if (apu.pulse2_len == 0 || apu_sweep_mute(apu.pulse2_period, apu_pulse2_sweep())) {
     return 0;
   }
-  uint sample = apu_duty_table[apu.pulse2_duty][apu.pulse2_phase];
+  uint sample = apu_dyn.duty_table[apu.pulse2_duty][apu.pulse2_phase];
   uint volume = apu.pulse2_env_const ? apu.pulse2_env_vol : apu.pulse2_env_decay;
   return sample * volume;
 }
@@ -350,6 +350,7 @@ void apu_power()
       apu.time_target = ((u64)APU_FREQ_NTSC << 32) / MN_AUDIO_FREQ;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
+      memcpy(apu_dyn.duty_table, apu_duty_table, sizeof(apu_dyn.duty_table));
       break;
     case MN_REGION_PAL:
       apu.step1 = APU_STEP1_PAL;
@@ -360,6 +361,7 @@ void apu_power()
       apu.time_target = ((u64)APU_FREQ_PAL << 32) / MN_AUDIO_FREQ;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_pal, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_pal, sizeof(apu_dyn.dmc_period_table));
+      memcpy(apu_dyn.duty_table, apu_duty_table, sizeof(apu_dyn.duty_table));
       break;
     case MN_REGION_DENDY:
       apu.step1 = APU_STEP1_NTSC;
@@ -370,6 +372,10 @@ void apu_power()
       apu.time_target = ((u64)APU_FREQ_DENDY << 32) / MN_AUDIO_FREQ;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
+      memcpy(apu_dyn.duty_table[0], apu_duty_table[0], sizeof(apu_dyn.duty_table[0]));
+      memcpy(apu_dyn.duty_table[1], apu_duty_table[2], sizeof(apu_dyn.duty_table[1]));
+      memcpy(apu_dyn.duty_table[2], apu_duty_table[1], sizeof(apu_dyn.duty_table[2]));
+      memcpy(apu_dyn.duty_table[3], apu_duty_table[3], sizeof(apu_dyn.duty_table[3]));
       break;
   }
 

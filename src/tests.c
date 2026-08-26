@@ -161,6 +161,30 @@ static TestParams tests[] = {
     0,
     0,
     { { 0x4C78B1D5, 10, 0x00, 0 }, { 0x649F38C9, 216, 0xA0, 0 } } }, //
+  { "duty_cycles_test/duty_cycles_test_ntsc.nes",
+    MN_REGION_NTSC,
+    1,
+    0,
+    { { 0x30A437F9, 20, 0, 0 },
+      { 0xC4DF3970, 20, MN_INPUT_SELECT, 0 },
+      { 0x6B82AE6C, 20, 0, 0 },
+      { 0x3128754C, 20, MN_INPUT_START, 0 },
+      { 0x9F5CDD68, 20, 0, 0 },
+      { 0x7347DCB2, 20, MN_INPUT_B, 0 },
+      { 0xEAF10E3F, 20, 0, 0 },
+      { 0xD6B9A1D7, 20, MN_INPUT_A, 0 } } }, //
+  { "duty_cycles_test/duty_cycles_test_dendy.nes",
+    MN_REGION_DENDY,
+    1,
+    0,
+    { { 0x30A437F9, 20, 0, 0 },
+      { 0xC4DF3970, 20, MN_INPUT_SELECT, 0 },
+      { 0x6B022FD9, 20, 0, 0 },
+      { 0xCD893872, 20, MN_INPUT_START, 0 },
+      { 0x9E1B5F53, 20, 0, 0 },
+      { 0xC6C763FD, 20, MN_INPUT_B, 0 },
+      { 0xEB907208, 20, 0, 0 },
+      { 0xEBD26989, 20, MN_INPUT_A, 0 } } }, //
   { "fme7acktest-r1/fme7acktest.nes", MN_REGION_NTSC, 0, 0, { { 0xD9408008, 16, 0x00, 0 } } }, //
   { "fme7ramtest-r1/fme7ramtest_128k.nes", MN_REGION_NTSC, 0, 0, { { 0x0EB36897, 13, 0x00, 0 } } }, //
   { "fme7ramtest-r1/fme7ramtest.nes", MN_REGION_NTSC, 0, 0, { { 0x20F7E45B, 13, 0x00, 0 } } }, //
@@ -728,7 +752,7 @@ static bool run_test(TestParams params)
   } else {
     uint hash = 0;
     result = run_test_steps(params, &hash);
-    printf("%4s | %08X | %s\n", result ? "OK" : "FAIL", hash, params.path);
+    printf("%4s | 0x%08X | %s\n", result ? "OK" : "FAIL", hash, params.path);
   }
   return result;
 }
