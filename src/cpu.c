@@ -619,12 +619,13 @@ static void cpu_op_BEQ(u8 am) { cpu_branch(am, CPU_FLAG_ZERO, 1); }
 
 static void cpu_op_JMP(u8 am) { cpu.pc = cpu_addr(am, true); }
 
-static void cpu_op_JSR(u8 am)
+static void cpu_op_JSR(u8)
 {
-  u16 addr = cpu_addr(am, true); // read hi byte at end?
+  uint lo = cpu_read_pc();
   cpu_read_addr(cpu.s | 0x0100); // implement inside of cpu_stack_push?
-  cpu_stack_push16(cpu.pc - 1);
-  cpu.pc = addr;
+  cpu_stack_push16(cpu.pc);
+  uint hi = cpu_read_pc() << 8;
+  trace_addr(cpu.pc = lo | hi);
 }
 
 static void cpu_op_RTS(u8 am) { cpu_read(am), cpu.pc = cpu_stack_pop16(false) + 1; }
@@ -674,20 +675,7 @@ static void cpu_op_ARR(u8 am)
   cpu_flag_overflow(((cpu.a & 0x40) >> 6) ^ ((cpu.a & 0x20) >> 5));
 }
 
-static void cpu_op_AXA(u8 am)
-{
-  u16 addr = cpu_addr(am, false);
-  cpu_write_addr(addr, cpu.a & cpu.x & ((addr >> 8) + 1));
-} // unstable
-
-static void cpu_op_XAS(u8 am)
-{
-  u16 addr = cpu_addr(am, false);
-  cpu.s = cpu.a & cpu.x;
-  cpu_write_addr(addr, cpu.s & ((addr >> 8) + 1));
-} // unstable
-
-static void cpu_sxa_sya(u8 am, u8 val)
+static void cpu_sh(u8 am, u8 val)
 {
   u16 addr = cpu_addr(am, false);
   u8 hi = addr >> 8;
@@ -700,8 +688,10 @@ static void cpu_sxa_sya(u8 am, u8 val)
   cpu_write_addr(addr, val);
 }
 
-static void cpu_op_SXA(u8 am) { cpu_sxa_sya(am, cpu.x); } // unstable
-static void cpu_op_SYA(u8 am) { cpu_sxa_sya(am, cpu.y); } // unstable
+static void cpu_op_SHA(u8 am) { cpu_sh(am, cpu.x & cpu.a); }
+static void cpu_op_SHS(u8 am) { cpu_sh(am, cpu.s = (cpu.x & cpu.a)); }
+static void cpu_op_SHX(u8 am) { cpu_sh(am, cpu.x); }
+static void cpu_op_SHY(u8 am) { cpu_sh(am, cpu.y); }
 
 static void cpu_itr_exec()
 {
@@ -841,7 +831,7 @@ L(0, 0, O(BRK, IMM), O(PHP, IMP), O(BPL, REL), O(CLC, IMP), X(NOP, ZPG), X(NOP, 
 L(0, 1, O(JSR, ABS), O(PLP, IMP), O(BMI, REL), O(SEC, IMP), O(BIT, ZPG), O(BIT, ABS), X(NOP, ZPX), X(NOP, ABX))
 L(0, 2, O(RTI, IMP), O(PHA, IMP), O(BVC, REL), O(CLI, IMP), X(NOP, ZPG), O(JMP, ABS), X(NOP, ZPX), X(NOP, ABX))
 L(0, 3, O(RTS, IMP), O(PLA, IMP), O(BVS, REL), O(SEI, IMP), X(NOP, ZPG), O(JMP, IND), X(NOP, ZPX), X(NOP, ABX))
-L(0, 4, X(NOP, IMM), O(DEY, IMP), O(BCC, REL), O(TYA, IMP), O(STY, ZPG), O(STY, ABS), O(STY, ZPX), X(SYA, ABX))
+L(0, 4, X(NOP, IMM), O(DEY, IMP), O(BCC, REL), O(TYA, IMP), O(STY, ZPG), O(STY, ABS), O(STY, ZPX), X(SHY, ABX))
 L(0, 5, O(LDY, IMM), O(TAY, IMP), O(BCS, REL), O(CLV, IMP), O(LDY, ZPG), O(LDY, ABS), O(LDY, ZPX), O(LDY, ABX))
 L(0, 6, O(CPY, IMM), O(INY, IMP), O(BNE, REL), O(CLD, IMP), O(CPY, ZPG), O(CPY, ABS), X(NOP, ZPX), X(NOP, ABX))
 L(0, 7, O(CPX, IMM), O(INX, IMP), O(BEQ, REL), O(SED, IMP), O(CPX, ZPG), O(CPX, ABS), X(NOP, ZPX), X(NOP, ABX))
@@ -857,7 +847,7 @@ L(2, 0, X(KIL, IMP), O(ASL, ACC), X(KIL, IMP), X(NOP, IMP), O(ASL, ZPG), O(ASL, 
 L(2, 1, X(KIL, IMP), O(ROL, ACC), X(KIL, IMP), X(NOP, IMP), O(ROL, ZPG), O(ROL, ABS), O(ROL, ZPX), O(ROL, ABX))
 L(2, 2, X(KIL, IMP), O(LSR, ACC), X(KIL, IMP), X(NOP, IMP), O(LSR, ZPG), O(LSR, ABS), O(LSR, ZPX), O(LSR, ABX))
 L(2, 3, X(KIL, IMP), O(ROR, ACC), X(KIL, IMP), X(NOP, IMP), O(ROR, ZPG), O(ROR, ABS), O(ROR, ZPX), O(ROR, ABX))
-L(2, 4, X(NOP, IMM), O(TXA, IMP), X(KIL, IMP), O(TXS, IMP), O(STX, ZPG), O(STX, ABS), O(STX, ZPY), X(SXA, ABY))
+L(2, 4, X(NOP, IMM), O(TXA, IMP), X(KIL, IMP), O(TXS, IMP), O(STX, ZPG), O(STX, ABS), O(STX, ZPY), X(SHX, ABY))
 L(2, 5, O(LDX, IMM), O(TAX, IMP), X(KIL, IMP), O(TSX, IMP), O(LDX, ZPG), O(LDX, ABS), O(LDX, ZPY), O(LDX, ABY))
 L(2, 6, X(NOP, IMM), O(DEX, IMP), X(KIL, IMP), X(NOP, IMP), O(DEC, ZPG), O(DEC, ABS), O(DEC, ZPX), O(DEC, ABX))
 L(2, 7, X(NOP, IMM), O(NOP, IMP), X(KIL, IMP), X(NOP, IMP), O(INC, ZPG), O(INC, ABS), O(INC, ZPX), O(INC, ABX))
@@ -865,7 +855,7 @@ L(3, 0, X(SLO, NDX), X(AAC, IMM), X(SLO, NDY), X(SLO, ABY), X(SLO, ZPG), X(SLO, 
 L(3, 1, X(RLA, NDX), X(AAC, IMM), X(RLA, NDY), X(RLA, ABY), X(RLA, ZPG), X(RLA, ABS), X(RLA, ZPX), X(RLA, ABX))
 L(3, 2, X(SRE, NDX), X(ASR, IMM), X(SRE, NDY), X(SRE, ABY), X(SRE, ZPG), X(SRE, ABS), X(SRE, ZPX), X(SRE, ABX))
 L(3, 3, X(RRA, NDX), X(ARR, IMM), X(RRA, NDY), X(RRA, ABY), X(RRA, ZPG), X(RRA, ABS), X(RRA, ZPX), X(RRA, ABX))
-L(3, 4, X(SAX, NDX), X(XAA, IMM), X(AXA, NDY), X(XAS, ABY), X(SAX, ZPG), X(SAX, ABS), X(SAX, ZPY), X(AXA, ABY))
+L(3, 4, X(SAX, NDX), X(XAA, IMM), X(SHA, NDY), X(SHS, ABY), X(SAX, ZPG), X(SAX, ABS), X(SAX, ZPY), X(SHA, ABY))
 L(3, 5, X(LAX, NDX), X(ATX, IMM), X(LAX, NDY), X(LAR, ABY), X(LAX, ZPG), X(LAX, ABS), X(LAX, ZPY), X(LAX, ABY))
 L(3, 6, X(DCP, NDX), X(AXS, IMM), X(DCP, NDY), X(DCP, ABY), X(DCP, ZPG), X(DCP, ABS), X(DCP, ZPX), X(DCP, ABX))
 L(3, 7, X(ISB, NDX), X(SBC, IMM), X(ISB, NDY), X(ISB, ABY), X(ISB, ZPG), X(ISB, ABS), X(ISB, ZPX), X(ISB, ABX))
