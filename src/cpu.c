@@ -397,7 +397,7 @@ static void cpu_stack_push16(u16 val)
 static u16 cpu_stack_pop16(bool seq)
 {
   uint lo = cpu_stack_pop(seq);
-  uint hi = cpu_stack_pop(seq) << 8;
+  uint hi = cpu_stack_pop(true) << 8;
   return lo | hi;
 }
 
@@ -619,7 +619,12 @@ static void cpu_op_JSR(u8)
   trace_addr(cpu.pc = lo | hi);
 }
 
-static void cpu_op_RTS(u8 am) { cpu_read(am), cpu.pc = cpu_stack_pop16(false) + 1; }
+static void cpu_op_RTS(u8 am)
+{
+  cpu_read(am);
+  cpu.pc = cpu_stack_pop16(false);
+  cpu_read_addr(cpu.pc++);
+}
 
 static void cpu_op_BRK(u8 am)
 {
