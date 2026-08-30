@@ -163,12 +163,14 @@ MN_CACHE_LINE static struct Apu
 
   bool test_mode;
   bool mode5;
+  bool frame_irq_status;
   bool frame_irq_disabled;
   bool frame_irq;
   bool step_env;
   bool step_len;
 
   bool dmc_enabled;
+  bool dmc_irq_status;
   bool dmc_irq_enabled;
   bool dmc_irq;
   bool dmc_has_buf;
@@ -234,10 +236,10 @@ static u8 apu_get_status()
   if (apu.dmc_len > 0) {
     status |= APU_STATUS_DMC;
   }
-  if (!apu.frame_irq_disabled && apu.frame_irq) {
+  if (apu.frame_irq_status) {
     status |= APU_STATUS_FRAME_IRQ;
   }
-  if (apu.dmc_irq_enabled && apu.dmc_irq) {
+  if (apu.dmc_irq_status) {
     status |= APU_STATUS_DMC_IRQ;
   }
   return status;
@@ -643,11 +645,21 @@ void apu_dmc_dma(u8 val)
         apu.dmc_addr = apu.dmc_sample_addr;
         apu.dmc_len = apu.dmc_sample_len;
       } else {
-        apu.dmc_irq = true;
+        if (apu.dmc_irq_enabled) {
+          apu.dmc_irq = true;
+        }
         apu.dmc_stop = 3; // NES bug: implicit stop
       }
     }
   }
+}
+
+static bool apu_dmc_swap()
+{
+  apu_trace_dmc("dmc swap");
+  apu.dmc_out = apu.dmc_buf;
+  apu.dmc_has_buf = false;
+  apu.dmc_has_out = true;
 }
 
 static void apu_dmc_tick()
@@ -671,7 +683,11 @@ static void apu_dmc_tick()
     if (apu.dmc_out_bit == 0) {
       apu.dmc_out_bit = 8;
       apu.dmc_has_out = false;
-      apu.dmc_wait_buf = 4; // NES bug: unexpected DMA may occur before reload
+      if (apu.dmc_has_buf) {
+        apu_dmc_swap();
+      } else {
+        apu.dmc_wait_buf = 4; // NES bug: unexpected DMA may occur before reload
+      }
       if (apu.dmc_len > 0 && !apu.dmc_has_buf) {
         apu.dmc_reload = 3;
       }
@@ -683,14 +699,8 @@ static void apu_dmc_tick()
   if (apu.dmc_wait_buf > 0) {
     --apu.dmc_wait_buf;
     if (apu.dmc_has_buf) {
-      apu_trace_dmc("dmc swap");
-      apu.dmc_out = apu.dmc_buf;
-      apu.dmc_has_buf = false;
-      apu.dmc_has_out = true;
+      apu_dmc_swap();
       apu.dmc_wait_buf = 0;
-      if (apu.dmc_len > 0) {
-        apu.dmc_reload = apu_is_put_phase() ? 2 : 3;
-      }
     }
   }
 
@@ -949,7 +959,9 @@ void apu_tick()
 
   if (apu.cyc == last_step || apu.cyc == last_step + 1 || apu.cyc == last_step + 2) {
     if (!apu.mode5) {
-      apu.frame_irq = true;
+      if (!apu.frame_irq_disabled) {
+        apu.frame_irq = true;
+      }
       apu_trace("frame irq");
     }
   }
@@ -957,7 +969,12 @@ void apu_tick()
     apu.cyc = 0;
   }
 
-  map_apu_irq((!apu.frame_irq_disabled && apu.frame_irq) || (apu.dmc_irq_enabled && apu.dmc_irq));
+  if (apu_is_get_phase()) { // NES bug: IRQ flags change immediately, but status change becomes visible on GET phase
+    apu.frame_irq_status = apu.frame_irq || (apu.cyc >= last_step && !apu.mode5); // NES bug: irq status on last step
+    apu.dmc_irq_status = apu.dmc_irq;
+  }
+
+  map_apu_irq(apu.frame_irq || apu.dmc_irq);
 
   ++apu.cyc;
 }

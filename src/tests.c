@@ -69,7 +69,7 @@ static TestParams tests[] = {
     0,
     { { 0xC1210397, 10, 0x00, 0 } } }, //
   { "apu_reset/4015_cleared.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0x68020FC4, 20, 0, 1 } } }, //
-  { "apu_reset/4017_timing.nes", MN_REGION_NTSC, 0, 0, { { 0x65F6087F, 20, 0, 0 }, { 0x499911CA, 20, 0, 1 } } }, //
+  { "apu_reset/4017_timing.nes", MN_REGION_NTSC, 0, 0, { { 0x65F6087F, 20, 0, 0 }, { 0x92964251, 20, 0, 1 } } }, //
   { "apu_reset/4017_written.nes",
     MN_REGION_NTSC,
     0,
@@ -86,7 +86,7 @@ static TestParams tests[] = {
   { "apu_test/rom_singles/6-irq_flag_timing.nes", MN_REGION_NTSC, 0, 0, { { 0x31D8322C, 20, 0x00, 0 } } }, //
   { "apu_test/rom_singles/7-dmc_basics.nes", MN_REGION_NTSC, 0, 0, { { 0x96FCAE66, 25, 0x00, 0 } } }, //
   { "apu_test/rom_singles/8-dmc_rates.nes", MN_REGION_NTSC, 0, 0, { { 0xF97AC6BC, 27, 0x00, 0 } } }, //
-  { "apu_test/apu_test.nes", MN_REGION_NTSC, 0, 0, { { 0x71B41136, 298, 0, 0 } } }, //
+  { "apu_test/apu_test.nes", MN_REGION_NTSC, 0, 0, { { 0x71B41136, 300, 0, 0 } } }, //
   { "blargg_apu_2005.07.30/01.len_ctr.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 24, 0x00, 0 } } }, //
   { "blargg_apu_2005.07.30/02.len_table.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 11, 0x00, 0 } } }, //
   { "blargg_apu_2005.07.30/03.irq_flag.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 18, 0x00, 0 } } }, //
@@ -387,8 +387,8 @@ static TestParams tests[] = {
   { "ppu_vbl_nmi/rom_singles/09-even_odd_frames.nes", MN_REGION_NTSC, 0, 0, { { 0xA590A81C, 76, 0x00, 0 } } }, //
   { "ppu_vbl_nmi/rom_singles/10-even_odd_timing.nes", MN_REGION_NTSC, 0, 0, { { 0xB3F44119, 142, 0x00, 0 } } }, //
   { "ppu_vbl_nmi/ppu_vbl_nmi.nes", MN_REGION_NTSC, 0, 0, { { 0xDDE50B5E, 1616, 0, 0 } } }, //
-  { "read_joy3/count_errors_fast.nes", MN_REGION_NTSC, 0, 0, { { 0xC1D5C413, 35, 0x00, 0 } } }, //
-  { "read_joy3/count_errors.nes", MN_REGION_NTSC, 0, 0, { { 0x68CC0CA3, 59, 0x00, 0 } } }, //
+  { "read_joy3/count_errors_fast.nes", MN_REGION_NTSC, 0, 0, { { 0x13348355, 35, 0x00, 0 } } }, //
+  { "read_joy3/count_errors.nes", MN_REGION_NTSC, 0, 0, { { 0xD278CD2F, 59, 0x00, 0 } } }, //
   { "read_joy3/test_buttons.nes",
     MN_REGION_NTSC,
     0,
