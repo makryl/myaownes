@@ -71,7 +71,6 @@ MN_CACHE_LINE static struct Cpu
   bool dmc_dma_done;
   bool oam_dma_trig;
   bool oam_dma_active;
-  bool joy_strobe;
   bool page_crossed;
   bool write;
   bool suppress_poll;
@@ -136,33 +135,26 @@ void cpu_input(u8 joy1, u8 joy2)
 
 static u8 cpu_joy_poll(u16 addr, bool trace)
 {
-  u8 val;
   uint idx = (addr & 1);
-  if (cpu.joy_strobe) {
-    val = (cpu.joy_pending[idx] & 1);
-  } else {
-    if (!trace) {
-      cpu.joy_shift_idx = idx;
-      cpu.joy_shift_delay = 2;
-    }
-    val = (cpu.joy_shift[idx] & 1);
+  if (!trace) {
+    cpu.joy_shift_idx = idx;
+    cpu.joy_shift_delay = 2;
   }
+  u8 val = (cpu.joy_shift[idx] & 1);
   // val |= (val & 1) << 1; // todo: Dendy uses expansion port for joy2?
   return val | (cpu.internal_open_bus & cpu.external_open_bus & 0xE0); // NES bug: io bus conflict
 }
 
 static void cpu_joy_strobe()
 {
-  if (cpu.cyc & 1) {
-    if (cpu.out & 1) {
-      cpu.joy_shift[0] = cpu.joy_pending[0];
-      cpu.joy_shift[1] = cpu.joy_pending[1];
-    }
-  }
   if (cpu.joy_shift_delay > 0) {
     if (--cpu.joy_shift_delay == 0) {
       cpu.joy_shift[cpu.joy_shift_idx] = (cpu.joy_shift[cpu.joy_shift_idx] >> 1) | 0x80;
     }
+  }
+  if ((cpu.cyc & 1) && (cpu.out & 1)) {
+    cpu.joy_shift[0] = cpu.joy_pending[0];
+    cpu.joy_shift[1] = cpu.joy_pending[1];
   }
 }
 
