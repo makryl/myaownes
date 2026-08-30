@@ -217,6 +217,9 @@ bool ppu_vblank() { return ppu.sl >= ppu.sl_vblank && ppu.sl < ppu.sl_pre_render
 #endif
 
 static u8 ppu_pam_addr(u16 addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
+static u8 ppu_pam_read(u16 addr) { return ppu.pam[ppu_pam_addr(addr)]; }
+static u8 ppu_pam_clamp(u8 val) { return val & ((ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F); }
+static void ppu_pam_write(u16 addr, u8 val) { ppu.pam[ppu_pam_addr(addr)] = val; }
 
 static void ppu_addr(u16 addr)
 {
@@ -228,7 +231,7 @@ static void ppu_addr(u16 addr)
 static u8 ppu_read()
 {
   if (ppu.addr >= 0x3F00) {
-    return ppu.pam[ppu_pam_addr(ppu.addr)];
+    return ppu_pam_clamp(ppu_pam_read(ppu.addr));
   } else {
     map_ppu_read(ppu.addr, &ppu.open_bus);
     return ppu.open_bus;
@@ -239,7 +242,7 @@ static void ppu_write(u8 val)
 {
   ppu.open_bus = val;
   if (ppu.addr >= 0x3F00) {
-    ppu.pam[ppu_pam_addr(ppu.addr)] = val;
+    ppu_pam_write(ppu.addr, val);
   } else {
     map_ppu_write(ppu.addr, val);
   }
@@ -344,7 +347,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
         ppu_addr(ppu.v);
         ppu_reg_bus_set(val, 0xFF);
       } else {
-        u8 val = ppu.pam[ppu_pam_addr(ppu.v)];
+        u8 val = ppu_pam_clamp(ppu_pam_read(ppu.v));
         if (trace) {
           return val;
         }
@@ -745,14 +748,12 @@ static void ppu_render_pixel(uint x)
 static void ppu_render_palette()
 {
   u8 pixel = ppu.render_enabled ? ppu.pixel : ((ppu.v & 0x3FFF) >= 0x3F00 ? ppu.v : 0);
-  ppu.color = ppu.pam[ppu_pam_addr(pixel)] & 0x3F;
+  ppu.color = ppu_pam_read(pixel);
 }
 
 static void ppu_render_mask(uint x)
 {
-  if (ppu.mask & PPU_MASK_GRAY) {
-    ppu.color &= 0x30;
-  }
+  ppu.color = ppu_pam_clamp(ppu.color);
 
   uint rgb = ppu_palette[ppu.color];
 
