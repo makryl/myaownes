@@ -170,7 +170,6 @@ MN_CACHE_LINE static struct Apu
   bool step_len;
 
   bool dmc_enabled;
-  bool dmc_irq_status;
   bool dmc_irq_enabled;
   bool dmc_irq;
   bool dmc_has_buf;
@@ -239,7 +238,7 @@ static u8 apu_get_status()
   if (apu.frame_irq_status) {
     status |= APU_STATUS_FRAME_IRQ;
   }
-  if (apu.dmc_irq_status) {
+  if (apu.dmc_irq) {
     status |= APU_STATUS_DMC_IRQ;
   }
   return status;
@@ -971,7 +970,6 @@ void apu_tick()
 
   if (apu_is_get_phase()) { // NES bug: IRQ flags change immediately, but status change becomes visible on GET phase
     apu.frame_irq_status = apu.frame_irq || (apu.cyc >= last_step && !apu.mode5); // NES bug: irq status on last step
-    apu.dmc_irq_status = apu.dmc_irq;
   }
 
   map_apu_irq(apu.frame_irq || apu.dmc_irq);
