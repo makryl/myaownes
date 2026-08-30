@@ -142,7 +142,7 @@ static u8 cpu_joy_poll(u16 addr, bool trace)
   }
   u8 val = (cpu.joy_shift[idx] & 1);
   // val |= (val & 1) << 1; // todo: Dendy uses expansion port for joy2?
-  return val | (cpu.internal_open_bus & cpu.external_open_bus & 0xE0); // NES bug: io bus conflict
+  return val | (cpu.external_open_bus & 0xE0);
 }
 
 static void cpu_joy_strobe()
@@ -192,7 +192,7 @@ static u8 cpu_read_addr_raw(u16 addr, bool trace)
     if (addr == 0x4016 || addr == 0x4017) {
       val = cpu_joy_poll(addr, trace);
     } else {
-      val = cpu.internal_open_bus;
+      val = addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus;
       apu_bus_read(addr, &val, trace);
     }
   } else {
@@ -208,13 +208,14 @@ static u8 cpu_read_addr_direct(u16 addr)
   if ((addr & 0xFFE0) != 0x4000) {
     cpu.external_open_bus = cpu_read_addr_raw(addr, false);
   }
-  cpu.internal_open_bus = cpu.external_open_bus;
   if ((cpu.addr & 0xFFE0) == 0x4000) { // NES bug: internal addr activation by bus addr (DMA dont change it)
     u16 internal_addr = (0x4000 | (addr & 0x1F));
     cpu.internal_open_bus = cpu_read_addr_raw(internal_addr, false);
     if (internal_addr == 0x4016 || internal_addr == 0x4017) { // NES bug: io bus conflict
       cpu.external_open_bus = (cpu.external_open_bus & 0xE0) | (cpu.internal_open_bus & 0x1F);
     }
+  } else {
+    cpu.internal_open_bus = cpu.external_open_bus;
   }
   cpu_cyc_end();
   return cpu.internal_open_bus;
