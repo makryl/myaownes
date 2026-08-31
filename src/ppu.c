@@ -148,6 +148,7 @@ MN_CACHE_LINE static struct Ppu
   bool odd_frame;
   bool suppress_vblank;
   bool check_nmi;
+  bool sprite_eval_first;
   bool sprite_eval_done;
   bool sprite_eval_has0;
   bool sprite_render_has0;
@@ -498,6 +499,7 @@ static void ppu_evaluate_sprites()
     ppu.sprite_copy = 0;
     ppu.sprite_eval_has0 = false;
     ppu.sprite_eval_done = false;
+    ppu.sprite_eval_first = true;
   }
 
   if (ppu.dot & 1) {
@@ -530,8 +532,10 @@ static void ppu_evaluate_sprites()
 
   if (!ppu.sprite_eval_done) {
     uint height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
+    bool is_sprite0 = ppu.sprite_eval_first; // NES bug: sprite 0 is first sprite pointed by oam_addr1, may be not 0
+    ppu.sprite_eval_first = false;
     if (ppu.sl >= y && ppu.sl < (y + height)) {
-      if (ppu.oam_addr1 == 0) {
+      if (is_sprite0) {
         ppu.sprite_eval_has0 = true;
       }
       if (ppu.oam_addr2 < 0x20) {
