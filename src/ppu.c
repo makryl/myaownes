@@ -155,6 +155,7 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_flip_horiz;
   bool inc_x;
   bool ntsc;
+  bool oam_corrupt;
 
   MN_CACHE_LINE u8 oam1[0x100];
   MN_CACHE_LINE u8 oam2[0x20];
@@ -382,10 +383,9 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.oam_data = ppu.oam1[ppu.oam_addr1];
       break;
     case PPU_REG_OAMDATA:
-      if (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render) && ppu.dot >= PPU_DOT_BEGIN
-          && ppu.dot <= PPU_DOT_SPRITE_END)
-      {
-        ppu_inc_n(); // NES bug: inc n on active sprite rendering
+      if (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render)) {
+        ppu_inc_n(); // NES bug: inc n on active rendering
+        ppu.oam_addr1 &= 0xFC; // and reset m
       } else {
         ppu.oam1[ppu.oam_addr1] = (ppu.oam_addr1 & 3) == 2 ? (val & 0xE3) : val;
         ++ppu.oam_addr1;
@@ -484,10 +484,13 @@ static void ppu_fetch_back()
 
 static void ppu_clear_sprites()
 {
+  if (ppu.dot == PPU_DOT_BEGIN) {
+    ppu.oam_addr2 = 0;
+  }
   if (ppu.dot & 1) {
     ppu.oam_data = 0xFF;
   } else {
-    ppu.oam2[(ppu.dot - PPU_DOT_BEGIN) >> 1] = ppu.oam_data;
+    ppu.oam2[ppu.oam_addr2++] = ppu.oam_data;
   }
 }
 
@@ -682,6 +685,11 @@ static void ppu_fetch_unused()
 static void ppu_fetch()
 {
   if (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render)) {
+    if (ppu.oam_corrupt) { // NES bug: oam corruption, after oam2 usage aborted
+      ppu.oam_corrupt = false;
+      memcpy(&ppu.oam1[(ppu.oam_addr2 * 8) & 0xF8], ppu.oam1, 8);
+      ppu.oam2[ppu.oam_addr2] = ppu.oam2[0];
+    }
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
       ppu_clear_sprites();
     } else if (ppu.dot >= PPU_DOT_SPRITE_EVAL_BEGIN && ppu.dot <= PPU_DOT_END) {
@@ -894,6 +902,9 @@ void ppu_tick()
       ppu.render_enabled = (ppu.mask & PPU_MASK_BACK) || (ppu.mask & PPU_MASK_SPRITE);
       if (was_enabled && !ppu.render_enabled) {
         ppu.oam_data = ppu.oam1[ppu.oam_addr1]; // restore oam data from oam2 to oam1
+        if (ppu.oam_addr2 & 0x1F) { // NES bug: oam corruption, after oam2 usage aborted
+          ppu.oam_corrupt = true;
+        }
       }
     }
   }
