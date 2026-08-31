@@ -248,36 +248,36 @@ static void ppu_write(u8 val)
   }
 }
 
-static void ppu_swap_x() { ppu.v = (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
-static void ppu_swap_y() { ppu.v = (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
+static u16 ppu_swap_x() { return (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
+static u16 ppu_swap_y() { return (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
 
-static void ppu_inc_x()
+static u16 ppu_inc_xy(bool inc_y)
 {
-  if ((ppu.v & 0x001F) == 31) { // if coarse X == 31
-    ppu.v &= ~0x001F; // coarse X = 0
-    ppu.v ^= 0x0400; // switch horizontal nametable
+  uint v = ppu.v;
+  if ((v & 0x001F) == 31) { // if coarse X == 31
+    v &= ~0x001F; // coarse X = 0
+    v ^= 0x0400; // switch horizontal nametable
   } else {
-    ppu.v += 1; // increment coarse X
+    v += 1; // increment coarse X
   }
-}
-
-static void ppu_inc_y()
-{
-  if ((ppu.v & 0x7000) != 0x7000) { // if fine Y < 7
-    ppu.v += 0x1000; // increment fine Y
-  } else {
-    ppu.v &= ~0x7000; // fine Y = 0
-    uint y = (ppu.v & 0x03E0) >> 5; // y = coarse Y
-    if (y == 29) {
-      y = 0;
-      ppu.v ^= 0x0800; // switch vertical nametable
-    } else if (y == 31) {
-      y = 0;
+  if (inc_y) {
+    if ((v & 0x7000) != 0x7000) { // if fine Y < 7
+      v += 0x1000; // increment fine Y
     } else {
-      y += 1;
+      v &= ~0x7000; // fine Y = 0
+      uint y = (v & 0x03E0) >> 5; // y = coarse Y
+      if (y == 29) {
+        y = 0;
+        v ^= 0x0800; // switch vertical nametable
+      } else if (y == 31) {
+        y = 0;
+      } else {
+        y += 1;
+      }
+      v = (v & ~0x03E0) | (y << 5);
     }
-    ppu.v = (ppu.v & ~0x03E0) | (y << 5);
   }
+  return v;
 }
 
 static u16 ppu_inc_v() { return ppu.v + ((ppu.ctrl & PPU_CTRL_INC_Y) ? 32 : 1); }
@@ -851,29 +851,30 @@ void ppu_tick()
     }
   }
 
-  bool swap_v = false;
+  bool v_changed = false;
+  uint v_inc = 0xFFFF;
+  uint v_swap = 0xFFFF;
   if (ppu.render_enabled) {
     if ((ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render) && ppu.dot == PPU_DOT_SWAP_X) {
-      ppu_swap_x();
-      swap_v = true;
+      v_swap = ppu_swap_x();
+      v_changed = true;
     }
     if (ppu.sl == ppu.sl_pre_render && ppu.dot >= PPU_DOT_SWAP_Y_BEGIN && ppu.dot <= PPU_DOT_SWAP_Y_END) {
-      ppu_swap_y();
-      swap_v = true;
+      v_swap = ppu_swap_y();
+      v_changed = true;
     }
   }
 
   if (ppu.inc_x) {
-    ppu_inc_x();
-    if (inc_v || ppu.dot == PPU_DOT_END) {
-      ppu_inc_y();
-    }
+    v_inc = ppu_inc_xy(inc_v || ppu.dot == PPU_DOT_END);
+    v_changed = true;
   } else if (inc_v) {
-    if (swap_v) {
-      ppu.v &= ppu_inc_v();
-    } else {
-      ppu.v = ppu_inc_v();
-    }
+    bool active_rendering = (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render));
+    v_inc = active_rendering ? ppu_inc_xy(true) : ppu_inc_v();
+    v_changed = true;
+  }
+  if (v_changed) {
+    ppu.v = (v_inc & v_swap);
   }
   if (inc_v) {
     ppu_addr(ppu.v);
