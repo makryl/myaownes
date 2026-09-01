@@ -274,41 +274,43 @@ static struct
 
 #define trace_addr0(code) trace.addr0 = code
 #define trace_addr(code) trace.addr = code, trace.val = cpu_read_addr_raw(trace.addr, true), trace.addr
-#define trace_tick(fmt)                                                                                              \
-  _Pragma("clang diagnostic push") _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")                       \
-    tracef(fmt "  A:%6$02X X:%7$02X Y:%8$02X P:%9$02X SP:%10$02X PPU:%11$3d,%12$3d CYC:%13$d\n",                     \
-           cpu_read_addr_raw(trace.cpu.pc + 1, true), cpu_read_addr_raw(trace.cpu.pc + 2, true),                     \
-           cpu_read_addr_raw(trace.cpu.pc, true), trace.cpu.pc, trace.opname, trace.cpu.a, trace.cpu.x, trace.cpu.y, \
-           trace.cpu.p, trace.cpu.s, trace.ppu_sl, trace.ppu_dot, trace.cpu_cyc, trace.addr0, trace.addr, trace.val) \
-      _Pragma("clang diagnostic pop")
-#define trace_tick0(fmt) trace_tick("%4$04X  %3$02X       %5$4s " fmt);
-#define trace_tick1(fmt) trace_tick("%4$04X  %3$02X %1$02X    %5$4s " fmt);
-#define trace_tick2(fmt) trace_tick("%4$04X  %3$02X %1$02X %2$02X %5$4s " fmt);
+#define trace_tick(fmt, ...)                                                                                       \
+  tracef(fmt "  A:%02X X:%02X Y:%02X P:%02X SP:%02X PPU:%3d,%3d CYC:%d\n" __VA_OPT__(, ) __VA_ARGS__, trace.cpu.a, \
+         trace.cpu.x, trace.cpu.y, trace.cpu.p, trace.cpu.s, trace.ppu_sl, trace.ppu_dot, trace.cpu_cyc)
+#define trace_tick0(fmt, ...) \
+  trace_tick("%04X  %02X       %4s " fmt, trace.cpu.pc, pc0, trace.opname __VA_OPT__(, ) __VA_ARGS__);
+#define trace_tick1(fmt, ...) \
+  trace_tick("%04X  %02X %02X    %4s " fmt, trace.cpu.pc, pc0, pc1, trace.opname __VA_OPT__(, ) __VA_ARGS__);
+#define trace_tick2(fmt, ...) \
+  trace_tick("%04X  %02X %02X %02X %4s " fmt, trace.cpu.pc, pc0, pc1, pc2, trace.opname __VA_OPT__(, ) __VA_ARGS__);
 
 static void trace_tick_addr(u8 am)
 {
+  u8 pc0 = cpu_read_addr_raw(trace.cpu.pc + 0, true);
+  u8 pc1 = cpu_read_addr_raw(trace.cpu.pc + 1, true);
+  u8 pc2 = cpu_read_addr_raw(trace.cpu.pc + 2, true);
   switch (am) {
     case CPU_ADDR_IMP: trace_tick0("                          "); break;
     case CPU_ADDR_ACC: trace_tick0("A                         "); break;
-    case CPU_ADDR_IMM: trace_tick1("#$%1$02X                      "); break;
-    case CPU_ADDR_REL: trace_tick1("$%15$04X                     "); break;
+    case CPU_ADDR_IMM: trace_tick1("#$%02X                      ", pc1); break;
+    case CPU_ADDR_REL: trace_tick1("$%04X                     ", trace.addr); break;
     case CPU_ADDR_ABS: {
       u8 op = cpu_read_addr_raw(trace.cpu.pc, true);
       if (op == 0x20 || op == 0x4C) {
-        trace_tick2("$%15$04X                     ");
+        trace_tick2("$%04X                     ", trace.addr);
       } else {
-        trace_tick2("$%15$04X = %16$02X                ");
+        trace_tick2("$%04X = %02X                ", trace.addr, trace.val);
       }
       break;
     }
-    case CPU_ADDR_ABX: trace_tick2("$%2$02X%1$02X,X @ %15$04X = %16$02X       "); break;
-    case CPU_ADDR_ABY: trace_tick2("$%2$02X%1$02X,Y @ %15$04X = %16$02X       "); break;
-    case CPU_ADDR_IND: trace_tick2("($%2$02X%1$02X) = %15$04X            "); break;
-    case CPU_ADDR_NDX: trace_tick1("($%1$02X,X) @ %14$02X = %15$04X = %16$02X  "); break;
-    case CPU_ADDR_NDY: trace_tick1("($%1$02X),Y = %14$04X @ %15$04X = %16$02X"); break;
-    case CPU_ADDR_ZPG: trace_tick1("$%1$02X = %16$02X                  "); break;
-    case CPU_ADDR_ZPX: trace_tick1("$%1$02X,X @ %15$02X = %16$02X           "); break;
-    case CPU_ADDR_ZPY: trace_tick1("$%1$02X,Y @ %15$02X = %16$02X           "); break;
+    case CPU_ADDR_ABX: trace_tick2("$%02X%02X,X @ %04X = %02X       ", pc2, pc1, trace.addr, trace.val); break;
+    case CPU_ADDR_ABY: trace_tick2("$%02X%02X,Y @ %04X = %02X       ", pc2, pc1, trace.addr, trace.val); break;
+    case CPU_ADDR_IND: trace_tick2("($%02X%02X) = %04X            ", pc2, pc1, trace.addr); break;
+    case CPU_ADDR_NDX: trace_tick1("($%02X,X) @ %02X = %04X = %02X  ", pc1, trace.addr0, trace.addr, trace.val); break;
+    case CPU_ADDR_NDY: trace_tick1("($%02X),Y = %04X @ %04X = %02X", pc1, trace.addr0, trace.addr, trace.val); break;
+    case CPU_ADDR_ZPG: trace_tick1("$%02X = %02X                  ", pc1, trace.val); break;
+    case CPU_ADDR_ZPX: trace_tick1("$%02X,X @ %02X = %02X           ", pc1, trace.addr, trace.val); break;
+    case CPU_ADDR_ZPY: trace_tick1("$%02X,Y @ %02X = %02X           ", pc1, trace.addr, trace.val); break;
   }
 }
 
@@ -776,7 +778,7 @@ static void cpu_dmc_dma()
 
 static void cpu_oam_dma()
 {
-  if (!cpu.oam_dma_trig) {
+  if (!cpu.oam_dma_trig || cpu.write) { // todo: skip dummy write in read-modify-write or every write?
     return;
   }
   cpu.oam_dma_trig = false;

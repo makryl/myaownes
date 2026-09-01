@@ -155,12 +155,17 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_flip_horiz;
   bool inc_x;
   bool ntsc;
-  bool oam_corrupt;
+  bool oam_charge;
 
   MN_CACHE_LINE u8 oam1[0x100];
   MN_CACHE_LINE u8 oam2[0x20];
   MN_CACHE_LINE u8 pam[0x20];
 } ppu;
+
+#define ppu_trace(fmt, ...)                                                                                     \
+  tracef("PPU c=%02X m=%02X s=%02X v=%04X t=%04X x=%02X w=%d o=%02X sl=%-3d dot=%-3d cpu_cyc=%-10d  " fmt "\n", \
+         ppu.ctrl, ppu.mask, ppu.status, ppu.v, ppu.t, ppu.x, ppu.write_latch, ppu.oam_data, ppu.sl, ppu.dot,   \
+         cpu_cyc() __VA_OPT__(, ) __VA_ARGS__);
 
 uint ppu_size() { return sizeof(ppu); }
 void* ppu_data() { return &ppu; }
@@ -208,20 +213,20 @@ uint ppu_cyc() { return ppu.cyc; }
 uint ppu_dot() { return ppu.dot; }
 uint ppu_sl() { return ppu.sl; }
 bool ppu_vblank() { return ppu.sl >= ppu.sl_vblank && ppu.sl < ppu.sl_pre_render; }
-
-#if MN_TRACE_PPU
-#define ppu_trace(fmt, ...)                                                                                     \
-  tracef("PPU c=%02X m=%02X s=%02X v=%04X t=%04X x=%02X w=%d o=%02X sl=%-3d dot=%-3d cpu_cyc=%-10d  " fmt "\n", \
-         ppu.ctrl, ppu.mask, ppu.status, ppu.v, ppu.t, ppu.x, ppu.write_latch, ppu.oam_data, ppu.sl, ppu.dot,   \
-         cpu_cyc() __VA_OPT__(, ) __VA_ARGS__);
-#else
-#define trace_ppu(fmt, ...) (void)0
-#endif
+static bool ppu_render_active() { return ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render); }
 
 static u8 ppu_pam_addr(u16 addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
 static u8 ppu_pam_read(u16 addr) { return ppu.pam[ppu_pam_addr(addr)]; }
 static u8 ppu_pam_clamp(u8 val) { return val & ((ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F); }
 static void ppu_pam_write(u16 addr, u8 val) { ppu.pam[ppu_pam_addr(addr)] = val; }
+
+static void ppu_oam_charge(u8 dst, u8 src)
+{
+  if (dst != src) {
+    memcpy(&ppu.oam1[dst << 3], &ppu.oam1[src << 3], 8);
+    ppu.oam2[dst] = ppu.oam2[src];
+  }
+}
 
 static void ppu_addr(u16 addr)
 {
@@ -383,7 +388,7 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.oam_data = ppu.oam1[ppu.oam_addr1];
       break;
     case PPU_REG_OAMDATA:
-      if (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render)) {
+      if (ppu_render_active()) {
         ppu_inc_n(); // NES bug: inc n on active rendering
         ppu.oam_addr1 &= 0xFC; // and reset m
       } else {
@@ -484,13 +489,11 @@ static void ppu_fetch_back()
 
 static void ppu_clear_sprites()
 {
-  if (ppu.dot == PPU_DOT_BEGIN) {
-    ppu.oam_addr2 = 0;
-  }
   if (ppu.dot & 1) {
     ppu.oam_data = 0xFF;
+    ppu.oam_addr2 = (ppu.dot - PPU_DOT_BEGIN) >> 1;
   } else {
-    ppu.oam2[ppu.oam_addr2++] = ppu.oam_data;
+    ppu.oam2[ppu.oam_addr2 & 0x1F] = ppu.oam_data;
   }
 }
 
@@ -573,7 +576,8 @@ static void ppu_fetch_sprites()
   switch (pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[i * 4 + 0];
+      ppu.oam_addr2 = i * 4 + 0;
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       uint next_sl = (ppu.sl == ppu.sl_pre_render) ? 0 : (ppu.sl + 1);
       ppu.sprite_y = next_sl - ppu.oam_data - 1;
       break;
@@ -581,7 +585,8 @@ static void ppu_fetch_sprites()
     case 1: {
       ppu_addr(ppu_nt_addr());
       ppu_read(); // unused NT
-      ppu.oam_data = ppu.oam2[i * 4 + 1];
+      ppu.oam_addr2 = i * 4 + 1;
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       ppu.sprite_tile = ppu.oam_data;
       if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
         ppu.nt = (ppu.sprite_tile & 1) ? 0x1000 : 0x0000;
@@ -592,7 +597,8 @@ static void ppu_fetch_sprites()
     }
     case 2: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[i * 4 + 2];
+      ppu.oam_addr2 = i * 4 + 2;
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       ppu.sprite_attr[i] = ppu.oam_data;
       ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
       if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
@@ -613,7 +619,8 @@ static void ppu_fetch_sprites()
     case 3: {
       ppu_addr(ppu_nt_addr());
       ppu_read(); // ignored NT
-      ppu.oam_data = ppu.oam2[i * 4 + 3];
+      ppu.oam_addr2 = i * 4 + 3;
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       ppu.sprite_x[i] = ppu.oam_data;
       break;
     }
@@ -633,6 +640,7 @@ static void ppu_fetch_sprites()
     case 7: {
       ppu_addr(ppu.nt | 8);
       ppu.hi = ppu_read();
+      ++ppu.oam_addr2; // todo: dynamic or fixed behavior?
 
       if (i < ppu.sprite_render_count) {
         if (ppu.sprite_flip_horiz) {
@@ -684,11 +692,9 @@ static void ppu_fetch_unused()
 
 static void ppu_fetch()
 {
-  if (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render)) {
-    if (ppu.oam_corrupt) { // NES bug: oam corruption, after oam2 usage aborted
-      ppu.oam_corrupt = false;
-      memcpy(&ppu.oam1[(ppu.oam_addr2 * 8) & 0xF8], ppu.oam1, 8);
-      ppu.oam2[ppu.oam_addr2] = ppu.oam2[0];
+  if (ppu_render_active()) {
+    if (ppu.dot == PPU_DOT_ZERO) {
+      ppu_oam_charge(ppu.oam_addr2 & 0x1F, ppu.oam_addr1 >> 3); // NES bug: oam may corrupt if addr-s not zero
     }
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
       ppu_clear_sprites();
@@ -867,7 +873,7 @@ void ppu_tick()
   uint v_inc = 0xFFFF;
   uint v_swap = 0xFFFF;
   if (ppu.render_enabled) {
-    if ((ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render) && ppu.dot == PPU_DOT_SWAP_X) {
+    if (ppu_render_active() && ppu.dot == PPU_DOT_SWAP_X) {
       v_swap = ppu_swap_x();
       v_changed = true;
     }
@@ -881,8 +887,7 @@ void ppu_tick()
     v_inc = ppu_inc_xy(inc_v || ppu.dot == PPU_DOT_END);
     v_changed = true;
   } else if (inc_v) {
-    bool active_rendering = (ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render));
-    v_inc = active_rendering ? ppu_inc_xy(true) : ppu_inc_v();
+    v_inc = ppu_render_active() ? ppu_inc_xy(true) : ppu_inc_v();
     v_changed = true;
   }
   if (v_changed) {
@@ -902,9 +907,6 @@ void ppu_tick()
       ppu.render_enabled = (ppu.mask & PPU_MASK_BACK) || (ppu.mask & PPU_MASK_SPRITE);
       if (was_enabled && !ppu.render_enabled) {
         ppu.oam_data = ppu.oam1[ppu.oam_addr1]; // restore oam data from oam2 to oam1
-        if (ppu.oam_addr2 & 0x1F) { // NES bug: oam corruption, after oam2 usage aborted
-          ppu.oam_corrupt = true;
-        }
       }
     }
   }

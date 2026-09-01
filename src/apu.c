@@ -653,7 +653,7 @@ void apu_dmc_dma(u8 val)
   }
 }
 
-static bool apu_dmc_swap()
+static void apu_dmc_swap()
 {
   apu_trace_dmc("dmc swap");
   apu.dmc_out = apu.dmc_buf;
