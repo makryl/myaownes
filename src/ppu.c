@@ -155,7 +155,6 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_flip_horiz;
   bool inc_x;
   bool ntsc;
-  bool oam_charge;
 
   MN_CACHE_LINE u8 oam1[0x100];
   MN_CACHE_LINE u8 oam2[0x20];
@@ -220,7 +219,7 @@ static u8 ppu_pam_read(u16 addr) { return ppu.pam[ppu_pam_addr(addr)]; }
 static u8 ppu_pam_clamp(u8 val) { return val & ((ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F); }
 static void ppu_pam_write(u16 addr, u8 val) { ppu.pam[ppu_pam_addr(addr)] = val; }
 
-static void ppu_oam_charge(u8 dst, u8 src)
+static void ppu_oam_corrupt(u8 dst, u8 src)
 {
   if (dst != src) {
     memcpy(&ppu.oam1[dst << 3], &ppu.oam1[src << 3], 8);
@@ -566,11 +565,11 @@ static void ppu_evaluate_sprites()
 static void ppu_fetch_sprites()
 {
   if (ppu.dot == PPU_DOT_SPRITE_BEGIN) {
-    ppu.oam_addr1 = 0;
     ppu.sprite_render_count = ppu.sprite_eval_count > 8 ? 8 : ppu.sprite_eval_count;
     ppu.sprite_render_has0 = ppu.sprite_eval_has0;
   }
 
+  ppu.oam_addr1 = 0;
   uint i = (ppu.dot - PPU_DOT_SPRITE_BEGIN) / 8;
 
   switch (pipe_step()) {
@@ -640,7 +639,6 @@ static void ppu_fetch_sprites()
     case 7: {
       ppu_addr(ppu.nt | 8);
       ppu.hi = ppu_read();
-      ++ppu.oam_addr2; // todo: dynamic or fixed behavior?
 
       if (i < ppu.sprite_render_count) {
         if (ppu.sprite_flip_horiz) {
@@ -694,7 +692,7 @@ static void ppu_fetch()
 {
   if (ppu_render_active()) {
     if (ppu.dot == PPU_DOT_ZERO) {
-      ppu_oam_charge(ppu.oam_addr2 & 0x1F, ppu.oam_addr1 >> 3); // NES bug: oam may corrupt if addr-s not zero
+      ppu_oam_corrupt(ppu.oam_addr2 & 0x1F, 0); // NES bug: oam may corrupt if addr-s not zero
     }
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
       ppu_clear_sprites();
@@ -712,9 +710,10 @@ static void ppu_fetch()
     } else if (ppu.dot > PPU_DOT_PREFETCH_END) {
       ppu_fetch_unused();
     }
-  }
-  if (ppu.dot == PPU_DOT_PREFETCH_BEGIN) {
-    ppu.oam_data = ppu.oam1[ppu.oam_addr1]; // restore oam data from oam2 to oam1
+    if (ppu.dot == PPU_DOT_PREFETCH_BEGIN) {
+      ppu.oam_data = ppu.oam1[ppu.oam_addr1]; // restore oam data from oam2 to oam1
+      ppu.oam_addr2 = 0;
+    }
   }
 }
 
