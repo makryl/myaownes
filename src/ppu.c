@@ -288,16 +288,22 @@ static u16 ppu_inc_xy(bool inc_y)
 
 static u16 ppu_inc_v() { return ppu.v + ((ppu.ctrl & PPU_CTRL_INC_Y) ? 32 : 1); }
 
-static bool ppu_inc_m()
+static void ppu_reset_m() { ppu.oam_addr1 &= 0xFC; }
+static void ppu_inc_m() { ppu.oam_addr1 = (ppu.oam_addr1 & 0xFC) | ((ppu.oam_addr1 + 1) & 3); }
+
+static void ppu_inc_n()
 {
-  ppu.oam_addr1 = (ppu.oam_addr1 & 0xFC) | ((ppu.oam_addr1 + 1) & 3);
-  return (ppu.oam_addr1 & 3) == 0;
+  ppu.oam_addr1 = ((ppu.oam_addr1 + 4) & 0xFF);
+  if ((ppu.oam_addr1 & 0xFC) == 0) {
+    ppu.sprite_eval_done = true;
+  }
 }
 
-static bool ppu_inc_n()
+static void ppu_inc_mn()
 {
-  ppu.oam_addr1 += 4;
-  return (ppu.oam_addr1 & 0xFC) == 0;
+  if (++ppu.oam_addr1 == 0) {
+    ppu.sprite_eval_done = true;
+  }
 }
 
 static void ppu_reg_bus_set(u8 val, u8 mask)
@@ -387,9 +393,9 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.oam_data = ppu.oam1[ppu.oam_addr1];
       break;
     case PPU_REG_OAMDATA:
-      if (ppu_render_active()) {
-        ppu_inc_n(); // NES bug: inc n on active rendering
-        ppu.oam_addr1 &= 0xFC; // and reset m
+      if (ppu_render_active()) { // NES bug: inc n and reset m on active rendering
+        ppu_inc_n();
+        ppu_reset_m();
       } else {
         ppu.oam1[ppu.oam_addr1] = (ppu.oam_addr1 & 3) == 2 ? (val & 0xE3) : val;
         ++ppu.oam_addr1;
@@ -524,20 +530,16 @@ static void ppu_evaluate_sprites()
     if (ppu.oam_addr2 < 0x20) {
       ++ppu.oam_addr2;
     }
-    if (ppu_inc_m()) {
-      if (ppu_inc_n()) {
-        ppu.sprite_eval_done = true;
-      }
-    }
+    ppu_inc_mn();
     if (--ppu.sprite_copy == 0) {
-      ppu.oam_addr1 &= 0xFC; // todo: why reset m? (read2004.nes)
+      ppu_reset_m(); // NES bug: sprite-8 resets m on end of copy even when miss-aligned
     }
     return;
   }
 
-  if (!ppu.sprite_eval_done) {
+  if (!ppu.sprite_eval_done && ppu.sprite_eval_count <= 8) { // NES bug: sprite-8 going to copy and fail
     uint height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
-    bool is_sprite0 = ppu.sprite_eval_first; // NES bug: sprite 0 is first sprite pointed by oam_addr1, may be not 0
+    bool is_sprite0 = ppu.sprite_eval_first; // NES bug: sprite-0 is first sprite pointed by oam_addr1, may be not 0
     ppu.sprite_eval_first = false;
     if (ppu.sl >= y && ppu.sl < (y + height)) {
       if (is_sprite0) {
@@ -548,18 +550,16 @@ static void ppu_evaluate_sprites()
       } else {
         ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
       }
-      ppu_inc_m();
+      ppu_inc_mn();
       ppu.sprite_copy = 3;
       ++ppu.sprite_eval_count;
       return;
     } else if (ppu.sprite_eval_count == 8) {
-      ppu_inc_m(); // NES bug: increment both m and n.
+      ppu_inc_m(); // NES bug: increment both m and n before sprite-8 found
     }
   }
 
-  if (ppu_inc_n()) {
-    ppu.sprite_eval_done = true;
-  }
+  ppu_inc_n();
 }
 
 static void ppu_fetch_sprites()
@@ -710,9 +710,9 @@ static void ppu_fetch()
     } else if (ppu.dot > PPU_DOT_PREFETCH_END) {
       ppu_fetch_unused();
     }
-    if (ppu.dot == PPU_DOT_PREFETCH_BEGIN) {
-      ppu.oam_data = ppu.oam1[ppu.oam_addr1]; // restore oam data from oam2 to oam1
+    if (ppu.dot >= PPU_DOT_PREFETCH_BEGIN) {
       ppu.oam_addr2 = 0;
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
     }
   }
 }
