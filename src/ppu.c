@@ -31,9 +31,9 @@ enum
   PPU_DOT_SWAP_Y_END = 304,
   PPU_DOT_SPRITE_BEGIN = 257,
   PPU_DOT_SPRITE_END = 320,
+  PPU_DOT_SPRITE_PREPARE = 337,
   PPU_DOT_PREFETCH_BEGIN = 321,
   PPU_DOT_PREFETCH_END = 336,
-  PPU_DOT_PRE_LAST = 339,
   PPU_DOT_LAST = 340,
 };
 
@@ -97,10 +97,8 @@ MN_CACHE_LINE static struct Ppu
   uint dot;
   uint sl;
   uint sprite_eval_count;
-  uint sprite_render_count;
   uint sprite_copy;
   uint sprite_y;
-  uint sprite_shift_prepare;
   uint read_delay;
   uint write_delay;
   uint mask_delay;
@@ -139,8 +137,8 @@ MN_CACHE_LINE static struct Ppu
   u8 color;
 
   u8 sprite_attr[8];
-  u8 sprite_x_fetch[8];
-  u8 sprite_x_render[8];
+  u8 sprite_x[8];
+  u8 sprite_shift_x[8];
   u8 sprite_shift_lo[8];
   u8 sprite_shift_hi[8];
 
@@ -156,6 +154,7 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_eval_has0;
   bool sprite_render_has0;
   bool sprite_flip_horiz;
+  bool sprite_fetch_done;
   bool inc_x;
   bool ntsc;
 
@@ -569,7 +568,6 @@ static void ppu_evaluate_sprites()
 static void ppu_fetch_sprites()
 {
   if (ppu.dot == PPU_DOT_SPRITE_BEGIN) {
-    ppu.sprite_render_count = ppu.sprite_eval_count > 8 ? 8 : ppu.sprite_eval_count;
     ppu.sprite_render_has0 = ppu.sprite_eval_has0;
   }
 
@@ -608,7 +606,7 @@ static void ppu_fetch_sprites()
         uint height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
         ppu.sprite_y = (height - 1) - ppu.sprite_y;
       }
-      if (i < ppu.sprite_render_count) {
+      if (i < ppu.sprite_eval_count) {
         if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
           ppu.nt |= ((ppu.sprite_tile & 0xFE) << 4) + (ppu.sprite_y >= 8 ? ppu.sprite_y + 8 : ppu.sprite_y);
         } else {
@@ -624,8 +622,7 @@ static void ppu_fetch_sprites()
       ppu_read(); // ignored NT
       ppu.oam_addr2 = i * 4 + 3;
       ppu.oam_data = ppu.oam2[ppu.oam_addr2];
-      ppu.sprite_x_fetch[i] = ppu.oam_data;
-      ppu.sprite_x_render[i] = 0;
+      ppu.sprite_x[i] = ppu.oam_data;
       break;
     }
     case 4: {
@@ -645,7 +642,7 @@ static void ppu_fetch_sprites()
       ppu_addr(ppu.nt | 8);
       ppu.hi = ppu_read();
 
-      if (i < ppu.sprite_render_count) {
+      if (i < ppu.sprite_eval_count) {
         if (ppu.sprite_flip_horiz) {
           ppu.lo = ((ppu.lo & 0xF0) >> 4) | ((ppu.lo & 0x0F) << 4);
           ppu.lo = ((ppu.lo & 0xCC) >> 2) | ((ppu.lo & 0x33) << 2);
@@ -665,20 +662,7 @@ static void ppu_fetch_sprites()
   }
 }
 
-static void ppu_sprite_shift_prepare()
-{
-  for (uint i = 0; i < ppu.sprite_render_count; ++i) {
-    ppu.sprite_x_render[i] = ppu.sprite_x_fetch[i];
-  }
-  if (ppu.dot > 0) { // NES bug: when shift registers for dot 1 not yet ready, dot 1 rendered with x=0, shift it here
-    for (uint i = 0; i < ppu.sprite_render_count; ++i) {
-      if (ppu.sprite_x_render[i] > 0) {
-        ppu.sprite_shift_lo[i] <<= 1;
-        ppu.sprite_shift_hi[i] <<= 1;
-      }
-    }
-  }
-}
+static void ppu_fetch_sprites_finish() { memcpy(ppu.sprite_shift_x, ppu.sprite_x, sizeof(ppu.sprite_shift_x)); }
 
 static void ppu_fetch_unused()
 {
@@ -714,11 +698,6 @@ static void ppu_fetch()
     if (ppu.dot == PPU_DOT_ZERO) {
       ppu_oam_corrupt(ppu.oam_addr2 & 0x1F, 0); // NES bug: oam may corrupt if addr-s not zero
     }
-    if (ppu.sprite_shift_prepare > 0) {
-      if (--ppu.sprite_shift_prepare == 0) {
-        ppu_sprite_shift_prepare();
-      }
-    }
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
       ppu_clear_sprites();
     } else if (ppu.dot >= PPU_DOT_SPRITE_EVAL_BEGIN && ppu.dot <= PPU_DOT_END) {
@@ -730,6 +709,16 @@ static void ppu_fetch()
       }
     } else if (ppu.dot >= PPU_DOT_SPRITE_BEGIN && ppu.dot <= PPU_DOT_SPRITE_END) {
       ppu_fetch_sprites();
+    } else if (ppu.dot > PPU_DOT_SPRITE_END) {
+      ppu.oam_addr2 = 0;
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+      if (ppu.dot == PPU_DOT_SPRITE_PREPARE) {
+        ppu.sprite_fetch_done = true;
+      }
+      if (ppu.sprite_fetch_done && (ppu.dot == PPU_DOT_LAST || ppu.dot == PPU_DOT_BEGIN)) {
+        ppu.sprite_fetch_done = false;
+        ppu_fetch_sprites_finish();
+      }
     }
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END)
         || (ppu.dot >= PPU_DOT_PREFETCH_BEGIN && ppu.dot <= PPU_DOT_PREFETCH_END))
@@ -737,13 +726,6 @@ static void ppu_fetch()
       ppu_fetch_back();
     } else if (ppu.dot > PPU_DOT_PREFETCH_END) {
       ppu_fetch_unused();
-    }
-    if (ppu.dot >= PPU_DOT_PREFETCH_BEGIN) {
-      ppu.oam_addr2 = 0;
-      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
-    }
-    if (ppu.dot == PPU_DOT_PRE_LAST) {
-      ppu.sprite_shift_prepare = 2;
     }
   }
 }
@@ -765,20 +747,22 @@ static void ppu_render_pixel(uint x)
   u8 pixel_sprite = 0;
   bool sprite_priority = false;
   bool sprite0_hit = false;
-  if ((ppu.mask & PPU_MASK_SPRITE) && (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
-    for (uint i = 0; i < ppu.sprite_render_count; ++i) {
-      uint offset = x - ppu.sprite_x_render[i];
-      if (offset < 8) {
-        uint bit_mask = 0x80 >> offset;
-        uint p0 = (ppu.sprite_shift_lo[i] & bit_mask);
-        uint p1 = (ppu.sprite_shift_hi[i] & bit_mask);
-        if (p0 | p1) {
+  for (uint i = 0; i < 8; ++i) {
+    if ((ppu.mask & PPU_MASK_SPRITE)) {
+      if (ppu.sprite_shift_x[i] == 0) {
+        uint p0 = (ppu.sprite_shift_lo[i] & 0x80);
+        uint p1 = (ppu.sprite_shift_hi[i] & 0x80);
+        ppu.sprite_shift_lo[i] <<= 1;
+        ppu.sprite_shift_hi[i] <<= 1;
+        if (!pixel_sprite && (p0 | p1) && (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
           pixel_sprite = (p0 > 0) | ((p1 > 0) << 1) | 0x10 | ((ppu.sprite_attr[i] & 0x03) << 2);
           sprite_priority = (ppu.sprite_attr[i] & PPU_SPRITE_PRIORITY) == 0;
           sprite0_hit = (i == 0 && ppu.sprite_render_has0);
-          break;
         }
       }
+    }
+    if (ppu.sprite_shift_x[i] > 0) {
+      --ppu.sprite_shift_x[i];
     }
   }
 
@@ -941,7 +925,7 @@ void ppu_tick()
     }
   }
 
-  if (ppu.ntsc && ppu.odd_frame && ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_PRE_LAST && ppu.render_enabled) {
+  if (ppu.ntsc && ppu.odd_frame && ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_LAST - 1 && ppu.render_enabled) {
     ++ppu.dot;
   }
 
