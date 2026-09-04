@@ -443,6 +443,7 @@ static void ppu_fetch_back()
   ppu.shift_tile_hi <<= 1;
   ppu.shift_attr_lo <<= 1;
   ppu.shift_attr_hi <<= 1;
+  ppu.shift_tile_hi |= 1; // NES bug: high bit shifts with 1
 
   switch (pipe_step()) {
     case 0: {
@@ -502,15 +503,15 @@ static void ppu_clear_sprites()
   } else {
     ppu.oam2[ppu.oam_addr2 & 0x1F] = ppu.oam_data;
   }
+  ppu.sprite_eval_count = 0;
+  ppu.sprite_eval_done = false;
 }
 
 static void ppu_evaluate_sprites_reset()
 {
   ppu.oam_addr2 = 0;
-  ppu.sprite_eval_count = 0;
   ppu.sprite_copy = 0;
   ppu.sprite_eval_has0 = false;
-  ppu.sprite_eval_done = false;
   ppu.sprite_eval_first = true;
 }
 
@@ -569,6 +570,7 @@ static void ppu_fetch_sprites()
 {
   if (ppu.dot == PPU_DOT_SPRITE_BEGIN) {
     ppu.sprite_render_has0 = ppu.sprite_eval_has0;
+    ppu.oam_addr2 = -1;
   }
 
   ppu.oam_addr1 = 0;
@@ -577,8 +579,7 @@ static void ppu_fetch_sprites()
   switch (pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_addr2 = i * 4 + 0;
-      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
       uint next_sl = (ppu.sl & 0xFF) + 1; // NES bug: pre-render sl 261 masked
       ppu.sprite_y = next_sl - ppu.oam_data - 1;
       break;
@@ -586,8 +587,7 @@ static void ppu_fetch_sprites()
     case 1: {
       ppu_addr(ppu_nt_addr());
       ppu_read(); // unused NT
-      ppu.oam_addr2 = i * 4 + 1;
-      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
       ppu.sprite_tile = ppu.oam_data;
       if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
         ppu.nt = (ppu.sprite_tile & 1) ? 0x1000 : 0x0000;
@@ -598,8 +598,7 @@ static void ppu_fetch_sprites()
     }
     case 2: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_addr2 = i * 4 + 2;
-      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
       ppu.sprite_attr[i] = ppu.oam_data;
       ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
       if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
@@ -620,8 +619,7 @@ static void ppu_fetch_sprites()
     case 3: {
       ppu_addr(ppu_nt_addr());
       ppu_read(); // ignored NT
-      ppu.oam_addr2 = i * 4 + 3;
-      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
       ppu.sprite_x[i] = ppu.oam_data;
       break;
     }
