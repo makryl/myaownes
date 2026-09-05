@@ -238,12 +238,8 @@ static void ppu_addr(u16 addr)
 
 static u8 ppu_read()
 {
-  if (ppu.addr >= 0x3F00) {
-    return ppu_pam_clamp(ppu_pam_read(ppu.addr));
-  } else {
-    map_ppu_read(ppu.addr, &ppu.open_bus);
-    return ppu.open_bus;
-  }
+  map_ppu_read(ppu.addr, &ppu.open_bus);
+  return ppu.open_bus;
 }
 
 static void ppu_write(u8 val)
@@ -358,14 +354,12 @@ u8 ppu_bus_read(u16 addr, bool trace)
         if (trace) {
           return val;
         }
-        ppu_addr(ppu.v);
         ppu_reg_bus_set(val, 0xFF);
       } else {
         u8 val = ppu_pam_clamp(ppu_pam_read(ppu.v));
         if (trace) {
           return val;
         }
-        ppu_addr(ppu.v & 0x2FFF);
         ppu_reg_bus_set(val, 0x3F);
       }
       if (ppu.read_delay == 0) {
@@ -424,7 +418,6 @@ void ppu_bus_write(u16 addr, u8 val)
       ppu.write_latch = !ppu.write_latch;
       break;
     case PPU_REG_DATA:
-      ppu_addr(ppu.v);
       if (ppu.write_delay == 0) {
         ppu.write_delay = ppu_rw_delay;
       }
@@ -664,6 +657,10 @@ static void ppu_fetch_sprites_finish() { memcpy(ppu.sprite_shift_x, ppu.sprite_x
 
 static void ppu_fetch_unused()
 {
+  if (ppu.dot == PPU_DOT_ZERO) {
+    ppu_addr(ppu.nt);
+    return;
+  }
   switch (pipe_step()) {
     case 0: { // 337
       ppu_addr(ppu_nt_addr());
@@ -683,10 +680,6 @@ static void ppu_fetch_unused()
       ppu_read(); // ignored NT
       break;
     }
-      // case 4: { // never called because delay 340->0
-      //   ppu_addr(ppu.nt); // lo byte only?
-      //   break;
-      // }
   }
 }
 
@@ -694,6 +687,7 @@ static void ppu_fetch()
 {
   if (ppu_render_active()) {
     if (ppu.dot == PPU_DOT_ZERO) {
+      ppu_fetch_unused();
       ppu_oam_corrupt(ppu.oam_addr2 & 0x1F, 0); // NES bug: oam may corrupt if addr-s not zero
     }
     if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
@@ -868,16 +862,22 @@ void ppu_tick()
 
   bool inc_v = false;
   if (ppu.read_delay > 0) {
-    if (--ppu.read_delay == 0) {
-      ppu.read_buf = ppu_read();
-      inc_v = true;
+    switch (--ppu.read_delay) {
+      case 2: ppu_addr(ppu.v); break;
+      case 0:
+        ppu.read_buf = ppu_read();
+        inc_v = true;
+        break;
     }
   }
 
   if (ppu.write_delay > 0) {
-    if (--ppu.write_delay == 0) {
-      ppu_write(ppu.reg_bus);
-      inc_v = true;
+    switch (--ppu.write_delay) {
+      case 2: ppu_addr(ppu.v); break;
+      case 0:
+        ppu_write(ppu.reg_bus);
+        inc_v = true;
+        break;
     }
   }
 
