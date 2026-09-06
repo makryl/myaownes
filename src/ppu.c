@@ -823,6 +823,10 @@ static void ppu_render_mask(uint x)
     rgb = 0xFF000000 | (r << 16) | (g << 8) | b;
   }
 
+  if (!ppu.ntsc && (ppu.sl == 0 || x < 2 || x > 253)) {
+    rgb = 0xFF000000;
+  }
+
   uint out_idx = (ppu.sl << 8) | x;
   ppu_out[out_idx] = rgb;
 }

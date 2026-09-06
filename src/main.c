@@ -40,7 +40,7 @@ bool imp_init()
   // test = "GoodNES/USA/Kirby's Adventure (U) (V1.1) [!].nes";
   // test = "GoodNES/USA/Immortal, The (U) [!].nes";
 
-  // test = "GoodNES/Europe/Super Mario Bros. + Duck Hunt (E) [!].nes";
+  // test = "no-intro-2025/Games/Super Mario Bros. (Europe).nes";
   // test = "GoodNES/USA/Elite (U) (Proto) [!].nes";
   // test = "GoodNES/Europe/Elite (E) [!].nes";
   // test = "GoodNES/Europe/Asterix (E) [!].nes";
