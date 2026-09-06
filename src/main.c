@@ -8,7 +8,7 @@ bool imp_init()
 
   // test = "nes-test-roms/other/nestest.nes";
   // test = "nes-test-roms/240pee/240pee.nes";
-  // test = "nes-test-roms/other/AccuracyCoin.nes"; // todo
+  // test = "nes-test-roms/other/AccuracyCoin.nes"; // todo: ALE / hybrid address
   // test = "nes-test-roms/ppu_vbl_nmi/ppu_vbl_nmi.nes";
   // test = "nes-test-roms/nmi_sync/demo_ntsc.nes";
   // test = "nes-test-roms/nmi_sync/demo_pal.nes";
@@ -16,12 +16,13 @@ bool imp_init()
   // test = "nes-test-roms/ppu_sprite_overflow/rom_singles/03-timing.nes";
   // test = "nes-test-roms/apu_test/rom_singles/7-dmc_basics.nes";
   // test = "nes-test-roms/apu_test/rom_singles/8-dmc_rates.nes";
-  // test = "nes-test-roms/tvpassfail/tv.nes";
+  // test = "nes-test-roms/tvpassfail/tv.nes"; // todo: chroma/luma?
   // test = "nes-test-roms/other/8bitpeoples_-_deadline_console_invitro.nes";
   // test = "nes-test-roms/other/n163test.nes"; // todo fail audio
-  // test = "nes-test-roms/other/2nd2006_next_level.nes"; // todo
   // test = "nes-test-roms/other/sprite_evaluation_test(2).nes"; // todo
   // test = "nes-test-roms/other/sprite_evaluation_test.nes"; // todo
+  // test = "nes-test-roms/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // 4015 open bus bit?
+  // test = "nes-test-roms/little-things-nes-20.10/boing2k7/boing2k7.nes"; // ALE?
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";
@@ -29,12 +30,12 @@ bool imp_init()
   // test = "MegaPack/Translated/Fire Emblem Gaiden (J) [T-Eng97b2].nes";
 
   // test = "no-intro-2025/Games/Battletoads (USA).nes";
-  // test = "MegaPack/USA/Micro Machines (U).nes";
+  // test = "no-intro-2025/Games/Micro Machines (USA) (Unl).nes";
   // test = "GoodNES/USA/Marble Madness (U) [!].nes";
-  // test = "GoodNES/USA/Crystalis (U) [!].nes";
+  // test = "no-intro-2025/Games/Crystalis (USA).nes";
   // test = "no-intro-2025/Super Mario Bros. + Duck Hunt (USA).nes";
   // test = "GoodNES/USA/Super Mario Bros. 3 (U) (V1.1) [!].nes";
-  // test = "GoodNES/USA/Rad Racer (U) [!].nes";
+  // test = "no-intro-2025/Games/Rad Racer (USA).nes";
   // test = "GoodNES/USA/Legend of Zelda, The (U) (V1.1) [!].nes";
   // test = "GoodNES/USA/Kirby's Adventure (U) (V1.1) [!].nes";
   // test = "GoodNES/USA/Immortal, The (U) [!].nes";

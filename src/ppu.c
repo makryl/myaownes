@@ -16,9 +16,10 @@ MN_CACHE_LINE static uint ppu_palette[64] = {
   0xFFF1F0AA, 0xFFDAFAA9, 0xFFC9FFBC, 0xFFC3FBD7, 0xFFC4F6F6, 0xFFBEC1BE, 0xFF000000, 0xFF000000,
 };
 
-static const float ppu_tint_accent = 0.75f;
+static const float ppu_tint_accent = 0.816328f;
 static const uint ppu_rw_delay = 4;
 static const uint ppu_mask_delay = 2;
+static const uint ppu_swap_v_delay = 3;
 
 enum
 {
@@ -102,6 +103,7 @@ MN_CACHE_LINE static struct Ppu
   uint read_delay;
   uint write_delay;
   uint mask_delay;
+  uint swap_v_delay;
   uint sl_end;
   uint sl_vblank;
   uint sl_pre_render;
@@ -200,6 +202,7 @@ void ppu_power()
 
 void ppu_reset()
 {
+  memset(&ppu_out, 0, sizeof(ppu_out));
   ppu.ctrl = 0;
   ppu.mask = 0;
   ppu.status = 0;
@@ -412,8 +415,7 @@ void ppu_bus_write(u16 addr, u8 val)
         ppu.t = (ppu.t & 0x00FF) | ((val & 0x3F) << 8);
       } else {
         ppu.t = (ppu.t & 0xFF00) | val;
-        ppu.v = ppu.t;
-        ppu_addr(ppu.v);
+        ppu.swap_v_delay = ppu_swap_v_delay;
       }
       ppu.write_latch = !ppu.write_latch;
       break;
@@ -490,9 +492,12 @@ static void ppu_fetch_back()
 
 static void ppu_clear_sprites()
 {
+  if (ppu.dot == PPU_DOT_BEGIN) {
+    ppu.oam_addr2 = -1;
+  }
   if (ppu.dot & 1) {
     ppu.oam_data = 0xFF;
-    ppu.oam_addr2 = (ppu.dot - PPU_DOT_BEGIN) >> 1;
+    ++ppu.oam_addr2;
   } else {
     ppu.oam2[ppu.oam_addr2 & 0x1F] = ppu.oam_data;
   }
@@ -907,6 +912,13 @@ void ppu_tick()
   }
   if (inc_v) {
     ppu_addr(ppu.v);
+  }
+
+  if (ppu.swap_v_delay > 0) {
+    if (--ppu.swap_v_delay == 0) {
+      ppu.v = ppu.t;
+      ppu_addr(ppu.v);
+    }
   }
 
   ppu.inc_x = false;
