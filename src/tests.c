@@ -188,9 +188,9 @@ static TestParams tests[] = {
   { "fme7acktest-r1/fme7acktest.nes", MN_REGION_NTSC, 0, 0, { { 0xD9408008, 16, 0x00, 0 } } }, //
   { "fme7ramtest-r1/fme7ramtest_128k.nes", MN_REGION_NTSC, 0, 0, { { 0x0EB36897, 13, 0x00, 0 } } }, //
   { "fme7ramtest-r1/fme7ramtest.nes", MN_REGION_NTSC, 0, 0, { { 0x20F7E45B, 13, 0x00, 0 } } }, //
-  { "full_palette/flowing_palette.nes", MN_REGION_NTSC, 0, 0, { { 0x2AF207E1, 31, 0, 0 } } }, //
-  { "full_palette/full_palette_smooth.nes", MN_REGION_NTSC, 0, 0, { { 0x3D2FDF52, 31, 0, 0 } } }, //
-  { "full_palette/full_palette.nes", MN_REGION_NTSC, 0, 0, { { 0x226BC468, 31, 0, 0 } } }, //
+  { "full_palette/flowing_palette.nes", MN_REGION_NTSC, 0, 0, { { 0x26E5F0A2, 31, 0, 0 } } }, //
+  { "full_palette/full_palette_smooth.nes", MN_REGION_NTSC, 0, 0, { { 0x208EC12D, 31, 0, 0 } } }, //
+  { "full_palette/full_palette.nes", MN_REGION_NTSC, 0, 0, { { 0xDE3FEC30, 31, 0, 0 } } }, //
   { "holy-mapperel/M0_P32K_C8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x981BD784, 5, 0x00, 0 } } }, //
   { "holy-mapperel/M0_P32K_CR8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xE0E298B7, 76, 0x00, 0 } } }, //
   { "holy-mapperel/M0_P32K_CR32K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xE0E298B7, 76, 0x00, 0 } } }, //
@@ -348,6 +348,11 @@ static TestParams tests[] = {
       { 0x0BA45811, 2, MN_INPUT_RIGHT, 0 },
       { 0x0BA45811, 1, 0, 0 } } }, //
   { "other/4015_open_bus_test.nes", MN_REGION_NTSC, 0, 0, { { 0xF96B60A2, 5, 0x00, 0 } } }, //
+  { "other/AccuracyCoin.nes",
+    MN_REGION_NTSC,
+    0,
+    0,
+    { { 0xDF382365, 40, 0, 0 }, { 0x56FC8DFD, 2, MN_INPUT_START, 0 }, { 0x57BEFF15, 4060, 0, 0 } } }, //
   { "other/midscanline.nes", MN_REGION_NTSC, 0, 0, { { 0x80BE54D6, 20, 0x00, 0 } } }, //
   { "other/mmc3irqtest.nes", MN_REGION_NTSC, 0, 0, { { 0x14A7B673, 20, 0x00, 0 } } }, //
   { "other/nestest.nes",

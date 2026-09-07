@@ -8,7 +8,7 @@ bool imp_init()
 
   // test = "nes-test-roms/other/nestest.nes";
   // test = "nes-test-roms/240pee/240pee.nes";
-  // test = "nes-test-roms/other/AccuracyCoin.nes"; // todo: ALE / hybrid address
+  // test = "nes-test-roms/other/AccuracyCoin.nes";
   // test = "nes-test-roms/ppu_vbl_nmi/ppu_vbl_nmi.nes";
   // test = "nes-test-roms/nmi_sync/demo_ntsc.nes";
   // test = "nes-test-roms/nmi_sync/demo_pal.nes";
@@ -22,7 +22,7 @@ bool imp_init()
   // test = "nes-test-roms/other/sprite_evaluation_test(2).nes"; // todo
   // test = "nes-test-roms/other/sprite_evaluation_test.nes"; // todo
   // test = "nes-test-roms/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // 4015 open bus bit?
-  // test = "nes-test-roms/little-things-nes-20.10/boing2k7/boing2k7.nes"; // ALE?
+  // test = "nes-test-roms/little-things-nes-20.10/boing2k7/boing2k7.nes"; // ALE arifacts?
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";

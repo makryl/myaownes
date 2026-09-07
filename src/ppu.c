@@ -17,7 +17,7 @@ MN_CACHE_LINE static uint ppu_palette[64] = {
 };
 
 static const float ppu_tint_accent = 0.816328f;
-static const uint ppu_rw_delay = 4;
+static const uint ppu_rw_delay = 5;
 static const uint ppu_mask_delay = 2;
 static const uint ppu_swap_v_delay = 3;
 
@@ -159,16 +159,21 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_fetch_done;
   bool inc_x;
   bool ntsc;
+  bool read;
 
   MN_CACHE_LINE u8 oam1[0x100];
   MN_CACHE_LINE u8 oam2[0x20];
   MN_CACHE_LINE u8 pam[0x20];
 } ppu;
 
+#if MN_TRACE_PPU
 #define ppu_trace(fmt, ...)                                                                                     \
   tracef("PPU c=%02X m=%02X s=%02X v=%04X t=%04X x=%02X w=%d o=%02X sl=%-3d dot=%-3d cpu_cyc=%-10d  " fmt "\n", \
          ppu.ctrl, ppu.mask, ppu.status, ppu.v, ppu.t, ppu.x, ppu.write_latch, ppu.oam_data, ppu.sl, ppu.dot,   \
          cpu_cyc() __VA_OPT__(, ) __VA_ARGS__);
+#else
+#define ppu_trace(fmt, ...) (void)0
+#endif
 
 uint ppu_size() { return sizeof(ppu); }
 void* ppu_data() { return &ppu; }
@@ -232,26 +237,35 @@ static void ppu_oam_corrupt(u8 dst, u8 src)
   }
 }
 
+static void ppu_addr_hi(u16 addr)
+{
+  ppu.addr = (addr & 0x3F00);
+  map_ppu_addr(addr);
+}
+
 static void ppu_addr(u16 addr)
 {
-  addr &= 0x3FFF;
-  ppu.addr = addr;
-  map_ppu_addr(addr);
+  if (!ppu.read) {
+    ppu.open_bus = (addr & 0xFF); // NES bug: lo addr byte pins shared with data pins
+  }
+  ppu_addr_hi(addr); // pass updated lo byte for mapper? (only hi byte used in mmc)
 }
 
 static u8 ppu_read()
 {
-  map_ppu_read(ppu.addr, &ppu.open_bus);
+  ppu.read = true;
+  map_ppu_read(ppu.addr | ppu.open_bus, &ppu.open_bus);
   return ppu.open_bus;
 }
 
 static void ppu_write(u8 val)
 {
+  u16 addr = ppu.addr | ppu.open_bus;
   ppu.open_bus = val;
-  if (ppu.addr >= 0x3F00) {
-    ppu_pam_write(ppu.addr, val);
+  if (addr >= 0x3F00) {
+    ppu_pam_write(addr, val);
   } else {
-    map_ppu_write(ppu.addr, val);
+    map_ppu_write(addr, val);
   }
 }
 
@@ -446,7 +460,7 @@ static void ppu_fetch_back()
       break;
     }
     case 1: { // NT
-      ppu_addr(ppu_nt_addr());
+      ppu_addr_hi(ppu_nt_addr());
       uint table = (ppu.ctrl & PPU_CTRL_BACK_NAMETABLE) ? 0x1000 : 0x0000;
       uint fine_y = (ppu.v & 0x7000) >> 12;
       ppu.nt = table | (ppu_read() << 4) | fine_y;
@@ -457,7 +471,7 @@ static void ppu_fetch_back()
       break;
     }
     case 3: { // AT
-      ppu_addr(ppu_at_addr());
+      ppu_addr_hi(ppu_at_addr());
       uint shift = ((ppu.v >> 4) & 4) | (ppu.v & 2);
       ppu.at = (ppu_read() >> shift) & 0x03;
       break;
@@ -467,7 +481,7 @@ static void ppu_fetch_back()
       break;
     }
     case 5: { // chr lo
-      ppu_addr(ppu.nt);
+      ppu_addr_hi(ppu.nt);
       ppu.lo = ppu_read();
       break;
     }
@@ -476,7 +490,7 @@ static void ppu_fetch_back()
       break;
     }
     case 7: { // chr hi
-      ppu_addr(ppu.nt | 8);
+      ppu_addr_hi(ppu.nt | 8);
       ppu.hi = ppu_read();
 
       ppu.shift_tile_lo = (ppu.shift_tile_lo & 0xFF00) | ppu.lo;
@@ -583,7 +597,7 @@ static void ppu_fetch_sprites()
       break;
     }
     case 1: {
-      ppu_addr(ppu_nt_addr());
+      ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // unused NT
       ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
       ppu.sprite_tile = ppu.oam_data;
@@ -615,7 +629,7 @@ static void ppu_fetch_sprites()
       break;
     }
     case 3: {
-      ppu_addr(ppu_nt_addr());
+      ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // ignored NT
       ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
       ppu.sprite_x[i] = ppu.oam_data;
@@ -626,7 +640,7 @@ static void ppu_fetch_sprites()
       break;
     }
     case 5: {
-      ppu_addr(ppu.nt);
+      ppu_addr_hi(ppu.nt);
       ppu.lo = ppu_read();
       break;
     }
@@ -635,7 +649,7 @@ static void ppu_fetch_sprites()
       break;
     }
     case 7: {
-      ppu_addr(ppu.nt | 8);
+      ppu_addr_hi(ppu.nt | 8);
       ppu.hi = ppu_read();
 
       if (i < ppu.sprite_eval_count) {
@@ -672,7 +686,7 @@ static void ppu_fetch_unused()
       break;
     }
     case 1: { // 338
-      ppu_addr(ppu_nt_addr());
+      ppu_addr_hi(ppu_nt_addr());
       ppu.nt = ppu_read(); // unused NT
       break;
     }
@@ -681,7 +695,7 @@ static void ppu_fetch_unused()
       break;
     }
     case 3: { // 340
-      ppu_addr(ppu_nt_addr());
+      ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // ignored NT
       break;
     }
@@ -848,6 +862,17 @@ static void ppu_render()
 
 void ppu_tick()
 {
+  bool inc_v = false;
+  if (ppu.read_delay > 0) {
+    switch (--ppu.read_delay) {
+      case 2: ppu_addr(ppu.v); break;
+      case 0:
+        ppu.read_buf = ppu_read();
+        inc_v = true;
+        break;
+    }
+  }
+
   ppu_render();
   ppu_fetch();
 
@@ -867,17 +892,6 @@ void ppu_tick()
 
   if (ppu.check_nmi) {
     cpu_nmi(!ppu.suppress_vblank && (ppu.status & PPU_STATUS_VBLANK) && (ppu.ctrl & PPU_CTRL_NMI));
-  }
-
-  bool inc_v = false;
-  if (ppu.read_delay > 0) {
-    switch (--ppu.read_delay) {
-      case 2: ppu_addr(ppu.v); break;
-      case 0:
-        ppu.read_buf = ppu_read();
-        inc_v = true;
-        break;
-    }
   }
 
   if (ppu.write_delay > 0) {
@@ -914,20 +928,23 @@ void ppu_tick()
   if (v_changed) {
     ppu.v = (v_inc & v_swap);
   }
-  if (inc_v) {
+  if (inc_v && !ppu_render_active()) {
     ppu_addr(ppu.v);
   }
 
   if (ppu.swap_v_delay > 0) {
     if (--ppu.swap_v_delay == 0) {
       ppu.v = ppu.t;
-      ppu_addr(ppu.v);
+      if (!ppu_render_active()) {
+        ppu_addr(ppu.v);
+      }
     }
   }
 
   ppu.inc_x = false;
   ppu.suppress_vblank = false;
   ppu.check_nmi = false;
+  ppu.read = false;
 
   if (ppu.mask_delay > 0) {
     if (--ppu.mask_delay == 0) {
