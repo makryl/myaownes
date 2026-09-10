@@ -19,7 +19,6 @@ MN_CACHE_LINE static uint ppu_palette[64] = {
 static const float ppu_tint_accent = 0.816328f;
 static const uint ppu_rw_delay = 5;
 static const uint ppu_mask_delay = 2;
-static const uint ppu_swap_v_delay = 3;
 
 enum
 {
@@ -239,33 +238,33 @@ static void ppu_oam_corrupt(u8 dst, u8 src)
 
 static void ppu_addr_hi(u16 addr)
 {
-  ppu.addr = (addr & 0x3F00);
-  map_ppu_addr(addr);
+  ppu.addr = (addr & 0x3F00) | (ppu.addr & 0x00FF);
+  map_ppu_addr(ppu.addr);
 }
 
 static void ppu_addr(u16 addr)
 {
-  if (!ppu.read) {
-    ppu.open_bus = (addr & 0xFF); // NES bug: lo addr byte pins shared with data pins
+  ppu.addr = (addr & 0x3FFF);
+  if (ppu.read) { // NES bug: ale + read conflict
+    ppu.addr |= ppu.open_bus;
   }
-  ppu_addr_hi(addr); // pass updated lo byte for mapper? (only hi byte used in mmc)
+  map_ppu_addr(ppu.addr);
 }
 
 static u8 ppu_read()
 {
   ppu.read = true;
-  map_ppu_read(ppu.addr | ppu.open_bus, &ppu.open_bus);
+  map_ppu_read(ppu.addr, &ppu.open_bus);
   return ppu.open_bus;
 }
 
 static void ppu_write(u8 val)
 {
-  u16 addr = ppu.addr | ppu.open_bus;
   ppu.open_bus = val;
-  if (addr >= 0x3F00) {
-    ppu_pam_write(addr, val);
+  if (ppu.addr >= 0x3F00) {
+    ppu_pam_write(ppu.addr, val);
   } else {
-    map_ppu_write(addr, val);
+    map_ppu_write(ppu.addr, val);
   }
 }
 
@@ -429,7 +428,7 @@ void ppu_bus_write(u16 addr, u8 val)
         ppu.t = (ppu.t & 0x00FF) | ((val & 0x3F) << 8);
       } else {
         ppu.t = (ppu.t & 0xFF00) | val;
-        ppu.swap_v_delay = ppu_swap_v_delay;
+        ppu.swap_v_delay = (!ppu_render_active() || (ppu.dot & 1)) ? 3 : 4; // possible align on active render?
       }
       ppu.write_latch = !ppu.write_latch;
       break;
@@ -444,7 +443,7 @@ void ppu_bus_write(u16 addr, u8 val)
 static u16 ppu_nt_addr() { return 0x2000 | (ppu.v & 0x0FFF); }
 static u16 ppu_at_addr() { return 0x23C0 | (ppu.v & 0x0C00) | ((ppu.v >> 4) & 0x38) | ((ppu.v >> 2) & 7); }
 
-static uint pipe_step() { return (ppu.dot - PPU_DOT_BEGIN) % 8; }
+static uint ppu_pipe_step() { return (ppu.dot - PPU_DOT_BEGIN) % 8; }
 
 static void ppu_fetch_back()
 {
@@ -454,7 +453,7 @@ static void ppu_fetch_back()
   ppu.shift_attr_hi <<= 1;
   ppu.shift_tile_hi |= 1; // NES bug: high bit shifts with 1
 
-  switch (pipe_step()) {
+  switch (ppu_pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
       break;
@@ -588,7 +587,7 @@ static void ppu_fetch_sprites()
   ppu.oam_addr1 = 0;
   uint i = (ppu.dot - PPU_DOT_SPRITE_BEGIN) / 8;
 
-  switch (pipe_step()) {
+  switch (ppu_pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
       ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
@@ -680,7 +679,7 @@ static void ppu_fetch_unused()
     ppu_addr(ppu.nt);
     return;
   }
-  switch (pipe_step()) {
+  switch (ppu_pipe_step()) {
     case 0: { // 337
       ppu_addr(ppu_nt_addr());
       break;
@@ -704,40 +703,38 @@ static void ppu_fetch_unused()
 
 static void ppu_fetch()
 {
-  if (ppu_render_active()) {
-    if (ppu.dot == PPU_DOT_ZERO) {
-      ppu_fetch_unused();
-      ppu_oam_corrupt(ppu.oam_addr2 & 0x1F, 0); // NES bug: oam may corrupt if addr-s not zero
+  if (ppu.dot == PPU_DOT_ZERO) {
+    ppu_fetch_unused();
+    ppu_oam_corrupt(ppu.oam_addr2 & 0x1F, 0); // NES bug: oam may corrupt if addr-s not zero
+  }
+  if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
+    ppu_clear_sprites();
+  } else if (ppu.dot >= PPU_DOT_SPRITE_EVAL_BEGIN && ppu.dot <= PPU_DOT_END) {
+    if (ppu.dot == PPU_DOT_SPRITE_EVAL_BEGIN) {
+      ppu_evaluate_sprites_reset();
     }
-    if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
-      ppu_clear_sprites();
-    } else if (ppu.dot >= PPU_DOT_SPRITE_EVAL_BEGIN && ppu.dot <= PPU_DOT_END) {
-      if (ppu.dot == PPU_DOT_SPRITE_EVAL_BEGIN) {
-        ppu_evaluate_sprites_reset();
-      }
-      if (ppu.sl != ppu.sl_pre_render) {
-        ppu_evaluate_sprites();
-      }
-    } else if (ppu.dot >= PPU_DOT_SPRITE_BEGIN && ppu.dot <= PPU_DOT_SPRITE_END) {
-      ppu_fetch_sprites();
-    } else if (ppu.dot > PPU_DOT_SPRITE_END) {
-      ppu.oam_addr2 = 0;
-      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
-      if (ppu.dot == PPU_DOT_SPRITE_PREPARE) {
-        ppu.sprite_fetch_done = true;
-      }
-      if (ppu.sprite_fetch_done && (ppu.dot == PPU_DOT_LAST || ppu.dot == PPU_DOT_BEGIN)) {
-        ppu.sprite_fetch_done = false;
-        ppu_fetch_sprites_finish();
-      }
+    if (ppu.sl != ppu.sl_pre_render) {
+      ppu_evaluate_sprites();
     }
-    if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END)
-        || (ppu.dot >= PPU_DOT_PREFETCH_BEGIN && ppu.dot <= PPU_DOT_PREFETCH_END))
-    {
-      ppu_fetch_back();
-    } else if (ppu.dot > PPU_DOT_PREFETCH_END) {
-      ppu_fetch_unused();
+  } else if (ppu.dot >= PPU_DOT_SPRITE_BEGIN && ppu.dot <= PPU_DOT_SPRITE_END) {
+    ppu_fetch_sprites();
+  } else if (ppu.dot > PPU_DOT_SPRITE_END) {
+    ppu.oam_addr2 = 0;
+    ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+    if (ppu.dot == PPU_DOT_SPRITE_PREPARE) {
+      ppu.sprite_fetch_done = true;
     }
+    if (ppu.sprite_fetch_done && (ppu.dot == PPU_DOT_LAST || ppu.dot == PPU_DOT_BEGIN)) {
+      ppu.sprite_fetch_done = false;
+      ppu_fetch_sprites_finish();
+    }
+  }
+  if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END)
+      || (ppu.dot >= PPU_DOT_PREFETCH_BEGIN && ppu.dot <= PPU_DOT_PREFETCH_END))
+  {
+    ppu_fetch_back();
+  } else if (ppu.dot > PPU_DOT_PREFETCH_END) {
+    ppu_fetch_unused();
   }
 }
 
@@ -862,6 +859,8 @@ static void ppu_render()
 
 void ppu_tick()
 {
+  ppu_render();
+
   bool inc_v = false;
   if (ppu.read_delay > 0) {
     switch (--ppu.read_delay) {
@@ -873,8 +872,10 @@ void ppu_tick()
     }
   }
 
-  ppu_render();
-  ppu_fetch();
+  bool render_active = ppu_render_active();
+  if (render_active) {
+    ppu_fetch();
+  }
 
   if (ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_ZERO) {
     ppu.status &= ~(PPU_STATUS_SPRITE0_HIT | PPU_STATUS_SPRITE_OVERFLOW);
@@ -904,41 +905,39 @@ void ppu_tick()
     }
   }
 
-  bool v_changed = false;
-  uint v_inc = 0xFFFF;
-  uint v_swap = 0xFFFF;
-  if (ppu.render_enabled) {
-    if (ppu_render_active() && ppu.dot == PPU_DOT_SWAP_X) {
-      v_swap = ppu_swap_x();
-      v_changed = true;
+  if (ppu.inc_x) {
+    ppu.v = ppu_inc_xy(inc_v || ppu.dot == PPU_DOT_END);
+  } else if (inc_v) {
+    ppu.v = render_active ? ppu_inc_xy(true) : ppu_inc_v();
+  }
+
+  if (render_active) {
+    if (ppu.dot == PPU_DOT_SWAP_X) {
+      ppu.v = ppu_swap_x();
     }
     if (ppu.sl == ppu.sl_pre_render && ppu.dot >= PPU_DOT_SWAP_Y_BEGIN && ppu.dot <= PPU_DOT_SWAP_Y_END) {
-      v_swap = ppu_swap_y();
-      v_changed = true;
+      ppu.v = ppu_swap_y();
     }
   }
 
-  if (ppu.inc_x) {
-    v_inc = ppu_inc_xy(inc_v || ppu.dot == PPU_DOT_END);
-    v_changed = true;
-  } else if (inc_v) {
-    v_inc = ppu_render_active() ? ppu_inc_xy(true) : ppu_inc_v();
-    v_changed = true;
-  }
-  if (v_changed) {
-    ppu.v = (v_inc & v_swap);
-  }
-  if (inc_v && !ppu_render_active()) {
-    ppu_addr(ppu.v);
-  }
-
+  bool swap_v = false;
   if (ppu.swap_v_delay > 0) {
-    if (--ppu.swap_v_delay == 0) {
-      ppu.v = ppu.t;
-      if (!ppu_render_active()) {
-        ppu_addr(ppu.v);
+    --ppu.swap_v_delay;
+    if (render_active) {
+      switch (ppu.swap_v_delay) {
+        case 1: ppu.v = ppu_swap_y(); break;
+        case 0: ppu.v = ppu_swap_x(); break;
+      }
+    } else {
+      if (ppu.swap_v_delay == 0) {
+        ppu.v = ppu.t;
+        swap_v = true;
       }
     }
+  }
+
+  if ((inc_v || swap_v) && !render_active) {
+    ppu_addr(ppu.v);
   }
 
   ppu.inc_x = false;
