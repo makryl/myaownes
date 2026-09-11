@@ -353,6 +353,11 @@ static TestParams tests[] = {
     0,
     0,
     { { 0xDF382365, 40, 0, 0 }, { 0x56FC8DFD, 2, MN_INPUT_START, 0 }, { 0x57BEFF15, 4060, 0, 0 } } }, //
+  { "other/ControllerStrobeTest.nes",
+    MN_REGION_NTSC,
+    0,
+    0,
+    { { 0x66C3A864, 15, 0, 0 }, { 0xFE658A55, 10, MN_INPUT_A, 0 }, { 0xFA310F74, 10, MN_INPUT_B, 0 } } }, //
   { "other/midscanline.nes", MN_REGION_NTSC, 0, 0, { { 0x80BE54D6, 20, 0x00, 0 } } }, //
   { "other/mmc3irqtest.nes", MN_REGION_NTSC, 0, 0, { { 0x14A7B673, 20, 0x00, 0 } } }, //
   { "other/nestest.nes",
