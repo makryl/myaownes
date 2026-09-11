@@ -22,7 +22,6 @@ bool imp_init()
   // test = "nes-test-roms/other/sprite_evaluation_test(2).nes"; // todo
   // test = "nes-test-roms/other/sprite_evaluation_test.nes"; // todo
   // test = "nes-test-roms/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // 4015 open bus bit?
-  // test = "nes-test-roms/little-things-nes-20.10/boing2k7/boing2k7.nes"; // ALE arifacts?
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";

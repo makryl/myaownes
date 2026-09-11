@@ -158,6 +158,7 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_fetch_done;
   bool inc_x;
   bool ntsc;
+  bool ale;
   bool read;
 
   MN_CACHE_LINE u8 oam1[0x100];
@@ -238,15 +239,35 @@ static void ppu_oam_corrupt(u8 dst, u8 src)
 
 static void ppu_addr_hi(u16 addr)
 {
-  ppu.addr = (addr & 0x3F00) | (ppu.addr & 0x00FF);
+  if (ppu.ale && !ppu.read) {
+    ppu.addr = (addr & 0x3FFF);
+  } else {
+    ppu.addr = (addr & 0x3F00) | (ppu.addr & 0x00FF);
+  }
   map_ppu_addr(ppu.addr);
 }
 
 static void ppu_addr(u16 addr)
 {
+  ppu.ale = true;
   ppu.addr = (addr & 0x3FFF);
-  if (ppu.read) { // NES bug: ale + read conflict
-    ppu.addr |= ppu.open_bus;
+  if (ppu.read) { // NES bug: ale + read conflict (AccuracyCoin, boing2k7)
+    // possible feedback loop that degrades open_bus, if it was not initially 0xFF, keeping expected address
+    // {
+    //   for (uint i = 0; i < 10; ++i) {
+    //     u8 val;
+    //     map_ppu_read((ppu.addr | ppu.open_bus), &val);
+    //     ppu.open_bus &= val;
+    //   }
+    //   ppu.addr |= ppu.open_bus;
+    // }
+    // approximation below
+    if (ppu.open_bus == 0xFF) {
+      u8 val;
+      map_ppu_read((ppu.addr | ppu.open_bus), &val);
+      ppu.open_bus &= val;
+      ppu.addr |= ppu.open_bus;
+    }
   }
   map_ppu_addr(ppu.addr);
 }
@@ -943,6 +964,7 @@ void ppu_tick()
   ppu.inc_x = false;
   ppu.suppress_vblank = false;
   ppu.check_nmi = false;
+  ppu.ale = false;
   ppu.read = false;
 
   if (ppu.mask_delay > 0) {
