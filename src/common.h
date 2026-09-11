@@ -4,8 +4,6 @@
 
 #define MN_VERSION "0.0.0"
 
-#define MN_AUDIO_FREQ 48000
-
 #define MN_TRACE_CPU 0
 #define MN_TRACE_PPU 0
 #define MN_TRACE_APU 0

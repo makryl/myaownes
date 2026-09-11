@@ -143,10 +143,10 @@ void map_ppu_write(u16 addr, u8 val)
 
 void map_clear_pages()
 {
-  memset(map_dyn.cpu_read_page, 0, sizeof(map_dyn.cpu_read_page));
-  memset(map_dyn.cpu_write_page, 0, sizeof(map_dyn.cpu_write_page));
-  memset(map_dyn.ppu_read_page, 0, sizeof(map_dyn.ppu_read_page));
-  memset(map_dyn.ppu_write_page, 0, sizeof(map_dyn.ppu_write_page));
+  memset((void*)map_dyn.cpu_read_page, 0, sizeof(map_dyn.cpu_read_page));
+  memset((void*)map_dyn.cpu_write_page, 0, sizeof(map_dyn.cpu_write_page));
+  memset((void*)map_dyn.ppu_read_page, 0, sizeof(map_dyn.ppu_read_page));
+  memset((void*)map_dyn.ppu_write_page, 0, sizeof(map_dyn.ppu_write_page));
 }
 
 static const u8* map_cpu_read_pages(const u8* src, uint src_page, uint dst_page, uint pages)

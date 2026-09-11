@@ -440,17 +440,19 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
   SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
 
-  SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, MN_AUDIO_FREQ };
-  imp.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
-  SDL_ResumeAudioStreamDevice(imp.stream);
+  SDL_AudioSpec spec;
   int samples;
-  SDL_GetAudioDeviceFormat(SDL_GetAudioStreamDevice(imp.stream), &spec, &samples);
+  SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, &samples);
+  SDL_AudioSpec stream_spec = { SDL_AUDIO_S16, 1, spec.freq };
+  imp.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &stream_spec, nullptr, nullptr);
+  SDL_ResumeAudioStreamDevice(imp.stream);
   SDL_Log("Audio: %s %d %s%d%s %d %d", SDL_GetCurrentAudioDriver(), spec.freq,
           SDL_AUDIO_ISFLOAT(spec.format)      ? "F"
           : SDL_AUDIO_ISUNSIGNED(spec.format) ? "U"
                                               : "S",
           SDL_AUDIO_BITSIZE(spec.format), SDL_AUDIO_ISBIGENDIAN(spec.format) ? "BE" : "LE", spec.channels, samples);
   imp.audio_buffer_size = samples * sizeof(i16);
+  mn_audio_freq(spec.freq);
 
   bool inited = imp_init();
   imp_rom_update();

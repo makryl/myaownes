@@ -69,8 +69,13 @@ static const uint apu_noise_period_ntsc[16] = { 4,   8,   16,  32,  64,  96,   1
 static const uint apu_noise_period_pal[16] = { 4,   8,   14,  30,  60,  88,  118,  148, //
                                                188, 236, 354, 472, 708, 944, 1890, 3778 };
 
+static uint apu_freq = 48000;
+
 MN_CACHE_LINE static struct
 {
+  u64 time_target;
+  i64 mix_hp_alpha;
+  i64 mix_lp_alpha;
   MN_CACHE_LINE uint duty_table[4][8];
   MN_CACHE_LINE uint noise_period_table[16];
   MN_CACHE_LINE uint dmc_period_table[16];
@@ -81,7 +86,6 @@ MN_CACHE_LINE static struct
 
 MN_CACHE_LINE static struct Apu
 {
-  u64 time_target;
   u64 time_current;
 
   uint cyc;
@@ -217,6 +221,23 @@ void mn_apu_test_mode(bool enabled) { apu.test_mode = enabled; }
 static bool apu_is_put_phase() { return (cpu_cyc() & 1); }
 static bool apu_is_get_phase() { return !apu_is_put_phase(); }
 
+#define APU_PI 3.141592653589793238462643383279502884
+static float apu_filter_alpha(float ff, float of) { return 1.0 / (1.0 + (2.0 * APU_PI * ff) / of); }
+static i64 apu_hp_alpha(float of) { return (i64)(apu_filter_alpha(APU_FILTER_HP, of) * 65536.0 + 0.5); }
+static i64 apu_lp_alpha(float of) { return (i64)((1.0 - apu_filter_alpha(APU_FILTER_LP, of)) * 65536.0 + 0.5); }
+
+void mn_audio_freq(uint freq)
+{
+  apu_freq = freq;
+  apu_dyn.mix_hp_alpha = apu_hp_alpha(freq);
+  apu_dyn.mix_lp_alpha = apu_lp_alpha(freq);
+  switch (mn_region_get()) {
+    case MN_REGION_NTSC: apu_dyn.time_target = ((u64)APU_FREQ_NTSC << 32) / freq; break;
+    case MN_REGION_PAL: apu_dyn.time_target = ((u64)APU_FREQ_PAL << 32) / freq; break;
+    case MN_REGION_DENDY: apu_dyn.time_target = ((u64)APU_FREQ_DENDY << 32) / freq; break;
+  }
+}
+
 static u8 apu_get_status()
 {
   u8 status = 0;
@@ -341,6 +362,8 @@ void apu_power()
   memset(&apu_dyn, 0, sizeof(apu_dyn));
   memset(&apu, 0, sizeof(apu));
 
+  mn_audio_freq(apu_freq);
+
   switch (mn_region_get()) {
     case MN_REGION_NTSC:
       apu.step1 = APU_STEP1_NTSC;
@@ -348,7 +371,6 @@ void apu_power()
       apu.step3 = APU_STEP3_NTSC;
       apu.step4 = APU_STEP4_NTSC;
       apu.step5 = APU_STEP5_NTSC;
-      apu.time_target = ((u64)APU_FREQ_NTSC << 32) / MN_AUDIO_FREQ;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
       memcpy(apu_dyn.duty_table, apu_duty_table, sizeof(apu_dyn.duty_table));
@@ -359,7 +381,6 @@ void apu_power()
       apu.step3 = APU_STEP3_PAL;
       apu.step4 = APU_STEP4_PAL;
       apu.step5 = APU_STEP5_PAL;
-      apu.time_target = ((u64)APU_FREQ_PAL << 32) / MN_AUDIO_FREQ;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_pal, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_pal, sizeof(apu_dyn.dmc_period_table));
       memcpy(apu_dyn.duty_table, apu_duty_table, sizeof(apu_dyn.duty_table));
@@ -370,7 +391,6 @@ void apu_power()
       apu.step3 = APU_STEP3_NTSC;
       apu.step4 = APU_STEP4_NTSC;
       apu.step5 = APU_STEP5_NTSC;
-      apu.time_target = ((u64)APU_FREQ_DENDY << 32) / MN_AUDIO_FREQ;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
       memcpy(apu_dyn.duty_table[0], apu_duty_table[0], sizeof(apu_dyn.duty_table[0]));
@@ -845,21 +865,16 @@ static void apu_update_env()
   }
 }
 
-#define APU_PI 3.141592653589793238462643383279502884
-#define apu_filter_alpha(freq) (1.0 / (1.0 + (2.0 * APU_PI * (freq)) / MN_AUDIO_FREQ))
-static const i64 apu_hp_alpha = (i64)(apu_filter_alpha(APU_FILTER_HP) * 65536.0 + 0.5);
-static const i64 apu_lp_alpha = (i64)((1.0 - apu_filter_alpha(APU_FILTER_LP)) * 65536.0 + 0.5);
-
 static int apu_mix_high_pass(int sample)
 {
-  apu.mix_hp_y = (apu_hp_alpha * ((i64)apu.mix_hp_y + (i64)sample - (i64)apu.mix_hp_x)) >> 16;
+  apu.mix_hp_y = (apu_dyn.mix_hp_alpha * ((i64)apu.mix_hp_y + (i64)sample - (i64)apu.mix_hp_x)) >> 16;
   apu.mix_hp_x = sample;
   return apu.mix_hp_y;
 }
 
 static int apu_mix_low_pass(int sample)
 {
-  apu.mix_lp_y = apu.mix_lp_y + ((apu_lp_alpha * ((i64)sample - (i64)apu.mix_lp_y)) >> 16);
+  apu.mix_lp_y = apu.mix_lp_y + ((apu_dyn.mix_lp_alpha * ((i64)sample - (i64)apu.mix_lp_y)) >> 16);
   return apu.mix_lp_y;
 }
 
@@ -900,7 +915,7 @@ static void apu_mix()
   ++apu.mix_sample_count;
 
   apu.time_current += (1ULL << 32);
-  if (apu.time_current >= apu.time_target) {
+  if (apu.time_current >= apu_dyn.time_target) {
     if (apu.out_size <= 1024) {
       // mix_accum already has << 10 in table values, upsample to 15, reserve 1 bit for filters
       int sample = (apu.mix_accum / apu.mix_sample_count) << 5; // todo: probably should be 6
@@ -912,7 +927,7 @@ static void apu_mix()
     }
     apu.mix_accum = 0;
     apu.mix_sample_count = 0;
-    apu.time_current -= apu.time_target;
+    apu.time_current -= apu_dyn.time_target;
   }
 }
 
