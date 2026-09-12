@@ -222,9 +222,9 @@ static bool apu_is_put_phase() { return (cpu_cyc() & 1); }
 static bool apu_is_get_phase() { return !apu_is_put_phase(); }
 
 #define APU_PI 3.141592653589793238462643383279502884
-static float apu_filter_alpha(float ff, float of) { return 1.0 / (1.0 + (2.0 * APU_PI * ff) / of); }
-static i64 apu_hp_alpha(float of) { return (i64)(apu_filter_alpha(APU_FILTER_HP, of) * 65536.0 + 0.5); }
-static i64 apu_lp_alpha(float of) { return (i64)((1.0 - apu_filter_alpha(APU_FILTER_LP, of)) * 65536.0 + 0.5); }
+static float apu_filter_alpha(uint ff, uint of) { return 1.0 / (1.0 + (2.0 * APU_PI * ff) / of); }
+static i64 apu_hp_alpha(uint of) { return (i64)(apu_filter_alpha(APU_FILTER_HP, of) * 65536.0 + 0.5); }
+static i64 apu_lp_alpha(uint of) { return (i64)((1.0 - apu_filter_alpha(APU_FILTER_LP, of)) * 65536.0 + 0.5); }
 
 void mn_audio_freq(uint freq)
 {
@@ -888,11 +888,11 @@ static uint apu_xorshift32()
   return x;
 }
 
-static int apu_mix_dither(int sample)
+static int apu_mix_dither(int sample, int mask)
 {
   if (APU_FILTER_DITHER) {
-    int rand1 = apu_xorshift32() & 0xFFFF;
-    int rand2 = apu_xorshift32() & 0xFFFF;
+    int rand1 = apu_xorshift32() & mask;
+    int rand2 = apu_xorshift32() & mask;
     int dither_noise = rand1 - rand2;
     sample += dither_noise;
   }
@@ -902,8 +902,10 @@ static int apu_mix_dither(int sample)
 static int apu_mix_clip(int sample)
 {
   if (sample > 32767) {
+    tracef("clip %08X -> %08X\n", sample, 32767);
     sample = 32767;
   } else if (sample < -32768) {
+    tracef("clip %08X -> %08X\n", sample, -32768);
     sample = -32768;
   }
   return sample;
@@ -918,11 +920,11 @@ static void apu_mix()
   if (apu.time_current >= apu_dyn.time_target) {
     if (apu.out_size <= 1024) {
       // mix_accum already has << 10 in table values, upsample to 15, reserve 1 bit for filters
-      int sample = (apu.mix_accum / apu.mix_sample_count) << 5; // todo: probably should be 6
+      int sample = (apu.mix_accum / apu.mix_sample_count) << 5;
       sample = apu_mix_high_pass(sample);
       sample = apu_mix_low_pass(sample);
-      sample = apu_mix_dither(sample);
-      sample = apu_mix_clip(sample >> 16);
+      sample = apu_mix_dither(sample, 0x7FFF);
+      sample = apu_mix_clip(sample >> 15);
       apu_dyn.out_data[apu.out_size++] = sample;
     }
     apu.mix_accum = 0;
