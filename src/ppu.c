@@ -252,7 +252,7 @@ static void ppu_addr(u16 addr)
   ppu.ale = true;
   ppu.addr = (addr & 0x3FFF);
   if (ppu.read) { // NES bug: ale + read conflict (AccuracyCoin, boing2k7)
-    // possible feedback loop that degrades open_bus, if it was not initially 0xFF, keeping expected address
+    // possible feedback loop that degrades open_bus, keeping expected address in most cases
     // {
     //   for (uint i = 0; i < 10; ++i) {
     //     u8 val;
@@ -262,10 +262,9 @@ static void ppu_addr(u16 addr)
     //   ppu.addr |= ppu.open_bus;
     // }
     // approximation below
-    if (ppu.open_bus == 0xFF) {
-      u8 val;
-      map_ppu_read((ppu.addr | ppu.open_bus), &val);
-      ppu.open_bus &= val;
+    u8 old = ppu.open_bus;
+    map_ppu_read((ppu.addr | ppu.open_bus), &ppu.open_bus);
+    if (ppu.open_bus == old) { // feedback loop is stable if conflicting data and address byte has same value
       ppu.addr |= ppu.open_bus;
     }
   }
