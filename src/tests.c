@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <math.h>
 #include <SDL3/SDL.h>
 
 typedef struct
@@ -58,11 +59,11 @@ static TestParams tests[] = {
   { "31_test_roms/31_test_1024.nes", MN_REGION_NTSC, 0, 0, { { 0xCB66CDDB, 116, 0x00, 0 } } }, //
   { "34_test_src/34_test_1.nes", MN_REGION_NTSC, 0, 0, { { 0xFCDB7FD7, 54, 0x00, 0 } } }, //
   { "34_test_src/34_test_2.nes", MN_REGION_NTSC, 0, 0, { { 0xA01A3864, 58, 0x00, 0 } } }, //
-  { "apu_mixer/dmc.nes", MN_REGION_NTSC, 1, 0, { { 0x1F3FA142, 900, 0, 0 } } }, //
-  { "apu_mixer/noise.nes", MN_REGION_NTSC, 1, 0, { { 0x507BFB32, 1400, 0, 0 } } }, //
-  { "apu_mixer/square.nes", MN_REGION_NTSC, 1, 0, { { 0xDB16C73E, 1200, 0, 0 } } }, //
-  { "apu_mixer/triangle.nes", MN_REGION_NTSC, 1, 0, { { 0x1ACB2252, 800, 0, 0 } } }, //
-  { "apu_phase_reset/apu_phase_reset.nes", MN_REGION_NTSC, 1, 0, { { 0x0B2EB790, 600, 0, 0 } } }, //
+  { "apu_mixer/dmc.nes", MN_REGION_NTSC, 1, 0, { { 0xA7D6BE06, 900, 0, 0 } } }, //
+  { "apu_mixer/noise.nes", MN_REGION_NTSC, 1, 0, { { 0xDEFCDB67, 1400, 0, 0 } } }, //
+  { "apu_mixer/square.nes", MN_REGION_NTSC, 1, 0, { { 0x5670E7C3, 1200, 0, 0 } } }, //
+  { "apu_mixer/triangle.nes", MN_REGION_NTSC, 1, 0, { { 0x66153440, 800, 0, 0 } } }, //
+  { "apu_phase_reset/apu_phase_reset.nes", MN_REGION_NTSC, 1, 0, { { 0x0B7574EF, 600, 0, 0 } } }, //
   { "apu_register_activation_test_wip1/apu_register_activation_test.nes",
     MN_REGION_NTSC,
     0,
@@ -149,7 +150,7 @@ static TestParams tests[] = {
   { "dmc_dma/dmc_dma_implicit_stop_level_test_wip1.nes", MN_REGION_NTSC, 0, 1, { { 0xF27419F3, 10, 0x00, 0 } } }, //
   { "dmc_dma/dmc_dma_implicit_stop_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0xE2999877, 10, 0x00, 0 } } }, //
   { "dmc_dma/dmc_dma_status_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0x238BE815, 10, 0x00, 0 } } }, //
-  { "dmc_dma/DMC_IRQ.nes", MN_REGION_NTSC, 1, 0, { { 0x2DCD83BE, 100, 0x00, 0 } } }, //
+  { "dmc_dma/DMC_IRQ.nes", MN_REGION_NTSC, 1, 0, { { 0x50E1386B, 100, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/dma_2007_read.nes", MN_REGION_NTSC, 0, 0, { { 0x8D3CE006, 25, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/dma_2007_write.nes", MN_REGION_NTSC, 0, 0, { { 0x94175082, 28, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/dma_4016_read.nes", MN_REGION_NTSC, 0, 0, { { 0x441C2F34, 20, 0x00, 0 } } }, //
@@ -165,26 +166,26 @@ static TestParams tests[] = {
     MN_REGION_NTSC,
     1,
     0,
-    { { 0x30A437F9, 20, 0, 0 },
-      { 0xC4DF3970, 20, MN_INPUT_SELECT, 0 },
-      { 0x6B82AE6C, 20, 0, 0 },
-      { 0x3128754C, 20, MN_INPUT_START, 0 },
-      { 0x9F5CDD68, 20, 0, 0 },
-      { 0x7347DCB2, 20, MN_INPUT_B, 0 },
-      { 0xEAF10E3F, 20, 0, 0 },
-      { 0xD6B9A1D7, 20, MN_INPUT_A, 0 } } }, //
+    { { 0x473792C4, 20, 0, 0 },
+      { 0x7828214F, 20, MN_INPUT_SELECT, 0 },
+      { 0xFC6F7EC8, 20, 0, 0 },
+      { 0x201CCDAF, 20, MN_INPUT_START, 0 },
+      { 0x158503BB, 20, 0, 0 },
+      { 0x1FAD5D4A, 20, MN_INPUT_B, 0 },
+      { 0x3F49EA37, 20, 0, 0 },
+      { 0x6AA54F0E, 20, MN_INPUT_A, 0 } } }, //
   { "duty_cycles_test/duty_cycles_test_dendy.nes",
     MN_REGION_DENDY,
     1,
     0,
-    { { 0x30A437F9, 20, 0, 0 },
-      { 0xC4DF3970, 20, MN_INPUT_SELECT, 0 },
-      { 0x6B022FD9, 20, 0, 0 },
-      { 0xCD893872, 20, MN_INPUT_START, 0 },
-      { 0x9E1B5F53, 20, 0, 0 },
-      { 0xC6C763FD, 20, MN_INPUT_B, 0 },
-      { 0xEB907208, 20, 0, 0 },
-      { 0xEBD26989, 20, MN_INPUT_A, 0 } } }, //
+    { { 0x473792C4, 20, 0, 0 },
+      { 0x7828214F, 20, MN_INPUT_SELECT, 0 },
+      { 0x0D09641F, 20, 0, 0 },
+      { 0xDC172485, 20, MN_INPUT_START, 0 },
+      { 0x9C60E6C0, 20, 0, 0 },
+      { 0x4DF7D0AB, 20, MN_INPUT_B, 0 },
+      { 0xA5265E05, 20, 0, 0 },
+      { 0xBAE1D0EB, 20, MN_INPUT_A, 0 } } }, //
   { "fme7acktest-r1/fme7acktest.nes", MN_REGION_NTSC, 0, 0, { { 0xD9408008, 16, 0x00, 0 } } }, //
   { "fme7ramtest-r1/fme7ramtest_128k.nes", MN_REGION_NTSC, 0, 0, { { 0x0EB36897, 13, 0x00, 0 } } }, //
   { "fme7ramtest-r1/fme7ramtest.nes", MN_REGION_NTSC, 0, 0, { { 0x20F7E45B, 13, 0x00, 0 } } }, //
@@ -348,6 +349,7 @@ static TestParams tests[] = {
       { 0x0BA45811, 2, MN_INPUT_RIGHT, 0 },
       { 0x0BA45811, 1, 0, 0 } } }, //
   { "other/4015_open_bus_test.nes", MN_REGION_NTSC, 0, 0, { { 0xF96B60A2, 5, 0x00, 0 } } }, //
+  { "other/8bitpeoples_-_deadline_console_invitro.nes", MN_REGION_NTSC, 1, 0, { { 0xB4977AD9, 900, 0x00, 0 } } }, //
   { "other/AccuracyCoin.nes",
     MN_REGION_NTSC,
     0,
@@ -468,7 +470,7 @@ static TestParams tests[] = {
   { "sprite_overflow_tests/3.Timing.nes", MN_REGION_NTSC, 0, 0, { { 0x39154B5F, 128, 0x00, 0 } } }, //
   { "sprite_overflow_tests/4.Obscure.nes", MN_REGION_NTSC, 0, 0, { { 0xE2E52CC7, 22, 0x00, 0 } } }, //
   { "sprite_overflow_tests/5.Emulator.nes", MN_REGION_NTSC, 0, 0, { { 0xBAFE1B96, 13, 0x00, 0 } } }, //
-  { "square_timer_div2/square_timer_div2.nes", MN_REGION_NTSC, 1, 0, { { 0x12051F02, 200, 0, 0 } } }, //
+  { "square_timer_div2/square_timer_div2.nes", MN_REGION_NTSC, 1, 0, { { 0xDC603B1D, 200, 0, 0 } } }, //
   { "stomper/smwstomp.nes", MN_REGION_NTSC, 0, 0, { { 0x3E04F985, 244, 0, 0 } } }, //
   { "test_apu_2/test_1.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 6, 0x00, 0 } } }, //
   { "test_apu_2/test_2.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 6, 0x00, 0 } } }, //
@@ -480,17 +482,17 @@ static TestParams tests[] = {
   { "test_apu_2/test_8.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 6, 0x00, 0 } } }, //
   { "test_apu_2/test_9.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 6, 0x00, 0 } } }, //
   { "test_apu_2/test_10.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 7, 0x00, 0 } } }, //
-  { "test_apu_env/test_apu_env.nes", MN_REGION_NTSC, 1, 0, { { 0x4C91980D, 600, 0, 0 } } }, //
+  { "test_apu_env/test_apu_env.nes", MN_REGION_NTSC, 1, 0, { { 0xD54E3ABF, 600, 0, 0 } } }, //
   { "test_apu_m/test_9.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 6, 0x00, 0 } } }, //
   { "test_apu_m/test_10.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 6, 0x00, 0 } } }, //
   { "test_apu_m/test_11.nes", MN_REGION_NTSC, 0, 0, { { 0xD2EB556B, 8, 0x00, 0 } } }, //
-  { "test_apu_sweep/sweep_cutoff.nes", MN_REGION_NTSC, 1, 0, { { 0xF0E62A31, 300, 0, 0 } } }, //
-  { "test_apu_sweep/sweep_sub.nes", MN_REGION_NTSC, 1, 0, { { 0xD75B5418, 300, 0, 0 } } }, //
-  { "test_apu_timers/dmc_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0x9D473559, 1800, 0, 0 } } }, //
-  { "test_apu_timers/noise_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0x91A5BFC0, 200, 0, 0 } } }, //
-  { "test_apu_timers/square_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0x8AC11CFD, 200, 0, 0 } } }, //
-  { "test_apu_timers/triangle_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0x76EC5E00, 200, 0, 0 } } }, //
-  { "test_tri_lin_ctr/lin_ctr.nes", MN_REGION_NTSC, 1, 0, { { 0x92C1CA67, 600, 0, 0 } } }, //
+  { "test_apu_sweep/sweep_cutoff.nes", MN_REGION_NTSC, 1, 0, { { 0xFF012A10, 300, 0, 0 } } }, //
+  { "test_apu_sweep/sweep_sub.nes", MN_REGION_NTSC, 1, 0, { { 0x7DAFD50A, 300, 0, 0 } } }, //
+  { "test_apu_timers/dmc_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0xCA637C4D, 1800, 0, 0 } } }, //
+  { "test_apu_timers/noise_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0x7EA89665, 200, 0, 0 } } }, //
+  { "test_apu_timers/square_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0xC0D5F366, 200, 0, 0 } } }, //
+  { "test_apu_timers/triangle_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0x505A1FFC, 200, 0, 0 } } }, //
+  { "test_tri_lin_ctr/lin_ctr.nes", MN_REGION_NTSC, 1, 0, { { 0x090B7261, 600, 0, 0 } } }, //
   { "test28-0.04/test28-8Mbit.nes",
     MN_REGION_NTSC,
     0,
@@ -508,7 +510,7 @@ static TestParams tests[] = {
   { "vbl_nmi_timing/5.nmi_suppression.nes", MN_REGION_NTSC, 0, 0, { { 0xB2955A03, 166, 0x00, 0 } } }, //
   { "vbl_nmi_timing/6.nmi_disable.nes", MN_REGION_NTSC, 0, 0, { { 0xFD58C6AA, 109, 0x00, 0 } } }, //
   { "vbl_nmi_timing/7.nmi_timing.nes", MN_REGION_NTSC, 0, 0, { { 0xE5553CE0, 109, 0x00, 0 } } }, //
-  { "volume_tests/volumes.nes", MN_REGION_NTSC, 1, 0, { { 0x77C017BD, 10, 0, 0 }, { 0x645F6B2B, 1000, 1, 0 } } }, //
+  { "volume_tests/volumes.nes", MN_REGION_NTSC, 1, 0, { { 0x54CEA1EE, 10, 0, 0 }, { 0xDA52A8F5, 1000, 1, 0 } } }, //
   { "vrc6test/vrc6test24.nes", MN_REGION_NTSC, 0, 0, { { 0xB164284C, 540, 0x00, 0 } } }, //
   { "vrc6test/vrc6test26.nes", MN_REGION_NTSC, 0, 0, { { 0xB164284C, 540, 0x00, 0 } } }, //
   { "vrctest/vrctest21s0.nes", MN_REGION_NTSC, 0, 0, { { 0x579C0323, 5, 0x00, 0 } } }, //
@@ -625,6 +627,45 @@ static void make_dirs(char* path)
 static uint audio_data[512 * 4096];
 static uint audio_size;
 
+static uint db_to_uint(double db, double min_db)
+{
+  double scaled = ((db - min_db) / (-min_db)) * 256.0;
+  uint result = (uint)scaled;
+  return result > 255 ? 255 : result;
+}
+
+static uint fit_amplitude(uint amplitude)
+{
+  if (amplitude == 0) {
+    return 0;
+  }
+
+  const double min_db = -60.0;
+  double db = 20.0 * log10((double)amplitude / 0x7FFF);
+  if (db < min_db) {
+    return 0;
+  }
+
+  return db_to_uint(db, min_db);
+}
+
+static uint fit_zero_cross_count(uint zero_cross_count, uint max_count)
+{
+  if (zero_cross_count == 0) {
+    return 0;
+  }
+  if (zero_cross_count >= max_count) {
+    return 255;
+  }
+
+  double log_current = log2((double)zero_cross_count + 1.0);
+  double log_max = log2((double)max_count + 1.0);
+  double scaled = (log_current / log_max) * 256.0;
+
+  uint result = (uint)scaled;
+  return result > 255 ? 255 : result;
+}
+
 static void visualize_audio_frame()
 {
   if (audio_size >= 4096) {
@@ -653,38 +694,38 @@ static void visualize_audio_frame()
     }
   }
 
-  min_amplitude >>= 4;
-  max_amplitude >>= 4;
-  if (min_amplitude > 0xFF) {
-    min_amplitude = 0xFF;
-  }
-  if (max_amplitude > 0xFF) {
-    max_amplitude = 0xFF;
-  }
-  if (zero_cross_count > 0xFF) {
-    zero_cross_count = 0xFF;
-  }
+  min_amplitude = fit_amplitude(min_amplitude);
+  max_amplitude = fit_amplitude(max_amplitude);
+  zero_cross_count = fit_zero_cross_count(zero_cross_count, count);
 
   uint y = audio_size++;
-  uint a = 0xFF;
 
   for (uint x = 0; x <= max_amplitude; ++x) {
-    uint r = zero_cross_count == 0xFF ? 0xFF : 0;
-    uint g = zero_cross_count == 0xFF ? 0 : zero_cross_count < 0x80 ? 0x80 : zero_cross_count;
-    uint b = zero_cross_count < 0x80 ? 0xFF - zero_cross_count : 0x80;
-    // if (x > min_amplitude) {
-    //   r = r * 3 / 4;
-    //   g = g * 3 / 4;
-    //   b = b * 3 / 4;
-    // }
-    audio_data[y * 512 + x] = (a << 24) | (r << 16) | (g << 8) | b;
+    uint color;
+    switch (x / 42) {
+      case 0: color = 0xFF0000FF; break;
+      case 1: color = 0xFF0080FF; break;
+      case 2: color = 0xFF00FF80; break;
+      case 3: color = 0xFF00FF00; break;
+      case 4: color = 0xFF80FF00; break;
+      case 5: color = 0xFFFF8000; break;
+      default: color = 0xFFFF0000; break;
+    }
+    audio_data[y * 512 + x] = color;
   }
 
   for (uint x = 0; x <= zero_cross_count; ++x) {
-    uint r = max_amplitude == 0xFF ? 0xFF : 0;
-    uint g = max_amplitude == 0xFF ? 0 : max_amplitude < 0x80 ? 0x80 : max_amplitude;
-    uint b = max_amplitude < 0x80 ? 0xFF - max_amplitude : 0x80;
-    audio_data[y * 512 + 512 - x] = (a << 24) | (r << 16) | (g << 8) | b;
+    uint color;
+    switch (zero_cross_count / 42) {
+      case 0: color = 0xFFFF00FF; break;
+      case 1: color = 0xFF0000FF; break;
+      case 2: color = 0xFF00FFFF; break;
+      case 3: color = 0xFF00FF00; break;
+      case 4: color = 0xFFFFFF00; break;
+      case 5: color = 0xFFFF8000; break;
+      default: color = 0xFFFF0000; break;
+    }
+    audio_data[y * 512 + 512 - x] = color;
   }
 }
 
