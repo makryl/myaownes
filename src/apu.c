@@ -12,7 +12,7 @@ enum
   APU_FILTER_DMC = 0, // todo: make optional, nice pop filter, but fails apu_mixer tests
 };
 
-enum : u8
+enum
 {
   APU_STATUS_PULSE1 = (1 << 0),
   APU_STATUS_PULSE2 = (1 << 1),
@@ -161,9 +161,9 @@ MN_CACHE_LINE static struct Apu
   uint dmc_val_pending;
   uint dmc_val_filtered;
   uint dmc_wait_buf;
-  u16 dmc_sample_addr;
-  u16 dmc_addr;
-  u8 dmc_buf;
+  uint dmc_sample_addr;
+  uint dmc_addr;
+  uint dmc_buf;
 
   bool test_mode;
   bool mode5;
@@ -238,9 +238,9 @@ void mn_audio_freq(uint freq)
   }
 }
 
-static u8 apu_get_status()
+static uint apu_get_status()
 {
-  u8 status = 0;
+  uint status = 0;
   if (apu.pulse1_len > 0) {
     status |= APU_STATUS_PULSE1;
   }
@@ -453,11 +453,11 @@ void apu_reset()
   apu.cyc_reset = apu_is_put_phase() ? 3 : 4;
 }
 
-void apu_bus_read(u16 addr, u8* val, bool trace)
+void apu_bus_read(uint addr, u8* val, bool trace)
 {
   switch (addr & 0x1F) {
     case 0x15: {
-      u8 status = apu_get_status();
+      uint status = apu_get_status();
       if (!trace) {
         apu.frame_irq = false;
       }
@@ -475,7 +475,7 @@ void apu_bus_read(u16 addr, u8* val, bool trace)
   apu_trace("read addr=%04X val=%02X", addr, *val);
 }
 
-void apu_bus_write(u16 addr, u8 val)
+void apu_bus_write(uint addr, uint val)
 {
   apu_trace("write addr=%04X val=%02X", addr, val);
   switch (addr & 0x1F) {
@@ -652,13 +652,15 @@ static void apu_noise_tick()
   --apu.noise_timer;
 }
 
-void apu_dmc_dma(u8 val)
+void apu_dmc_dma(uint val)
 {
   apu_trace_dmc("dmc dma val=%02X cpu_cyc_corrected=%d", val, cpu_cyc() - 1);
   apu.dmc_buf = val;
   apu.dmc_has_buf = true;
   if (apu.dmc_len > 0) {
-    apu.dmc_addr = 0x8000 | (apu.dmc_addr + 1);
+    if (++apu.dmc_addr > 0xFFFF) {
+      apu.dmc_addr = 0x8000;
+    }
     if (--apu.dmc_len == 0) {
       if (apu.dmc_loop) {
         apu.dmc_addr = apu.dmc_sample_addr;
