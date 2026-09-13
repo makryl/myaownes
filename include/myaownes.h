@@ -63,7 +63,7 @@ void mn_audio_freq(uint freq);
 i16* mn_audio_data();
 uint mn_audio_size();
 void mn_reset();
-void mn_frame(u8 joy1, u8 joy2);
+void mn_frame(uint joy1, uint joy2);
 bool mn_save(const char* path);
 bool mn_load(const char* path);
 void mn_palette(uint palette[64]);

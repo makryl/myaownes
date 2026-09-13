@@ -24,7 +24,7 @@ struct NESHeader
   u8 other[3];
 };
 
-enum : u8
+enum
 {
   NES_FLAG_VERT_MIRROR = (1 << 0),
   NES_FLAG_BATTERY = (1 << 1),
@@ -55,7 +55,7 @@ void mn_reset()
   ppu_reset();
 }
 
-void mn_frame(u8 joy1, u8 joy2)
+void mn_frame(uint joy1, uint joy2)
 {
   if (!map_ready()) {
     return;
