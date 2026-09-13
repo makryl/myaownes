@@ -6,7 +6,6 @@ typedef unsigned short u16;
 typedef unsigned char u8;
 typedef signed long long i64;
 typedef signed short i16;
-typedef signed char i8;
 typedef struct mn_rom* mn_rom;
 
 enum
