@@ -8,7 +8,7 @@
 #include "map_other.h"
 #include <string.h>
 
-enum : u64
+enum
 {
   MAP_PAGE_SHIFT = 10, // 1kb
   MAP_PAGE_SIZE = 1 << MAP_PAGE_SHIFT,
@@ -295,7 +295,7 @@ void map_nt_page(uint sp, uint dp, bool use_chr)
 
 void map_ciram_page(uint sp, uint dp)
 {
-  u8* src = map.ciram + sp * MAP_PAGE_SIZE;
+  u8* src = map.ciram + sp * (size_t)MAP_PAGE_SIZE;
   map_dyn.ppu_read_page[dp] = src;
   map_dyn.ppu_write_page[dp] = src;
   map_dyn.ppu_read_page[dp + 4] = src;
