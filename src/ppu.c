@@ -137,21 +137,21 @@ MN_CACHE_LINE static struct Ppu
   uint pixel;
   uint color;
 
-  bool render_enabled;
-  bool write_latch;
-  bool odd_frame;
-  bool suppress_vblank;
-  bool check_nmi;
-  bool sprite_eval_first;
-  bool sprite_eval_done;
-  bool sprite_eval_has0;
-  bool sprite_render_has0;
-  bool sprite_flip_horiz;
-  bool sprite_fetch_done;
-  bool inc_x;
-  bool ntsc;
-  bool ale;
-  bool read;
+  bool render_enabled: 1;
+  bool write_latch: 1;
+  bool odd_frame: 1;
+  bool suppress_vblank: 1;
+  bool check_nmi: 1;
+  bool sprite_eval_first: 1;
+  bool sprite_eval_done: 1;
+  bool sprite_eval_has0: 1;
+  bool sprite_render_has0: 1;
+  bool sprite_flip_horiz: 1;
+  bool sprite_fetch_done: 1;
+  bool inc_x: 1;
+  bool ntsc: 1;
+  bool ale: 1;
+  bool read: 1;
 
   MN_CACHE_LINE uint sprite_x[8];
   MN_CACHE_LINE uint sprite_shift_x[8];

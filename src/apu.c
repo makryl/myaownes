@@ -165,51 +165,51 @@ MN_CACHE_LINE static struct Apu
   uint dmc_addr;
   uint dmc_buf;
 
-  bool test_mode;
-  bool mode5;
-  bool frame_irq_status;
-  bool frame_irq_disabled;
-  bool frame_irq;
-  bool step_env;
-  bool step_len;
+  bool test_mode: 1;
+  bool mode5: 1;
+  bool frame_irq_status: 1;
+  bool frame_irq_disabled: 1;
+  bool frame_irq: 1;
+  bool step_env: 1;
+  bool step_len: 1;
 
-  bool dmc_enabled;
-  bool dmc_irq_enabled;
-  bool dmc_irq;
-  bool dmc_has_buf;
-  bool dmc_has_out;
-  bool dmc_loop;
-  bool dmc_val_changed;
+  bool dmc_enabled: 1;
+  bool dmc_irq_enabled: 1;
+  bool dmc_irq: 1;
+  bool dmc_has_buf: 1;
+  bool dmc_has_out: 1;
+  bool dmc_loop: 1;
+  bool dmc_val_changed: 1;
 
-  bool pulse1_enabled;
-  bool pulse1_halt;
-  bool pulse1_dec;
-  bool pulse1_env_const;
-  bool pulse1_env_start;
-  bool pulse1_sweep_enabled;
-  bool pulse1_sweep_negate;
-  bool pulse1_sweep_reload;
+  bool pulse1_enabled: 1;
+  bool pulse1_halt: 1;
+  bool pulse1_dec: 1;
+  bool pulse1_env_const: 1;
+  bool pulse1_env_start: 1;
+  bool pulse1_sweep_enabled: 1;
+  bool pulse1_sweep_negate: 1;
+  bool pulse1_sweep_reload: 1;
 
-  bool pulse2_enabled;
-  bool pulse2_halt;
-  bool pulse2_dec;
-  bool pulse2_env_const;
-  bool pulse2_env_start;
-  bool pulse2_sweep_enabled;
-  bool pulse2_sweep_negate;
-  bool pulse2_sweep_reload;
+  bool pulse2_enabled: 1;
+  bool pulse2_halt: 1;
+  bool pulse2_dec: 1;
+  bool pulse2_env_const: 1;
+  bool pulse2_env_start: 1;
+  bool pulse2_sweep_enabled: 1;
+  bool pulse2_sweep_negate: 1;
+  bool pulse2_sweep_reload: 1;
 
-  bool triangle_enabled;
-  bool triangle_halt;
-  bool triangle_dec;
-  bool triangle_linear_reload;
+  bool triangle_enabled: 1;
+  bool triangle_halt: 1;
+  bool triangle_dec: 1;
+  bool triangle_linear_reload: 1;
 
-  bool noise_enabled;
-  bool noise_halt;
-  bool noise_dec;
-  bool noise_mode;
-  bool noise_env_const;
-  bool noise_env_start;
+  bool noise_enabled: 1;
+  bool noise_halt: 1;
+  bool noise_dec: 1;
+  bool noise_mode: 1;
+  bool noise_env_const: 1;
+  bool noise_env_start: 1;
 } apu;
 
 uint apu_size() { return sizeof(apu); }

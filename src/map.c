@@ -34,8 +34,8 @@ MN_CACHE_LINE static struct
 
 MN_CACHE_LINE static struct
 {
-  bool apu_irq;
-  bool irq;
+  bool apu_irq: 1;
+  bool irq: 1;
   MN_CACHE_LINE u8 ciram[0x1000];
   MN_CACHE_LINE u8 reg[MAP_REG_SIZE];
 } map;

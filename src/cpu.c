@@ -62,19 +62,20 @@ MN_CACHE_LINE static struct Cpu
   uint internal_open_bus;
   uint external_open_bus;
   uint out;
-  bool reset;
-  bool nmi;
-  bool irq;
-  bool brk;
-  bool dmc_dma_halt;
-  bool dmc_dma_wait;
-  bool dmc_dma_done;
-  bool oam_dma_trig;
-  bool oam_dma_active;
-  bool page_crossed;
-  bool write;
-  bool suppress_poll;
-  bool pal;
+
+  bool reset: 1;
+  bool nmi: 1;
+  bool irq: 1;
+  bool brk: 1;
+  bool dmc_dma_halt: 1;
+  bool dmc_dma_wait: 1;
+  bool dmc_dma_done: 1;
+  bool oam_dma_trig: 1;
+  bool oam_dma_active: 1;
+  bool page_crossed: 1;
+  bool write: 1;
+  bool suppress_poll: 1;
+  bool pal: 1;
 
   MN_CACHE_LINE u8 ram[0x0800];
 } cpu;
