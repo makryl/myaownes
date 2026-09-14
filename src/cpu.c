@@ -429,7 +429,7 @@ static u16 cpu_addr(u8 am, bool readonly)
       return trace_addr((u16)lo | ((u16)hi << 8));
     }
     case CPU_ADDR_REL: {
-      int off = (int)(signed char)cpu_read_pc();
+      int off = (int)(i8)cpu_read_pc();
       cpu.suppress_poll = true; // NES bug: cyc for offset without poll
       cpu_read_addr(cpu.pc);
       cpu.suppress_poll = false;
@@ -597,7 +597,7 @@ static void cpu_branch(u8 am, u8 flag, bool cond)
   if (((cpu.p & flag) != 0) == cond) {
     cpu.pc = cpu_addr(am, true);
   } else {
-    int off = (int)(signed char)cpu_read_pc();
+    int off = (int)(i8)cpu_read_pc();
     (void)(trace_addr(cpu.pc + off));
   }
 }
