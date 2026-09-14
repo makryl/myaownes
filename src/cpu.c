@@ -133,14 +133,14 @@ void cpu_input(uint joy1, uint joy2)
   cpu.joy_pending[1] = joy2;
 }
 
-static u8 cpu_joy_poll(uint addr, bool trace)
+static uint cpu_joy_poll(uint addr, bool trace)
 {
   uint idx = (addr & 1);
   if (!trace) {
     cpu.joy_shift_idx = idx;
     cpu.joy_shift_delay = 2;
   }
-  u8 val = (cpu.joy_shift[idx] & 1);
+  uint val = (cpu.joy_shift[idx] & 1);
   // val |= (val & 1) << 1; // todo: Dendy uses expansion port for joy2?
   return val | (cpu.external_open_bus & 0xE0);
 }
@@ -181,27 +181,26 @@ static void cpu_cyc_end()
   ++cpu.cyc;
 }
 
-static u8 cpu_read_addr_raw(uint addr, bool trace)
+static uint cpu_read_addr_raw(uint addr, bool trace)
 {
-  u8 val;
   if (addr < 0x2000) {
-    val = cpu.ram[addr & 0x07FF];
+    return cpu.ram[addr & 0x07FF];
   } else if (addr < 0x4000) {
-    val = ppu_bus_read(addr, trace);
+    return ppu_bus_read(addr, trace);
   } else if (addr < 0x4020) {
     if (addr == 0x4016 || addr == 0x4017) {
-      val = cpu_joy_poll(addr, trace);
+      return cpu_joy_poll(addr, trace);
     } else {
-      val = apu_bus_read(addr, addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus, trace);
+      return apu_bus_read(addr, addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus, trace);
     }
   } else {
-    val = cpu.external_open_bus;
+    u8 val = cpu.external_open_bus;
     map_cpu_read(addr, &val, trace);
+    return val;
   }
-  return val;
 }
 
-static u8 cpu_read_addr_direct(uint addr)
+static uint cpu_read_addr_direct(uint addr)
 {
   cpu_cyc_begin();
   if ((addr & 0xFFE0) != 0x4000) {
@@ -220,13 +219,13 @@ static u8 cpu_read_addr_direct(uint addr)
   return cpu.internal_open_bus;
 }
 
-static u8 cpu_read_addr(uint addr)
+static uint cpu_read_addr(uint addr)
 {
   cpu.addr = addr;
   return cpu_read_addr_direct(addr);
 }
 
-static void cpu_write_addr_direct(uint addr, u8 val)
+static void cpu_write_addr_direct(uint addr, uint val)
 {
   cpu.write = true;
   cpu.internal_open_bus = val;
@@ -252,7 +251,7 @@ static void cpu_write_addr_direct(uint addr, u8 val)
   cpu.write = false;
 }
 
-static void cpu_write_addr(uint addr, u8 val)
+static void cpu_write_addr(uint addr, uint val)
 {
   cpu.addr = addr;
   cpu_write_addr_direct(addr, val);
@@ -268,7 +267,7 @@ static struct
   int ppu_sl;
   uint addr0;
   uint addr;
-  u8 val;
+  uint val;
 } trace;
 
 #define trace_addr0(code) trace.addr0 = code
@@ -283,18 +282,18 @@ static struct
 #define trace_tick2(fmt, ...) \
   trace_tick("%04X  %02X %02X %02X %4s " fmt, trace.cpu.pc, pc0, pc1, pc2, trace.opname __VA_OPT__(, ) __VA_ARGS__);
 
-static void trace_tick_addr(u8 am)
+static void trace_tick_addr(uint am)
 {
-  u8 pc0 = cpu_read_addr_raw(trace.cpu.pc + 0, true);
-  u8 pc1 = cpu_read_addr_raw(trace.cpu.pc + 1, true);
-  u8 pc2 = cpu_read_addr_raw(trace.cpu.pc + 2, true);
+  uint pc0 = cpu_read_addr_raw(trace.cpu.pc + 0, true);
+  uint pc1 = cpu_read_addr_raw(trace.cpu.pc + 1, true);
+  uint pc2 = cpu_read_addr_raw(trace.cpu.pc + 2, true);
   switch (am) {
     case CPU_ADDR_IMP: trace_tick0("                          "); break;
     case CPU_ADDR_ACC: trace_tick0("A                         "); break;
     case CPU_ADDR_IMM: trace_tick1("#$%02X                      ", pc1); break;
     case CPU_ADDR_REL: trace_tick1("$%04X                     ", trace.addr); break;
     case CPU_ADDR_ABS: {
-      u8 op = cpu_read_addr_raw(trace.cpu.pc, true);
+      uint op = cpu_read_addr_raw(trace.cpu.pc, true);
       if (op == 0x20 || op == 0x4C) {
         trace_tick2("$%04X                     ", trace.addr);
       } else {
@@ -324,7 +323,7 @@ static void trace_tick_addr(u8 am)
 #endif
 
 
-static u8 cpu_flag_zn(u8 val)
+static uint cpu_flag_zn(uint val)
 {
   if (val == 0) {
     cpu.p |= CPU_FLAG_ZERO;
@@ -360,14 +359,14 @@ static void cpu_flag_overflow(bool cond)
 static uint cpu_read16_addr(uint addr)
 {
   uint lo = cpu_read_addr(addr);
-  uint hi = cpu_read_addr(addr + 1) << 8;
+  uint hi = cpu_read_addr((addr + 1) & 0xFFFF) << 8;
   return lo | hi;
 }
 
-static uint cpu_read16_zptr(u8 zptr)
+static uint cpu_read16_zptr(uint zptr)
 {
   uint lo = cpu_read_addr(zptr);
-  uint hi = cpu_read_addr((u8)(zptr + 1)) << 8;
+  uint hi = cpu_read_addr((zptr + 1) & 0xFF) << 8;
   return lo | hi;
 }
 
@@ -378,7 +377,7 @@ static uint cpu_pc_inc()
   return addr;
 }
 
-static u8 cpu_read_pc() { return cpu_read_addr(cpu_pc_inc()); }
+static uint cpu_read_pc() { return cpu_read_addr(cpu_pc_inc()); }
 
 static uint cpu_read16_pc()
 {
@@ -396,9 +395,9 @@ static uint cpu_stack_addr_dec()
   return val;
 }
 
-static void cpu_stack_push(u8 val) { cpu_write_addr(cpu_stack_addr_dec(), val); }
+static void cpu_stack_push(uint val) { cpu_write_addr(cpu_stack_addr_dec(), val); }
 
-static u8 cpu_stack_pop(bool seq)
+static uint cpu_stack_pop(bool seq)
 {
   if (!seq) {
     cpu_read_addr(cpu_stack_addr());
@@ -430,7 +429,7 @@ static uint cpu_addr_offset(uint addr, int offset, bool readonly)
   return target_addr;
 }
 
-static uint cpu_addr(u8 am, bool readonly)
+static uint cpu_addr(uint am, bool readonly)
 {
   cpu.page_crossed = false;
   switch (am) {
@@ -478,13 +477,13 @@ static uint cpu_addr(u8 am, bool readonly)
   return 0;
 }
 
-static u8 cpu_read(u8 am) { return cpu_read_addr(cpu_addr(am, true)); }
-static void cpu_write(u8 am, u8 val) { cpu_write_addr(cpu_addr(am, false), val); }
+static uint cpu_read(uint am) { return cpu_read_addr(cpu_addr(am, true)); }
+static void cpu_write(uint am, uint val) { cpu_write_addr(cpu_addr(am, false), val); }
 
-static u8 cpu_read_write(u8 am, u8 (*cb)(u8))
+static uint cpu_read_write(uint am, uint (*cb)(uint))
 {
   uint addr = cpu_addr(am, false);
-  u8 val = cpu_read_addr(addr);
+  uint val = cpu_read_addr(addr);
   if (am == CPU_ADDR_ACC) {
     cpu.a = cpu_flag_zn(cb(cpu.a));
     return cpu.a;
@@ -495,110 +494,114 @@ static u8 cpu_read_write(u8 am, u8 (*cb)(u8))
   return val;
 }
 
-static void cpu_op_LDA(u8 am) { cpu.a = cpu_flag_zn(cpu_read(am)); }
-static void cpu_op_LDX(u8 am) { cpu.x = cpu_flag_zn(cpu_read(am)); }
-static void cpu_op_LDY(u8 am) { cpu.y = cpu_flag_zn(cpu_read(am)); }
+static void cpu_op_LDA(uint am) { cpu.a = cpu_flag_zn(cpu_read(am)); }
+static void cpu_op_LDX(uint am) { cpu.x = cpu_flag_zn(cpu_read(am)); }
+static void cpu_op_LDY(uint am) { cpu.y = cpu_flag_zn(cpu_read(am)); }
 
-static void cpu_op_STA(u8 am) { cpu_write(am, cpu.a); }
-static void cpu_op_STX(u8 am) { cpu_write(am, cpu.x); }
-static void cpu_op_STY(u8 am) { cpu_write(am, cpu.y); }
+static void cpu_op_STA(uint am) { cpu_write(am, cpu.a); }
+static void cpu_op_STX(uint am) { cpu_write(am, cpu.x); }
+static void cpu_op_STY(uint am) { cpu_write(am, cpu.y); }
 
-static void cpu_op_TAX(u8 am) { cpu_read(am), cpu.x = cpu_flag_zn(cpu.a); }
-static void cpu_op_TAY(u8 am) { cpu_read(am), cpu.y = cpu_flag_zn(cpu.a); }
-static void cpu_op_TXA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu.x); }
-static void cpu_op_TYA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu.y); }
+static void cpu_op_TAX(uint am) { cpu_read(am), cpu.x = cpu_flag_zn(cpu.a); }
+static void cpu_op_TAY(uint am) { cpu_read(am), cpu.y = cpu_flag_zn(cpu.a); }
+static void cpu_op_TXA(uint am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu.x); }
+static void cpu_op_TYA(uint am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu.y); }
 
-static void cpu_op_TSX(u8 am) { cpu_read(am), cpu.x = cpu_flag_zn(cpu.s); }
-static void cpu_op_TXS(u8 am) { cpu_read(am), cpu.s = cpu.x; }
+static void cpu_op_TSX(uint am) { cpu_read(am), cpu.x = cpu_flag_zn(cpu.s); }
+static void cpu_op_TXS(uint am) { cpu_read(am), cpu.s = cpu.x; }
 
-static void cpu_op_PHA(u8 am) { cpu_read(am), cpu_stack_push(cpu.a); }
-static void cpu_op_PHP(u8 am) { cpu_read(am), cpu_stack_push(cpu.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE); }
-static void cpu_op_PLA(u8 am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu_stack_pop(false)); }
-static void cpu_op_PLP(u8 am) { cpu_read(am), cpu.p = (cpu_stack_pop(false) & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE; }
-
-static void cpu_and(u8 val) { cpu.a = cpu_flag_zn(cpu.a & val); }
-static void cpu_ora(u8 val) { cpu.a = cpu_flag_zn(cpu.a | val); }
-static void cpu_eor(u8 val) { cpu.a = cpu_flag_zn(cpu.a ^ val); }
-
-static void cpu_op_AND(u8 am) { cpu_and(cpu_read(am)); }
-static void cpu_op_ORA(u8 am) { cpu_ora(cpu_read(am)); }
-static void cpu_op_EOR(u8 am) { cpu_eor(cpu_read(am)); }
-
-static void cpu_adc(u8 val)
+static void cpu_op_PHA(uint am) { cpu_read(am), cpu_stack_push(cpu.a); }
+static void cpu_op_PHP(uint am) { cpu_read(am), cpu_stack_push(cpu.p | CPU_FLAG_BREAK | CPU_FLAG_ALWAYS_ONE); }
+static void cpu_op_PLA(uint am) { cpu_read(am), cpu.a = cpu_flag_zn(cpu_stack_pop(false)); }
+static void cpu_op_PLP(uint am)
 {
-  uint res = cpu.a + (uint)val + (cpu.p & CPU_FLAG_CARRY);
-  cpu_flag_carry(res > 0xFF);
-  cpu_flag_overflow((~(cpu.a ^ val) & (cpu.a ^ (u8)res)) & 0x80);
-  cpu.a = cpu_flag_zn((u8)res);
+  cpu_read(am), cpu.p = (cpu_stack_pop(false) & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
 }
 
-static void cpu_sbc(u8 val) { cpu_adc(~val); }
+static void cpu_and(uint val) { cpu.a = cpu_flag_zn(cpu.a & val); }
+static void cpu_ora(uint val) { cpu.a = cpu_flag_zn(cpu.a | val); }
+static void cpu_eor(uint val) { cpu.a = cpu_flag_zn(cpu.a ^ val); }
 
-static void cpu_op_ADC(u8 am) { cpu_adc(cpu_read(am)); }
-static void cpu_op_SBC(u8 am) { cpu_sbc(cpu_read(am)); }
+static void cpu_op_AND(uint am) { cpu_and(cpu_read(am)); }
+static void cpu_op_ORA(uint am) { cpu_ora(cpu_read(am)); }
+static void cpu_op_EOR(uint am) { cpu_eor(cpu_read(am)); }
 
-static u8 cpu_inc(u8 val) { return cpu_flag_zn(val + 1); }
-static void cpu_op_INC(u8 am) { cpu_read_write(am, cpu_inc); }
-static void cpu_op_INX(u8 am) { cpu_read(am), cpu_flag_zn(cpu.x = ((cpu.x + 1) & 0xFF)); }
-static void cpu_op_INY(u8 am) { cpu_read(am), cpu_flag_zn(cpu.y = ((cpu.y + 1) & 0xFF)); }
+static void cpu_adc(uint val)
+{
+  uint res = cpu.a + val + (cpu.p & CPU_FLAG_CARRY);
+  cpu_flag_carry(res > 0xFF);
+  res &= 0xFF;
+  cpu_flag_overflow((~(cpu.a ^ val) & (cpu.a ^ res)) & 0x80);
+  cpu.a = cpu_flag_zn(res);
+}
 
-static u8 cpu_dec(u8 val) { return cpu_flag_zn(val - 1); }
-static void cpu_op_DEC(u8 am) { cpu_read_write(am, cpu_dec); }
-static void cpu_op_DEX(u8 am) { cpu_read(am), cpu_flag_zn(cpu.x = ((cpu.x - 1) & 0xFF)); }
-static void cpu_op_DEY(u8 am) { cpu_read(am), cpu_flag_zn(cpu.y = ((cpu.y - 1) & 0xFF)); }
+static void cpu_sbc(uint val) { cpu_adc(~val & 0xFF); }
 
-static u8 cpu_asl(u8 val)
+static void cpu_op_ADC(uint am) { cpu_adc(cpu_read(am)); }
+static void cpu_op_SBC(uint am) { cpu_sbc(cpu_read(am)); }
+
+static uint cpu_inc(uint val) { return cpu_flag_zn((val + 1) & 0xFF); }
+static void cpu_op_INC(uint am) { cpu_read_write(am, cpu_inc); }
+static void cpu_op_INX(uint am) { cpu_read(am), cpu_flag_zn(cpu.x = ((cpu.x + 1) & 0xFF)); }
+static void cpu_op_INY(uint am) { cpu_read(am), cpu_flag_zn(cpu.y = ((cpu.y + 1) & 0xFF)); }
+
+static uint cpu_dec(uint val) { return cpu_flag_zn((val - 1) & 0xFF); }
+static void cpu_op_DEC(uint am) { cpu_read_write(am, cpu_dec); }
+static void cpu_op_DEX(uint am) { cpu_read(am), cpu_flag_zn(cpu.x = ((cpu.x - 1) & 0xFF)); }
+static void cpu_op_DEY(uint am) { cpu_read(am), cpu_flag_zn(cpu.y = ((cpu.y - 1) & 0xFF)); }
+
+static uint cpu_asl(uint val)
 {
   cpu_flag_carry(val & 0x80);
-  return cpu_flag_zn(val << 1);
+  return cpu_flag_zn((val << 1) & 0xFF);
 }
 
-static u8 cpu_lsr(u8 val)
+static uint cpu_lsr(uint val)
 {
   cpu_flag_carry(val & 1);
   return cpu_flag_zn(val >> 1);
 }
 
-static u8 cpu_rol(u8 val)
+static uint cpu_rol(uint val)
 {
-  u8 carry = (cpu.p & CPU_FLAG_CARRY);
+  uint carry = (cpu.p & CPU_FLAG_CARRY);
   cpu_flag_carry(val & 0x80);
-  return cpu_flag_zn((val << 1) | carry);
+  return cpu_flag_zn(((val << 1) & 0xFF) | carry);
 }
 
-static u8 cpu_ror(u8 val)
+static uint cpu_ror(uint val)
 {
-  u8 carry = (cpu.p & CPU_FLAG_CARRY) ? 0x80 : 0;
+  uint carry = (cpu.p & CPU_FLAG_CARRY) ? 0x80 : 0;
   cpu_flag_carry(val & 1);
   return cpu_flag_zn((val >> 1) | carry);
 }
 
-static void cpu_op_ASL(u8 am) { cpu_read_write(am, cpu_asl); }
-static void cpu_op_LSR(u8 am) { cpu_read_write(am, cpu_lsr); }
-static void cpu_op_ROL(u8 am) { cpu_read_write(am, cpu_rol); }
-static void cpu_op_ROR(u8 am) { cpu_read_write(am, cpu_ror); }
+static void cpu_op_ASL(uint am) { cpu_read_write(am, cpu_asl); }
+static void cpu_op_LSR(uint am) { cpu_read_write(am, cpu_lsr); }
+static void cpu_op_ROL(uint am) { cpu_read_write(am, cpu_rol); }
+static void cpu_op_ROR(uint am) { cpu_read_write(am, cpu_ror); }
 
-static void cpu_op_CLC(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_CARRY; }
-static void cpu_op_CLD(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_DECIMAL; }
-static void cpu_op_CLI(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_IRQ_DISABLED; }
-static void cpu_op_CLV(u8 am) { cpu_read(am), cpu.p &= ~CPU_FLAG_OVERFLOW; }
-static void cpu_op_SEC(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_CARRY; }
-static void cpu_op_SED(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_DECIMAL; }
-static void cpu_op_SEI(u8 am) { cpu_read(am), cpu.p |= CPU_FLAG_IRQ_DISABLED; }
+static void cpu_op_CLC(uint am) { cpu_read(am), cpu.p &= ~CPU_FLAG_CARRY; }
+static void cpu_op_CLD(uint am) { cpu_read(am), cpu.p &= ~CPU_FLAG_DECIMAL; }
+static void cpu_op_CLI(uint am) { cpu_read(am), cpu.p &= ~CPU_FLAG_IRQ_DISABLED; }
+static void cpu_op_CLV(uint am) { cpu_read(am), cpu.p &= ~CPU_FLAG_OVERFLOW; }
+static void cpu_op_SEC(uint am) { cpu_read(am), cpu.p |= CPU_FLAG_CARRY; }
+static void cpu_op_SED(uint am) { cpu_read(am), cpu.p |= CPU_FLAG_DECIMAL; }
+static void cpu_op_SEI(uint am) { cpu_read(am), cpu.p |= CPU_FLAG_IRQ_DISABLED; }
 
-static u8 cpu_cmp(u8 val, u8 reg)
+static uint cpu_cmp(uint val, uint reg)
 {
   cpu_flag_carry(reg >= val);
-  return cpu_flag_zn(reg - val);
+  return cpu_flag_zn((reg - val) & 0xFF);
 }
 
-static void cpu_op_CMP(u8 am) { cpu_cmp(cpu_read(am), cpu.a); }
-static void cpu_op_CPX(u8 am) { cpu_cmp(cpu_read(am), cpu.x); }
-static void cpu_op_CPY(u8 am) { cpu_cmp(cpu_read(am), cpu.y); }
+static void cpu_op_CMP(uint am) { cpu_cmp(cpu_read(am), cpu.a); }
+static void cpu_op_CPX(uint am) { cpu_cmp(cpu_read(am), cpu.x); }
+static void cpu_op_CPY(uint am) { cpu_cmp(cpu_read(am), cpu.y); }
 
-static void cpu_op_BIT(u8 am)
+static void cpu_op_BIT(uint am)
 {
-  u8 val = cpu_read(am);
+  uint val = cpu_read(am);
   if ((cpu.a & val) == 0) {
     cpu.p |= CPU_FLAG_ZERO;
   } else {
@@ -608,7 +611,7 @@ static void cpu_op_BIT(u8 am)
   cpu.p |= (val & 0xC0);
 }
 
-static void cpu_branch(u8 am, u8 flag, bool cond)
+static void cpu_branch(uint am, uint flag, bool cond)
 {
   if (((cpu.p & flag) != 0) == cond) {
     cpu.pc = cpu_addr(am, true);
@@ -618,18 +621,18 @@ static void cpu_branch(u8 am, u8 flag, bool cond)
   }
 }
 
-static void cpu_op_BPL(u8 am) { cpu_branch(am, CPU_FLAG_NEGATIVE, 0); }
-static void cpu_op_BMI(u8 am) { cpu_branch(am, CPU_FLAG_NEGATIVE, 1); }
-static void cpu_op_BVC(u8 am) { cpu_branch(am, CPU_FLAG_OVERFLOW, 0); }
-static void cpu_op_BVS(u8 am) { cpu_branch(am, CPU_FLAG_OVERFLOW, 1); }
-static void cpu_op_BCC(u8 am) { cpu_branch(am, CPU_FLAG_CARRY, 0); }
-static void cpu_op_BCS(u8 am) { cpu_branch(am, CPU_FLAG_CARRY, 1); }
-static void cpu_op_BNE(u8 am) { cpu_branch(am, CPU_FLAG_ZERO, 0); }
-static void cpu_op_BEQ(u8 am) { cpu_branch(am, CPU_FLAG_ZERO, 1); }
+static void cpu_op_BPL(uint am) { cpu_branch(am, CPU_FLAG_NEGATIVE, 0); }
+static void cpu_op_BMI(uint am) { cpu_branch(am, CPU_FLAG_NEGATIVE, 1); }
+static void cpu_op_BVC(uint am) { cpu_branch(am, CPU_FLAG_OVERFLOW, 0); }
+static void cpu_op_BVS(uint am) { cpu_branch(am, CPU_FLAG_OVERFLOW, 1); }
+static void cpu_op_BCC(uint am) { cpu_branch(am, CPU_FLAG_CARRY, 0); }
+static void cpu_op_BCS(uint am) { cpu_branch(am, CPU_FLAG_CARRY, 1); }
+static void cpu_op_BNE(uint am) { cpu_branch(am, CPU_FLAG_ZERO, 0); }
+static void cpu_op_BEQ(uint am) { cpu_branch(am, CPU_FLAG_ZERO, 1); }
 
-static void cpu_op_JMP(u8 am) { cpu.pc = cpu_addr(am, true); }
+static void cpu_op_JMP(uint am) { cpu.pc = cpu_addr(am, true); }
 
-static void cpu_op_JSR(u8)
+static void cpu_op_JSR(uint)
 {
   uint lo = cpu_read_pc();
   cpu_read_addr(cpu_stack_addr());
@@ -638,51 +641,51 @@ static void cpu_op_JSR(u8)
   trace_addr(cpu.pc = lo | hi);
 }
 
-static void cpu_op_RTS(u8 am)
+static void cpu_op_RTS(uint am)
 {
   cpu_read(am);
   cpu.pc = cpu_stack_pop16(false);
   cpu_read_addr(cpu_pc_inc());
 }
 
-static void cpu_op_BRK(u8 am)
+static void cpu_op_BRK(uint am)
 {
   cpu.brk = true;
   cpu_read(am);
 }
 
-static void cpu_op_RTI(u8 am)
+static void cpu_op_RTI(uint am)
 {
   cpu_read(am);
   cpu.p = (cpu_stack_pop(false) & ~CPU_FLAG_BREAK) | CPU_FLAG_ALWAYS_ONE;
   cpu.pc = cpu_stack_pop16(true);
 }
 
-static void cpu_op_NOP(u8 am) { cpu_read(am); }
+static void cpu_op_NOP(uint am) { cpu_read(am); }
 
-static void cpu_op_KIL(u8)
+static void cpu_op_KIL(uint)
 {
   cpu.pc = ((cpu.pc - 1) & 0xFFFF);
   errorf("KIL $%02X\n", cpu_read_addr_raw(cpu.pc, true));
 }
 
-static void cpu_op_SLO(u8 am) { cpu_ora(cpu_read_write(am, cpu_asl)); }
-static void cpu_op_RLA(u8 am) { cpu_and(cpu_read_write(am, cpu_rol)); }
-static void cpu_op_SRE(u8 am) { cpu_eor(cpu_read_write(am, cpu_lsr)); }
-static void cpu_op_RRA(u8 am) { cpu_adc(cpu_read_write(am, cpu_ror)); }
-static void cpu_op_SAX(u8 am) { cpu_write(am, cpu.a & cpu.x); }
-static void cpu_op_LAX(u8 am) { cpu.a = cpu.x = cpu_flag_zn(cpu_read(am)); }
-static void cpu_op_DCP(u8 am) { cpu_cmp(cpu_read_write(am, cpu_dec), cpu.a); }
-static void cpu_op_ISB(u8 am) { cpu_sbc(cpu_read_write(am, cpu_inc)); }
+static void cpu_op_SLO(uint am) { cpu_ora(cpu_read_write(am, cpu_asl)); }
+static void cpu_op_RLA(uint am) { cpu_and(cpu_read_write(am, cpu_rol)); }
+static void cpu_op_SRE(uint am) { cpu_eor(cpu_read_write(am, cpu_lsr)); }
+static void cpu_op_RRA(uint am) { cpu_adc(cpu_read_write(am, cpu_ror)); }
+static void cpu_op_SAX(uint am) { cpu_write(am, cpu.a & cpu.x); }
+static void cpu_op_LAX(uint am) { cpu.a = cpu.x = cpu_flag_zn(cpu_read(am)); }
+static void cpu_op_DCP(uint am) { cpu_cmp(cpu_read_write(am, cpu_dec), cpu.a); }
+static void cpu_op_ISB(uint am) { cpu_sbc(cpu_read_write(am, cpu_inc)); }
 
-static void cpu_op_LAR(u8 am) { cpu.a = cpu.x = cpu.s = cpu_flag_zn(cpu_read(am) & cpu.s); }
-static void cpu_op_AAC(u8 am) { cpu_op_AND(am), cpu_flag_carry(cpu.a & 0x80); }
-static void cpu_op_ASR(u8 am) { cpu_op_AND(am), cpu.a = cpu_lsr(cpu.a); }
-static void cpu_op_AXS(u8 am) { cpu.x = cpu_cmp(cpu_read(am), cpu.a & cpu.x); }
-static void cpu_op_ATX(u8 am) { cpu_op_LDA(am), cpu.x = cpu.a; } // unstable
-static void cpu_op_XAA(u8 am) { cpu.a = cpu_flag_zn(cpu_read(am) & cpu.x); } // unstable
+static void cpu_op_LAR(uint am) { cpu.a = cpu.x = cpu.s = cpu_flag_zn(cpu_read(am) & cpu.s); }
+static void cpu_op_AAC(uint am) { cpu_op_AND(am), cpu_flag_carry(cpu.a & 0x80); }
+static void cpu_op_ASR(uint am) { cpu_op_AND(am), cpu.a = cpu_lsr(cpu.a); }
+static void cpu_op_AXS(uint am) { cpu.x = cpu_cmp(cpu_read(am), cpu.a & cpu.x); }
+static void cpu_op_ATX(uint am) { cpu_op_LDA(am), cpu.x = cpu.a; }
+static void cpu_op_XAA(uint am) { cpu.a = cpu_flag_zn(cpu_read(am) & cpu.x); }
 
-static void cpu_op_ARR(u8 am)
+static void cpu_op_ARR(uint am)
 {
   cpu_op_AND(am);
   cpu.a = cpu_ror(cpu.a);
@@ -690,7 +693,7 @@ static void cpu_op_ARR(u8 am)
   cpu_flag_overflow(((cpu.a & 0x40) >> 6) ^ ((cpu.a & 0x20) >> 5));
 }
 
-static void cpu_sh(u8 am, u8 val)
+static void cpu_sh(uint am, uint val)
 {
   uint addr = cpu_addr(am, false);
   uint hi = addr >> 8;
@@ -698,15 +701,15 @@ static void cpu_sh(u8 am, u8 val)
     addr &= ((hi & val) << 8) | 0xFF;
   }
   if (!cpu.dmc_dma_done) {
-    val &= cpu.page_crossed ? hi : hi + 1;
+    val &= cpu.page_crossed ? hi : ((hi + 1) & 0xFF);
   }
   cpu_write_addr(addr, val);
 }
 
-static void cpu_op_SHA(u8 am) { cpu_sh(am, cpu.x & cpu.a); }
-static void cpu_op_SHS(u8 am) { cpu_sh(am, cpu.s = (cpu.x & cpu.a)); }
-static void cpu_op_SHX(u8 am) { cpu_sh(am, cpu.x); }
-static void cpu_op_SHY(u8 am) { cpu_sh(am, cpu.y); }
+static void cpu_op_SHA(uint am) { cpu_sh(am, cpu.x & cpu.a); }
+static void cpu_op_SHS(uint am) { cpu_sh(am, cpu.s = (cpu.x & cpu.a)); }
+static void cpu_op_SHX(uint am) { cpu_sh(am, cpu.x); }
+static void cpu_op_SHY(uint am) { cpu_sh(am, cpu.y); }
 
 static void cpu_itr_exec()
 {
@@ -759,7 +762,7 @@ static void cpu_dma_align()
 static void cpu_dmc_read()
 {
   cpu.dmc_dma_wait = false;
-  u8 val = cpu_read_addr_direct(cpu.dmc_dma_addr);
+  uint val = cpu_read_addr_direct(cpu.dmc_dma_addr);
   apu_dmc_dma(val); // will trace wrong incremented cpu_cyc
 }
 
@@ -802,7 +805,7 @@ static void cpu_oam_dma()
   cpu_dma_dummy(); // halt
   cpu_dma_align();
   for (uint i = 0; i < 256; ++i) {
-    u8 val = cpu_read_addr_direct(cpu.oam_dma_addr | i);
+    uint val = cpu_read_addr_direct(cpu.oam_dma_addr | i);
     cpu_write_addr_direct(0x2004, val);
   }
   if (cpu.dmc_dma_delay > 0) {
