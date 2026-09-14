@@ -453,7 +453,7 @@ void apu_reset()
   apu.cyc_reset = apu_is_put_phase() ? 3 : 4;
 }
 
-void apu_bus_read(uint addr, u8* val, bool trace)
+uint apu_bus_read(uint addr, uint val, bool trace)
 {
   switch (addr & 0x1F) {
     case 0x15: {
@@ -461,18 +461,19 @@ void apu_bus_read(uint addr, u8* val, bool trace)
       if (!trace) {
         apu.frame_irq = false;
       }
-      *val = (*val & APU_STATUS_OPENBUS) | status;
+      val = (val & APU_STATUS_OPENBUS) | status;
       break;
     }
   }
   if (apu.test_mode) {
     switch (addr & 0x1F) {
-      case 0x18: *val = apu.pulse1_val + apu.pulse2_val; break;
-      case 0x19: *val = apu.triangle_val | (apu.noise_val << 4); break;
-      case 0x1A: *val = apu.dmc_val; break;
+      case 0x18: val = apu.pulse1_val + apu.pulse2_val; break;
+      case 0x19: val = apu.triangle_val | (apu.noise_val << 4); break;
+      case 0x1A: val = apu.dmc_val; break;
     }
   }
-  apu_trace("read addr=%04X val=%02X", addr, *val);
+  apu_trace("read addr=%04X val=%02X", addr, val);
+  return val;
 }
 
 void apu_bus_write(uint addr, uint val)
@@ -480,7 +481,7 @@ void apu_bus_write(uint addr, uint val)
   apu_trace("write addr=%04X val=%02X", addr, val);
   switch (addr & 0x1F) {
     case 0x00:
-      apu.pulse1_duty = (val >> 6);
+      apu.pulse1_duty = ((val >> 6) & 3);
       apu.pulse1_halt = (val & 0x20);
       apu.pulse1_env_const = (val & 0x10);
       apu.pulse1_env_vol = (val & 0x0F);
@@ -492,17 +493,17 @@ void apu_bus_write(uint addr, uint val)
       apu.pulse1_sweep_shift = (val & 0x07);
       apu.pulse1_sweep_reload = true;
       break;
-    case 0x02: apu.pulse1_period = (apu.pulse1_period & 0x0700) | val; break;
+    case 0x02: apu.pulse1_period = (apu.pulse1_period & 0x0700) | (val & 0xFF); break;
     case 0x03:
       apu.pulse1_period = (apu.pulse1_period & 0x00FF) | ((val & 0x07) << 8);
       apu.pulse1_phase = 0;
       apu.pulse1_env_start = true;
       if (!apu.pulse1_dec) {
-        apu.pulse1_len = apu.pulse1_enabled ? apu_channel_len[val >> 3] : 0;
+        apu.pulse1_len = apu.pulse1_enabled ? apu_channel_len[(val >> 3) & 0x1F] : 0;
       }
       break;
     case 0x04:
-      apu.pulse2_duty = (val >> 6);
+      apu.pulse2_duty = ((val >> 6) & 3);
       apu.pulse2_halt = (val & 0x20);
       apu.pulse2_env_const = (val & 0x10);
       apu.pulse2_env_vol = (val & 0x0F);
@@ -514,25 +515,25 @@ void apu_bus_write(uint addr, uint val)
       apu.pulse2_sweep_shift = (val & 0x07);
       apu.pulse2_sweep_reload = true;
       break;
-    case 0x06: apu.pulse2_period = (apu.pulse2_period & 0x0700) | val; break;
+    case 0x06: apu.pulse2_period = (apu.pulse2_period & 0x0700) | (val & 0xFF); break;
     case 0x07:
       apu.pulse2_period = (apu.pulse2_period & 0x00FF) | ((val & 0x07) << 8);
       apu.pulse2_phase = 0;
       apu.pulse2_env_start = true;
       if (!apu.pulse2_dec) {
-        apu.pulse2_len = apu.pulse2_enabled ? apu_channel_len[val >> 3] : 0;
+        apu.pulse2_len = apu.pulse2_enabled ? apu_channel_len[(val >> 3) & 0x1F] : 0;
       }
       break;
     case 0x08:
       apu.triangle_halt = (val & 0x80);
       apu.triangle_reload_val = (val & 0x7F);
       break;
-    case 0x0A: apu.triangle_period = (apu.triangle_period & 0x0700) | val; break;
+    case 0x0A: apu.triangle_period = (apu.triangle_period & 0x0700) | (val & 0xFF); break;
     case 0x0B:
       apu.triangle_period = (apu.triangle_period & 0x00FF) | ((val & 0x07) << 8);
       apu.triangle_linear_reload = true;
       if (!apu.triangle_dec) {
-        apu.triangle_len = apu.triangle_enabled ? apu_channel_len[val >> 3] : 0;
+        apu.triangle_len = apu.triangle_enabled ? apu_channel_len[(val >> 3) & 0x1F] : 0;
       }
       break;
     case 0x0C:
@@ -547,7 +548,7 @@ void apu_bus_write(uint addr, uint val)
     case 0x0F:
       apu.noise_env_start = true;
       if (!apu.noise_dec) {
-        apu.noise_len = apu.noise_enabled ? apu_channel_len[val >> 3] : 0;
+        apu.noise_len = apu.noise_enabled ? apu_channel_len[(val >> 3) & 0x1F] : 0;
       }
       break;
     case 0x10:
@@ -562,8 +563,8 @@ void apu_bus_write(uint addr, uint val)
       apu.dmc_val_pending = (val & 0x7F);
       apu.dmc_val_changed = true;
       break;
-    case 0x12: apu.dmc_sample_addr = 0xC000 + (val * 64); break;
-    case 0x13: apu.dmc_sample_len = (val * 16) + 1; break;
+    case 0x12: apu.dmc_sample_addr = 0xC000 + ((val & 0xFF) * 64); break;
+    case 0x13: apu.dmc_sample_len = ((val & 0xFF) * 16) + 1; break;
     case 0x15: {
       apu.pulse1_enabled = (val & APU_STATUS_PULSE1);
       apu.pulse2_enabled = (val & APU_STATUS_PULSE2);

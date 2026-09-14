@@ -49,7 +49,7 @@ enum
   PPU_REG_DATA = 7,
 };
 
-enum : u8
+enum
 {
   PPU_CTRL_NAMETABLE_X = (1 << 0),
   PPU_CTRL_NAMETABLE_Y = (1 << 1),
@@ -61,7 +61,7 @@ enum : u8
   PPU_CTRL_NMI = (1 << 7),
 };
 
-enum : u8
+enum
 {
   PPU_MASK_GRAY = (1 << 0),
   PPU_MASK_SHOW_LEFT_BACK = (1 << 1),
@@ -73,14 +73,14 @@ enum : u8
   PPU_MASK_BLUE = (1 << 7),
 };
 
-enum : u8
+enum
 {
   PPU_STATUS_SPRITE_OVERFLOW = (1 << 5),
   PPU_STATUS_SPRITE0_HIT = (1 << 6),
   PPU_STATUS_VBLANK = (1 << 7),
 };
 
-enum : u8
+enum
 {
   PPU_SPRITE_COLOR0 = (1 << 0),
   PPU_SPRITE_COLOR1 = (1 << 1),
@@ -116,34 +116,26 @@ MN_CACHE_LINE static struct Ppu
   uint shift_attr_lo;
   uint shift_attr_hi;
 
-  u8 ctrl;
-  u8 mask;
-  u8 status;
+  uint ctrl;
+  uint mask;
+  uint status;
 
-  u8 x;
-  u8 at;
-  u8 lo;
-  u8 hi;
+  uint x;
+  uint at;
+  uint lo;
+  uint hi;
 
-  u8 sprite_tile;
+  uint sprite_tile;
 
-  u8 oam_addr1;
-  u8 oam_addr2;
-  u8 oam_data;
-  u8 open_bus;
-  u8 reg_bus;
-  u8 read_buf;
+  uint oam_addr1;
+  uint oam_addr2;
+  uint oam_data;
+  uint open_bus;
+  uint reg_bus;
+  uint read_buf;
 
-  u8 pixel;
-  u8 color;
-
-  u8 sprite_attr[8];
-  u8 sprite_x[8];
-  u8 sprite_shift_x[8];
-  u8 sprite_shift_lo[8];
-  u8 sprite_shift_hi[8];
-
-  u8 reg_bus_decay[8];
+  uint pixel;
+  uint color;
 
   bool render_enabled;
   bool write_latch;
@@ -160,6 +152,13 @@ MN_CACHE_LINE static struct Ppu
   bool ntsc;
   bool ale;
   bool read;
+
+  MN_CACHE_LINE uint sprite_x[8];
+  MN_CACHE_LINE uint sprite_shift_x[8];
+  MN_CACHE_LINE uint sprite_shift_lo[8];
+  MN_CACHE_LINE uint sprite_shift_hi[8];
+  MN_CACHE_LINE uint sprite_attr[8];
+  MN_CACHE_LINE uint reg_bus_decay[8];
 
   MN_CACHE_LINE u8 oam1[0x100];
   MN_CACHE_LINE u8 oam2[0x20];
@@ -224,12 +223,12 @@ uint ppu_sl() { return ppu.sl; }
 bool ppu_vblank() { return ppu.sl >= ppu.sl_vblank && ppu.sl < ppu.sl_pre_render; }
 static bool ppu_render_active() { return ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render); }
 
-static u8 ppu_pam_addr(uint addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
-static u8 ppu_pam_read(uint addr) { return ppu.pam[ppu_pam_addr(addr)]; }
-static u8 ppu_pam_clamp(u8 val) { return val & ((ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F); }
-static void ppu_pam_write(uint addr, u8 val) { ppu.pam[ppu_pam_addr(addr)] = val; }
+static uint ppu_pam_addr(uint addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
+static uint ppu_pam_read(uint addr) { return ppu.pam[ppu_pam_addr(addr)]; }
+static uint ppu_pam_clamp(uint val) { return val & ((ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F); }
+static void ppu_pam_write(uint addr, uint val) { ppu.pam[ppu_pam_addr(addr)] = val; }
 
-static void ppu_oam_corrupt(u8 dst, u8 src)
+static void ppu_oam_corrupt(uint dst, uint src)
 {
   if (dst != src) {
     memcpy(&ppu.oam1[dst << 3], &ppu.oam1[src << 3], 8);
@@ -262,23 +261,25 @@ static void ppu_addr(uint addr)
     //   ppu.addr |= ppu.open_bus;
     // }
     // approximation below
-    u8 old = ppu.open_bus;
-    map_ppu_read((ppu.addr | ppu.open_bus), &ppu.open_bus);
-    if (ppu.open_bus == old) { // feedback loop is stable if conflicting data and address byte has same value
-      ppu.addr |= ppu.open_bus;
+    u8 val = ppu.open_bus;
+    map_ppu_read((ppu.addr | ppu.open_bus), &val);
+    if (ppu.open_bus == val) { // feedback loop is stable if conflicting data and address byte has same value
+      ppu.addr |= val;
     }
   }
   map_ppu_addr(ppu.addr);
 }
 
-static u8 ppu_read()
+static uint ppu_read()
 {
   ppu.read = true;
-  map_ppu_read(ppu.addr, &ppu.open_bus);
+  u8 val;
+  map_ppu_read(ppu.addr, &val);
+  ppu.open_bus = val;
   return ppu.open_bus;
 }
 
-static void ppu_write(u8 val)
+static void ppu_write(uint val)
 {
   ppu.open_bus = val;
   if (ppu.addr >= 0x3F00) {
@@ -335,12 +336,13 @@ static void ppu_inc_n()
 
 static void ppu_inc_mn()
 {
-  if (++ppu.oam_addr1 == 0) {
+  ppu.oam_addr1 = ((ppu.oam_addr1 + 1) & 0xFF);
+  if (ppu.oam_addr1 == 0) {
     ppu.sprite_eval_done = true;
   }
 }
 
-static void ppu_reg_bus_set(u8 val, u8 mask)
+static uint ppu_reg_bus_set(uint val, uint mask)
 {
   val &= mask;
   ppu.reg_bus = val | (ppu.reg_bus & ~mask);
@@ -349,6 +351,7 @@ static void ppu_reg_bus_set(u8 val, u8 mask)
       ppu.reg_bus_decay[i] = 32; // 600ms = 36 vblanks at 60Hz, 30 vblanks at 50Hz
     }
   }
+  return ppu.reg_bus;
 }
 
 static void ppu_reg_bus_decay()
@@ -362,7 +365,7 @@ static void ppu_reg_bus_decay()
   }
 }
 
-u8 ppu_bus_read(uint addr, bool trace)
+uint ppu_bus_read(uint addr, bool trace)
 {
   switch (addr & 7) {
     case PPU_REG_STATUS: {
@@ -377,7 +380,7 @@ u8 ppu_bus_read(uint addr, bool trace)
       break;
     }
     case PPU_REG_OAMDATA: {
-      u8 val = ppu.oam_data;
+      uint val = ppu.oam_data;
       if (trace) {
         return val;
       }
@@ -386,13 +389,13 @@ u8 ppu_bus_read(uint addr, bool trace)
     }
     case PPU_REG_DATA: {
       if ((ppu.v & 0x3FFF) < 0x3F00) {
-        u8 val = ppu.read_buf;
+        uint val = ppu.read_buf;
         if (trace) {
           return val;
         }
         ppu_reg_bus_set(val, 0xFF);
       } else {
-        u8 val = ppu_pam_clamp(ppu_pam_read(ppu.v));
+        uint val = ppu_pam_clamp(ppu_pam_read(ppu.v));
         if (trace) {
           return val;
         }
@@ -407,9 +410,9 @@ u8 ppu_bus_read(uint addr, bool trace)
   return ppu.reg_bus;
 }
 
-void ppu_bus_write(uint addr, u8 val)
+void ppu_bus_write(uint addr, uint val)
 {
-  ppu_reg_bus_set(val, 0xFF);
+  val = ppu_reg_bus_set(val, 0xFF);
   switch (addr & 7) {
     case PPU_REG_CTRL:
       ppu.check_nmi = (ppu.ctrl & PPU_CTRL_NMI) != (val & PPU_CTRL_NMI);
@@ -430,7 +433,7 @@ void ppu_bus_write(uint addr, u8 val)
         ppu_reset_m();
       } else {
         ppu.oam1[ppu.oam_addr1] = (ppu.oam_addr1 & 3) == 2 ? (val & 0xE3) : val;
-        ++ppu.oam_addr1;
+        ppu_inc_mn();
       }
       ppu.oam_data = ppu.oam1[ppu.oam_addr1];
       break;
@@ -553,9 +556,9 @@ static void ppu_evaluate_sprites()
     return;
   }
 
-  u8 y = ppu.oam_data;
+  uint y = ppu.oam_data;
 
-  if (ppu.oam_addr2 < 0x20 && !ppu.sprite_eval_done) {
+  if (ppu.oam_addr2 >= 0 && ppu.oam_addr2 < 0x20 && !ppu.sprite_eval_done) {
     ppu.oam2[ppu.oam_addr2] = ppu.oam_data;
   } else {
     ppu.oam_data = ppu.oam2[ppu.oam_addr2 & 0x1F];
@@ -610,7 +613,7 @@ static void ppu_fetch_sprites()
   switch (ppu_pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
       uint next_sl = (ppu.sl & 0xFF) + 1; // NES bug: pre-render sl 261 masked
       ppu.sprite_y = next_sl - ppu.oam_data - 1;
       break;
@@ -618,7 +621,7 @@ static void ppu_fetch_sprites()
     case 1: {
       ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // unused NT
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
       ppu.sprite_tile = ppu.oam_data;
       if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
         ppu.nt = (ppu.sprite_tile & 1) ? 0x1000 : 0x0000;
@@ -629,7 +632,7 @@ static void ppu_fetch_sprites()
     }
     case 2: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
       ppu.sprite_attr[i] = ppu.oam_data;
       ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
       if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
@@ -650,7 +653,7 @@ static void ppu_fetch_sprites()
     case 3: {
       ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // ignored NT
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2];
+      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
       ppu.sprite_x[i] = ppu.oam_data;
       break;
     }
@@ -760,7 +763,7 @@ static void ppu_fetch()
 
 static void ppu_render_pixel(uint x)
 {
-  u8 pixel_back = 0;
+  uint pixel_back = 0;
   if ((ppu.mask & PPU_MASK_BACK) && (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_BACK))) {
     uint bit_mask = 0x8000 >> ppu.x;
     uint p0 = (ppu.shift_tile_lo & bit_mask);
@@ -772,7 +775,7 @@ static void ppu_render_pixel(uint x)
     }
   }
 
-  u8 pixel_sprite = 0;
+  uint pixel_sprite = 0;
   bool sprite_priority = false;
   bool sprite0_hit = false;
   for (uint i = 0; i < 8; ++i) {
@@ -807,15 +810,13 @@ static void ppu_render_pixel(uint x)
 
 static void ppu_render_palette()
 {
-  u8 pixel = ppu.render_enabled ? ppu.pixel : ((ppu.v & 0x3FFF) >= 0x3F00 ? ppu.v : 0);
+  uint pixel = ppu.render_enabled ? ppu.pixel : ((ppu.v & 0x3FFF) >= 0x3F00 ? ppu.v : 0);
   ppu.color = ppu_pam_read(pixel);
 }
 
 static void ppu_render_mask(uint x)
 {
-  ppu.color = ppu_pam_clamp(ppu.color);
-
-  uint rgb = ppu_palette[ppu.color];
+  uint rgb = ppu_palette[ppu_pam_clamp(ppu.color)];
 
   if ((ppu.mask & PPU_MASK_RED) || (ppu.mask & PPU_MASK_GREEN) || (ppu.mask & PPU_MASK_BLUE)) {
     float rf = 1.0f;

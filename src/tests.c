@@ -27,7 +27,7 @@ typedef struct
 {
   uint hash;
   uint frames;
-  u8 joy1;
+  uint joy1;
   bool reset;
 } TestStep;
 
@@ -729,7 +729,7 @@ static void visualize_audio_frame()
   }
 }
 
-static void save_test_step_img(const char* rom_path, u8 step)
+static void save_test_step_img(const char* rom_path, uint step)
 {
   char img_path[512] = {};
   sprintf(img_path, "screenshots/%s.%d.bmp", rom_path, step);

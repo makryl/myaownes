@@ -12,7 +12,7 @@ enum
   CPU_ITR_IRQBRK = 0xFFFE,
 };
 
-enum : u8
+enum
 {
   CPU_FLAG_CARRY = (1 << 0),
   CPU_FLAG_ZERO = (1 << 1),
@@ -192,8 +192,7 @@ static u8 cpu_read_addr_raw(uint addr, bool trace)
     if (addr == 0x4016 || addr == 0x4017) {
       val = cpu_joy_poll(addr, trace);
     } else {
-      val = addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus;
-      apu_bus_read(addr, &val, trace);
+      val = apu_bus_read(addr, addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus, trace);
     }
   } else {
     val = cpu.external_open_bus;
