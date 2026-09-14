@@ -52,16 +52,16 @@ MN_CACHE_LINE static struct Cpu
   uint itr;
   uint addr;
   uint pc;
-  u8 s;
-  u8 p;
-  u8 a;
-  u8 x;
-  u8 y;
-  u8 joy_pending[2];
-  u8 joy_shift[2];
-  u8 internal_open_bus;
-  u8 external_open_bus;
-  u8 out;
+  uint s;
+  uint p;
+  uint a;
+  uint x;
+  uint y;
+  uint joy_pending[2];
+  uint joy_shift[2];
+  uint internal_open_bus;
+  uint external_open_bus;
+  uint out;
   bool reset;
   bool nmi;
   bool irq;
@@ -387,14 +387,24 @@ static uint cpu_read16_pc()
   return lo | hi;
 }
 
-static void cpu_stack_push(u8 val) { cpu_write_addr(0x0100 | cpu.s--, val); }
+static uint cpu_stack_addr() { return (0x0100 | cpu.s); }
+
+static uint cpu_stack_addr_dec()
+{
+  uint val = cpu_stack_addr();
+  cpu.s = ((cpu.s - 1) & 0xFF);
+  return val;
+}
+
+static void cpu_stack_push(u8 val) { cpu_write_addr(cpu_stack_addr_dec(), val); }
 
 static u8 cpu_stack_pop(bool seq)
 {
   if (!seq) {
-    cpu_read_addr(cpu.s | 0x0100);
+    cpu_read_addr(cpu_stack_addr());
   }
-  return cpu_read_addr(++cpu.s | 0x0100);
+  cpu.s = ((cpu.s + 1) & 0xFF);
+  return cpu_read_addr(cpu_stack_addr());
 }
 
 static void cpu_stack_push16(uint val)
@@ -445,23 +455,23 @@ static uint cpu_addr(u8 am, bool readonly)
     case CPU_ADDR_ABX: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_pc()), cpu.x, readonly));
     case CPU_ADDR_ABY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_pc()), cpu.y, readonly));
     case CPU_ADDR_NDX: {
-      u8 zptr = cpu_read_pc();
+      uint zptr = cpu_read_pc();
       cpu_read_addr(zptr);
-      zptr += cpu.x;
+      zptr = ((zptr + cpu.x) & 0xFF);
       return trace_addr(cpu_read16_zptr(trace_addr0(zptr)));
     }
     case CPU_ADDR_NDY: return trace_addr(cpu_addr_offset(trace_addr0(cpu_read16_zptr(cpu_read_pc())), cpu.y, readonly));
     case CPU_ADDR_ZPG: return trace_addr(cpu_read_pc());
     case CPU_ADDR_ZPX: {
-      u8 zptr = cpu_read_pc();
+      uint zptr = cpu_read_pc();
       cpu_read_addr(zptr);
-      zptr += cpu.x;
+      zptr = ((zptr + cpu.x) & 0xFF);
       return trace_addr(zptr);
     }
     case CPU_ADDR_ZPY: {
-      u8 zptr = cpu_read_pc();
+      uint zptr = cpu_read_pc();
       cpu_read_addr(zptr);
-      zptr += cpu.y;
+      zptr = ((zptr + cpu.y) & 0xFF);
       return trace_addr(zptr);
     }
   }
@@ -516,7 +526,7 @@ static void cpu_op_EOR(u8 am) { cpu_eor(cpu_read(am)); }
 
 static void cpu_adc(u8 val)
 {
-  uint res = (uint)cpu.a + (uint)val + (uint)(cpu.p & CPU_FLAG_CARRY);
+  uint res = cpu.a + (uint)val + (cpu.p & CPU_FLAG_CARRY);
   cpu_flag_carry(res > 0xFF);
   cpu_flag_overflow((~(cpu.a ^ val) & (cpu.a ^ (u8)res)) & 0x80);
   cpu.a = cpu_flag_zn((u8)res);
@@ -529,13 +539,13 @@ static void cpu_op_SBC(u8 am) { cpu_sbc(cpu_read(am)); }
 
 static u8 cpu_inc(u8 val) { return cpu_flag_zn(val + 1); }
 static void cpu_op_INC(u8 am) { cpu_read_write(am, cpu_inc); }
-static void cpu_op_INX(u8 am) { cpu_read(am), cpu_flag_zn(++cpu.x); }
-static void cpu_op_INY(u8 am) { cpu_read(am), cpu_flag_zn(++cpu.y); }
+static void cpu_op_INX(u8 am) { cpu_read(am), cpu_flag_zn(cpu.x = ((cpu.x + 1) & 0xFF)); }
+static void cpu_op_INY(u8 am) { cpu_read(am), cpu_flag_zn(cpu.y = ((cpu.y + 1) & 0xFF)); }
 
 static u8 cpu_dec(u8 val) { return cpu_flag_zn(val - 1); }
 static void cpu_op_DEC(u8 am) { cpu_read_write(am, cpu_dec); }
-static void cpu_op_DEX(u8 am) { cpu_read(am), cpu_flag_zn(--cpu.x); }
-static void cpu_op_DEY(u8 am) { cpu_read(am), cpu_flag_zn(--cpu.y); }
+static void cpu_op_DEX(u8 am) { cpu_read(am), cpu_flag_zn(cpu.x = ((cpu.x - 1) & 0xFF)); }
+static void cpu_op_DEY(u8 am) { cpu_read(am), cpu_flag_zn(cpu.y = ((cpu.y - 1) & 0xFF)); }
 
 static u8 cpu_asl(u8 val)
 {
@@ -622,7 +632,7 @@ static void cpu_op_JMP(u8 am) { cpu.pc = cpu_addr(am, true); }
 static void cpu_op_JSR(u8)
 {
   uint lo = cpu_read_pc();
-  cpu_read_addr(cpu.s | 0x0100); // implement inside of cpu_stack_push?
+  cpu_read_addr(cpu_stack_addr());
   cpu_stack_push16(cpu.pc);
   uint hi = cpu_read_pc() << 8;
   trace_addr(cpu.pc = lo | hi);
@@ -708,9 +718,9 @@ static void cpu_itr_exec()
   }
 
   if (addr == CPU_ITR_RESET) {
-    cpu_read_addr(0x0100 | cpu.s--);
-    cpu_read_addr(0x0100 | cpu.s--);
-    cpu_read_addr(0x0100 | cpu.s--);
+    cpu_read_addr(cpu_stack_addr_dec());
+    cpu_read_addr(cpu_stack_addr_dec());
+    cpu_read_addr(cpu_stack_addr_dec());
   } else {
     cpu_stack_push16(cpu.pc);
     cpu_stack_push(cpu.p | (cpu.brk ? CPU_FLAG_BREAK : 0) | CPU_FLAG_ALWAYS_ONE);
