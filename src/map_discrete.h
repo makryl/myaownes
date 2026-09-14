@@ -16,24 +16,24 @@ typedef struct
   uint addr_mask;
   uint addr_val;
 
-  u8 prg_mask;
-  u8 prg_shift;
-  u8 prg_slot;
-  u8 prg_size_kb;
+  uint prg_mask;
+  uint prg_shift;
+  uint prg_slot;
+  uint prg_size_kb;
 
-  u8 chr_mask;
-  u8 chr_shift;
-  u8 chr_slot;
-  u8 chr_size_kb;
+  uint chr_mask;
+  uint chr_shift;
+  uint chr_slot;
+  uint chr_size_kb;
 
-  u8 mirror_mask;
-  u8 mirror_mode;
+  uint mirror_mask;
+  uint mirror_mode;
 
-  u8 bus_conflict;
+  uint bus_conflict;
 } map_discrete_common;
 static_assert(sizeof(map_discrete_common) <= MAP_REG_SIZE);
 
-static void map_discrete_common_mirror(u8 mode, bool val)
+static void map_discrete_common_mirror(uint mode, bool val)
 {
   switch (mode) {
     case MAP_MIRROR_SINGLE_LO_HI:
@@ -105,9 +105,9 @@ static bool map_discrete_common_cpu_write(uint addr, uint val)
   return true;
 }
 
-static void map_discrete_common_load(uint addr_mask, uint addr_val, u8 prg_mask, u8 prg_shift, u8 prg_slot,
-                                     u8 prg_size_kb, u8 chr_mask, u8 chr_shift, u8 chr_slot, u8 chr_size_kb,
-                                     u8 mirror_mask, u8 mirror_mode, u8 bus_conflict)
+static void map_discrete_common_load(uint addr_mask, uint addr_val, uint prg_mask, uint prg_shift, uint prg_slot,
+                                     uint prg_size_kb, uint chr_mask, uint chr_shift, uint chr_slot, uint chr_size_kb,
+                                     uint mirror_mask, uint mirror_mode, uint bus_conflict)
 {
   map_discrete_common* reg = (map_discrete_common*)map_reg();
   reg->addr_mask = addr_mask;
@@ -131,40 +131,41 @@ static void map_discrete_common_load(uint addr_mask, uint addr_val, u8 prg_mask,
   map_discrete_common_mirror(mirror_mode, 0);
 }
 
-static void map_discrete_prg_chr_mir(u8 prg_mask, u8 prg_shift, u8 prg_slot, u8 prg_size_kb, u8 chr_mask, u8 chr_shift,
-                                     u8 chr_slot, u8 chr_size_kb, u8 mirror_mask, u8 mirror_mode, u8 bus_conflict)
+static void map_discrete_prg_chr_mir(uint prg_mask, uint prg_shift, uint prg_slot, uint prg_size_kb, uint chr_mask,
+                                     uint chr_shift, uint chr_slot, uint chr_size_kb, uint mirror_mask,
+                                     uint mirror_mode, uint bus_conflict)
 {
   map_discrete_common_load(0x8000, 0x8000, prg_mask, prg_shift, prg_slot, prg_size_kb, chr_mask, chr_shift, chr_slot,
                            chr_size_kb, mirror_mask, mirror_mode, bus_conflict);
 }
 
-static void map_discrete_prg_chr(u8 prg_mask, u8 prg_shift, u8 prg_slot, u8 prg_size_kb, u8 chr_mask, u8 chr_shift,
-                                 u8 chr_slot, u8 chr_size_kb, u8 bus_conflict)
+static void map_discrete_prg_chr(uint prg_mask, uint prg_shift, uint prg_slot, uint prg_size_kb, uint chr_mask,
+                                 uint chr_shift, uint chr_slot, uint chr_size_kb, uint bus_conflict)
 {
   map_discrete_common_load(0x8000, 0x8000, prg_mask, prg_shift, prg_slot, prg_size_kb, chr_mask, chr_shift, chr_slot,
                            chr_size_kb, 0, 0, bus_conflict);
 }
 
-static void map_discrete_prg_mir(u8 prg_mask, u8 prg_shift, u8 prg_slot, u8 prg_size_kb, u8 mirror_mask, u8 mirror_mode,
-                                 u8 bus_conflict)
+static void map_discrete_prg_mir(uint prg_mask, uint prg_shift, uint prg_slot, uint prg_size_kb, uint mirror_mask,
+                                 uint mirror_mode, uint bus_conflict)
 {
   map_discrete_prg_chr_mir(prg_mask, prg_shift, prg_slot, prg_size_kb, 0, 0, 0, 0, mirror_mask, mirror_mode,
                            bus_conflict);
 }
 
-static void map_discrete_prg(u8 prg_mask, u8 prg_shift, u8 prg_slot, u8 prg_size_kb, u8 bus_conflict)
+static void map_discrete_prg(uint prg_mask, uint prg_shift, uint prg_slot, uint prg_size_kb, uint bus_conflict)
 {
   map_discrete_prg_mir(prg_mask, prg_shift, prg_slot, prg_size_kb, 0, 0, bus_conflict);
 }
 
-static void map_discrete_chr_mir(u8 chr_mask, u8 chr_shift, u8 chr_slot, u8 chr_size_kb, u8 mirror_mask, u8 mirror_mode,
-                                 u8 bus_conflict)
+static void map_discrete_chr_mir(uint chr_mask, uint chr_shift, uint chr_slot, uint chr_size_kb, uint mirror_mask,
+                                 uint mirror_mode, uint bus_conflict)
 {
   map_discrete_prg_chr_mir(0, 0, 0, 0, chr_mask, chr_shift, chr_slot, chr_size_kb, mirror_mask, mirror_mode,
                            bus_conflict);
 }
 
-static void map_discrete_chr(u8 chr_mask, u8 chr_shift, u8 chr_slot, u8 chr_size_kb, u8 bus_conflict)
+static void map_discrete_chr(uint chr_mask, uint chr_shift, uint chr_slot, uint chr_size_kb, uint bus_conflict)
 {
   map_discrete_chr_mir(chr_mask, chr_shift, chr_slot, chr_size_kb, 0, 0, bus_conflict);
 }
@@ -335,7 +336,7 @@ static bool map_jaleco_072_092_cpu_write(uint addr, uint val)
   }
   val = map_bus_conflict(addr, val);
   u8* reg = map_reg();
-  u8 last = reg[1];
+  uint last = reg[1];
   reg[1] = val;
   if (!(last & 0x80) && (val & 0x80)) {
     map_prg_rom_page_16k(val & 0x0F, mn_rom_get()->mapper == 72 ? 2 : 3);
