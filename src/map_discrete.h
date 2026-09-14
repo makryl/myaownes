@@ -13,8 +13,8 @@ enum
 
 typedef struct
 {
-  u16 addr_mask;
-  u16 addr_val;
+  uint addr_mask;
+  uint addr_val;
 
   u8 prg_mask;
   u8 prg_shift;
@@ -60,14 +60,14 @@ static void map_discrete_common_mirror(u8 mode, bool val)
   }
 }
 
-static u8 map_bus_conflict(u16 addr, u8 val)
+static u8 map_bus_conflict(uint addr, u8 val)
 {
   u8 read_val = 0xFF;
   map_cpu_read(addr, &read_val, false);
   return val & read_val;
 }
 
-static bool map_discrete_common_cpu_write(u16 addr, u8 val)
+static bool map_discrete_common_cpu_write(uint addr, u8 val)
 {
   map_discrete_common* reg = (map_discrete_common*)map_reg();
 
@@ -106,7 +106,7 @@ static bool map_discrete_common_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static void map_discrete_common_load(u16 addr_mask, u16 addr_val, u8 prg_mask, u8 prg_shift, u8 prg_slot,
+static void map_discrete_common_load(uint addr_mask, uint addr_val, u8 prg_mask, u8 prg_shift, u8 prg_slot,
                                      u8 prg_size_kb, u8 chr_mask, u8 chr_shift, u8 chr_slot, u8 chr_size_kb,
                                      u8 mirror_mask, u8 mirror_mode, u8 bus_conflict)
 {
@@ -170,7 +170,7 @@ static void map_discrete_chr(u8 chr_mask, u8 chr_shift, u8 chr_slot, u8 chr_size
   map_discrete_chr_mir(chr_mask, chr_shift, chr_slot, chr_size_kb, 0, 0, bus_conflict);
 }
 
-static bool map_bnrom_nina_cpu_write(u16 addr, u8 val)
+static bool map_bnrom_nina_cpu_write(uint addr, u8 val)
 {
   if (addr < 0x7FFD) {
     return false;
@@ -195,7 +195,7 @@ static bool map_bnrom_nina_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static bool map_j87_cpu_write(u16 addr, u8 val)
+static bool map_j87_cpu_write(uint addr, u8 val)
 {
   if ((addr & 0xE000) == 0x6000) {
     map_chr_page_8k(((val & 1) << 1) | ((val >> 1) & 1), 0);
@@ -204,7 +204,7 @@ static bool map_j87_cpu_write(u16 addr, u8 val)
   return false;
 }
 
-static bool map_jaleco_jf13_cpu_write(u16 addr, u8 val)
+static bool map_jaleco_jf13_cpu_write(uint addr, u8 val)
 {
   switch (addr & 0xF000) {
     case 0x6000:
@@ -216,7 +216,7 @@ static bool map_jaleco_jf13_cpu_write(u16 addr, u8 val)
   return false;
 }
 
-static bool map_camerica071_cpu_write(u16 addr, u8 val)
+static bool map_camerica071_cpu_write(uint addr, u8 val)
 {
   bool result = false;
   u8* reg = map_reg();
@@ -238,7 +238,7 @@ static bool map_camerica071_cpu_write(u16 addr, u8 val)
   return result;
 }
 
-static bool map_camerica232_cpu_write(u16 addr, u8 val)
+static bool map_camerica232_cpu_write(uint addr, u8 val)
 {
   bool result = false;
   u8* reg = map_reg();
@@ -263,7 +263,7 @@ static void map_camerica232_load()
   map_prg_rom_page_16k(3, 3);
 }
 
-static bool map_sunsoft089_cpu_write(u16 addr, u8 val)
+static bool map_sunsoft089_cpu_write(uint addr, u8 val)
 {
   if (addr < 0x8000) {
     return false;
@@ -275,7 +275,7 @@ static bool map_sunsoft089_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static bool map_sunsoft184_cpu_write(u16 addr, u8 val)
+static bool map_sunsoft184_cpu_write(uint addr, u8 val)
 {
   if ((addr & 0xE000) != 0x6000) {
     return false;
@@ -285,7 +285,7 @@ static bool map_sunsoft184_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static bool map_113_cpu_write(u16 addr, u8 val)
+static bool map_113_cpu_write(uint addr, u8 val)
 {
   if ((addr & 0xE100) != 0x4100) {
     return false;
@@ -296,7 +296,7 @@ static bool map_113_cpu_write(u16 addr, u8 val)
   return true;
 }
 
-static bool map_046_cpu_write(u16 addr, u8 val)
+static bool map_046_cpu_write(uint addr, u8 val)
 {
   u8* reg = map_reg();
   if (addr >= 0x8000) {
@@ -319,7 +319,7 @@ static void map_unrom512_load()
 {
   mn_rom rom = mn_rom_get();
   bool bus_conflict = (rom->submapper == 2 || (rom->submapper == 0 && !rom->prg_has_battery));
-  u16 addr_mask = bus_conflict ? 0x8000 : 0xC000;
+  uint addr_mask = bus_conflict ? 0x8000 : 0xC000;
   bool single_screen_switchable = (rom->alt_mirror && !rom->vert_mirror);
   bool has_mirrorring = (single_screen_switchable || rom->submapper == 3);
   uint mirror_mask = !has_mirrorring ? 0 : 0x80;
@@ -329,7 +329,7 @@ static void map_unrom512_load()
   map_discrete_common_load(addr_mask, addr_mask, 0x1F, 0, 0, 16, 0x60, 5, 0, 8, mirror_mask, mirror_mode, bus_conflict);
 }
 
-static bool map_jaleco_072_092_cpu_write(u16 addr, u8 val)
+static bool map_jaleco_072_092_cpu_write(uint addr, u8 val)
 {
   if (addr < 0x8000) {
     return false;

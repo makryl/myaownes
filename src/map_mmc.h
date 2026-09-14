@@ -100,7 +100,7 @@ static void map_mmc1_update()
   }
 }
 
-static bool map_mmc1_cpu_write(u16 addr, u8 val)
+static bool map_mmc1_cpu_write(uint addr, u8 val)
 {
   map_mmc1* reg = (map_mmc1*)map_reg();
   if (addr < 0x8000) {
@@ -258,7 +258,7 @@ static void map_mmc3_update()
   }
 }
 
-static bool map_mmc3_cpu_write(u16 addr, u8 val)
+static bool map_mmc3_cpu_write(uint addr, u8 val)
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   switch (addr & 0xE001) {
@@ -303,7 +303,7 @@ static bool map_mmc3_cpu_write(u16 addr, u8 val)
   return false;
 }
 
-static void map_mmc3_ppu_addr(u16 addr)
+static void map_mmc3_ppu_addr(uint addr)
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   if (addr & 0x1000) {
@@ -383,7 +383,7 @@ typedef struct
   u8 latch1;
 } map_mmc2;
 
-static bool map_mmc2_cpu_write(u16 addr, u8 val)
+static bool map_mmc2_cpu_write(uint addr, u8 val)
 {
   map_mmc2* reg = (map_mmc2*)map_reg();
   switch (addr & 0xF000) {
@@ -423,7 +423,7 @@ static bool map_mmc2_cpu_write(u16 addr, u8 val)
   return false;
 }
 
-static bool map_mmc2_ppu_read(u16 addr, u8* val)
+static bool map_mmc2_ppu_read(uint addr, u8* val)
 {
   map_ppu_read_raw(addr, val);
   map_mmc2* reg = (map_mmc2*)map_reg();
@@ -468,7 +468,7 @@ typedef struct
   u8 latch1;
 } map_mmc4;
 
-static bool map_mmc4_cpu_write(u16 addr, u8 val)
+static bool map_mmc4_cpu_write(uint addr, u8 val)
 {
   map_mmc4* reg = (map_mmc4*)map_reg();
   switch (addr & 0xF000) {
@@ -508,7 +508,7 @@ static bool map_mmc4_cpu_write(u16 addr, u8 val)
   return false;
 }
 
-static bool map_mmc4_ppu_read(u16 addr, u8* val)
+static bool map_mmc4_ppu_read(uint addr, u8* val)
 {
   map_ppu_read_raw(addr, val);
   map_mmc4* reg = (map_mmc4*)map_reg();
@@ -618,7 +618,7 @@ static void map_mmc5_update_prg()
 
 static void map_mmc5_update_chr()
 {
-  u16 chr_hi = map_dyn.eram[MAP_MMC5_CHR_HIGH] << 8;
+  uint chr_hi = map_dyn.eram[MAP_MMC5_CHR_HIGH] << 8;
   switch (map_dyn.eram[MAP_MMC5_CHR_MODE]) {
     case 0: map_chr_page_8k(map_dyn.eram[MAP_MMC5_CHR_BASE + 7] | chr_hi, 0); break;
     case 1:
@@ -639,7 +639,7 @@ static void map_mmc5_update_chr()
   }
 }
 
-static bool map_mmc5_cpu_write(u16 addr, u8 val)
+static bool map_mmc5_cpu_write(uint addr, u8 val)
 {
   if (addr < 0x5000 || addr >= 0x6000) {
     return false;
@@ -683,7 +683,7 @@ static bool map_mmc5_cpu_write(u16 addr, u8 val)
   return false;
 }
 
-static bool map_mmc5_cpu_read(u16 addr, u8* val)
+static bool map_mmc5_cpu_read(uint addr, u8* val)
 {
   if (addr < 0x5000 || addr >= 0x6000) {
     return false;
@@ -695,7 +695,7 @@ static bool map_mmc5_cpu_read(u16 addr, u8* val)
     return true;
   }
   if (addr == MAP_MMC5_MUL_A || addr == MAP_MMC5_MUL_B) {
-    u16 result = (u16)map_dyn.eram[MAP_MMC5_MUL_A] * (u16)map_dyn.eram[MAP_MMC5_MUL_B];
+    uint result = (uint)map_dyn.eram[MAP_MMC5_MUL_A] * (uint)map_dyn.eram[MAP_MMC5_MUL_B];
     *val = (addr == MAP_MMC5_MUL_A) ? (result & 0xFF) : (result >> 8);
     return true;
   }
@@ -705,7 +705,7 @@ static bool map_mmc5_cpu_read(u16 addr, u8* val)
   return false;
 }
 
-static bool map_mmc5_ppu_read(u16 addr, u8*)
+static bool map_mmc5_ppu_read(uint addr, u8*)
 {
   if (addr < 0x2000) {
     u8 a12 = (addr >> 12) & 1;
