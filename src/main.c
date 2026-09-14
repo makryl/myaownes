@@ -15,7 +15,7 @@ static bool imp_init()
   const char* test = nullptr;
 
   // test = "nes-test-roms/other/nestest.nes";
-  test = "nes-test-roms/240pee/240pee.nes";
+  // test = "nes-test-roms/240pee/240pee.nes";
   // test = "nes-test-roms/other/AccuracyCoin.nes";
   // test = "nes-test-roms/ppu_vbl_nmi/ppu_vbl_nmi.nes";
   // test = "nes-test-roms/nmi_sync/demo_ntsc.nes";
@@ -170,13 +170,14 @@ static struct
   uint audio_buffer_size;
   uint fast_forward_scale;
   uint region;
-  u8 joy1_mask;
-  u8 joy2_mask;
-  u8 joy1;
-  u8 joy2;
+  uint joy1_mask;
+  uint joy2_mask;
+  uint joy1;
+  uint joy2;
   bool pause;
   bool help;
   bool fps;
+  bool fps_test;
   bool fast_forward;
   bool auto_aspect;
   bool overscan;
@@ -207,7 +208,7 @@ static void imp_draw_help()
   SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
   SDL_RenderFillRect(imp.renderer, &fill);
 
-  u8 i = 2;
+  uint i = 2;
   SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Help        F1        MyaowNES ");
   SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Open DnDrop,F2          v" MN_VERSION " ");
@@ -733,6 +734,13 @@ static void imp_toggle_fps()
   imp.dirty_config = true;
 }
 
+static void imp_toggle_fps_test()
+{
+  imp.fps_test = !imp.fps_test;
+  SDL_SetRenderVSync(imp.renderer, !imp.fps_test);
+  imp_popup(imp.fps_test ? "FPS test ON" : "FPS test OFF", 2);
+}
+
 static void imp_slot(uint slot)
 {
   imp.slot = slot;
@@ -896,6 +904,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_ESCAPE: imp_toggle_pause(); break;
         case SDLK_TAB: imp_fast_forward_on(); break;
         case SDLK_GRAVE: imp_toggle_fps(); break;
+        case SDLK_Z: imp_toggle_fps_test(); break;
         case SDLK_0:
         case SDLK_1:
         case SDLK_2:
@@ -1063,6 +1072,8 @@ SDL_AppResult SDL_AppIterate(void*)
   } else if (imp.fast_forward) {
     game_frame_time *= imp.fast_forward_scale;
     imp_popup(">>", 0.5);
+  } else if (imp.fps_test) {
+    game_frame_time = imp.target_frame_time;
   }
   imp.curr_time += game_frame_time;
 
