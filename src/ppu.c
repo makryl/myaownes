@@ -107,14 +107,14 @@ MN_CACHE_LINE static struct Ppu
   uint sl_vblank;
   uint sl_pre_render;
 
-  u16 addr;
-  u16 t;
-  u16 v;
-  u16 nt;
-  u16 shift_tile_lo;
-  u16 shift_tile_hi;
-  u16 shift_attr_lo;
-  u16 shift_attr_hi;
+  uint addr;
+  uint t;
+  uint v;
+  uint nt;
+  uint shift_tile_lo;
+  uint shift_tile_hi;
+  uint shift_attr_lo;
+  uint shift_attr_hi;
 
   u8 ctrl;
   u8 mask;
@@ -224,10 +224,10 @@ uint ppu_sl() { return ppu.sl; }
 bool ppu_vblank() { return ppu.sl >= ppu.sl_vblank && ppu.sl < ppu.sl_pre_render; }
 static bool ppu_render_active() { return ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render); }
 
-static u8 ppu_pam_addr(u16 addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
-static u8 ppu_pam_read(u16 addr) { return ppu.pam[ppu_pam_addr(addr)]; }
+static u8 ppu_pam_addr(uint addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
+static u8 ppu_pam_read(uint addr) { return ppu.pam[ppu_pam_addr(addr)]; }
 static u8 ppu_pam_clamp(u8 val) { return val & ((ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F); }
-static void ppu_pam_write(u16 addr, u8 val) { ppu.pam[ppu_pam_addr(addr)] = val; }
+static void ppu_pam_write(uint addr, u8 val) { ppu.pam[ppu_pam_addr(addr)] = val; }
 
 static void ppu_oam_corrupt(u8 dst, u8 src)
 {
@@ -237,7 +237,7 @@ static void ppu_oam_corrupt(u8 dst, u8 src)
   }
 }
 
-static void ppu_addr_hi(u16 addr)
+static void ppu_addr_hi(uint addr)
 {
   if (ppu.ale && !ppu.read) {
     ppu.addr = (addr & 0x3FFF);
@@ -247,7 +247,7 @@ static void ppu_addr_hi(u16 addr)
   map_ppu_addr(ppu.addr);
 }
 
-static void ppu_addr(u16 addr)
+static void ppu_addr(uint addr)
 {
   ppu.ale = true;
   ppu.addr = (addr & 0x3FFF);
@@ -288,10 +288,10 @@ static void ppu_write(u8 val)
   }
 }
 
-static u16 ppu_swap_x() { return (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
-static u16 ppu_swap_y() { return (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
+static uint ppu_swap_x() { return (ppu.v & 0x7BE0) | (ppu.t & 0x041F); }
+static uint ppu_swap_y() { return (ppu.v & 0x041F) | (ppu.t & 0x7BE0); }
 
-static u16 ppu_inc_xy(bool inc_y)
+static uint ppu_inc_xy(bool inc_y)
 {
   uint v = ppu.v;
   if ((v & 0x001F) == 31) { // if coarse X == 31
@@ -320,7 +320,7 @@ static u16 ppu_inc_xy(bool inc_y)
   return v;
 }
 
-static u16 ppu_inc_v() { return ppu.v + ((ppu.ctrl & PPU_CTRL_INC_Y) ? 32 : 1); }
+static uint ppu_inc_v() { return (ppu.v + ((ppu.ctrl & PPU_CTRL_INC_Y) ? 32 : 1)) & 0xFFFF; }
 
 static void ppu_reset_m() { ppu.oam_addr1 &= 0xFC; }
 static void ppu_inc_m() { ppu.oam_addr1 = (ppu.oam_addr1 & 0xFC) | ((ppu.oam_addr1 + 1) & 3); }
@@ -362,7 +362,7 @@ static void ppu_reg_bus_decay()
   }
 }
 
-u8 ppu_bus_read(u16 addr, bool trace)
+u8 ppu_bus_read(uint addr, bool trace)
 {
   switch (addr & 7) {
     case PPU_REG_STATUS: {
@@ -407,7 +407,7 @@ u8 ppu_bus_read(u16 addr, bool trace)
   return ppu.reg_bus;
 }
 
-void ppu_bus_write(u16 addr, u8 val)
+void ppu_bus_write(uint addr, u8 val)
 {
   ppu_reg_bus_set(val, 0xFF);
   switch (addr & 7) {
@@ -460,8 +460,8 @@ void ppu_bus_write(u16 addr, u8 val)
   }
 }
 
-static u16 ppu_nt_addr() { return 0x2000 | (ppu.v & 0x0FFF); }
-static u16 ppu_at_addr() { return 0x23C0 | (ppu.v & 0x0C00) | ((ppu.v >> 4) & 0x38) | ((ppu.v >> 2) & 7); }
+static uint ppu_nt_addr() { return 0x2000 | (ppu.v & 0x0FFF); }
+static uint ppu_at_addr() { return 0x23C0 | (ppu.v & 0x0C00) | ((ppu.v >> 4) & 0x38) | ((ppu.v >> 2) & 7); }
 
 static uint ppu_pipe_step() { return (ppu.dot - PPU_DOT_BEGIN) % 8; }
 
