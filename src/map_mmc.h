@@ -100,7 +100,7 @@ static void map_mmc1_update()
   }
 }
 
-static bool map_mmc1_cpu_write(uint addr, u8 val)
+static bool map_mmc1_cpu_write(uint addr, uint val)
 {
   map_mmc1* reg = (map_mmc1*)map_reg();
   if (addr < 0x8000) {
@@ -258,7 +258,7 @@ static void map_mmc3_update()
   }
 }
 
-static bool map_mmc3_cpu_write(uint addr, u8 val)
+static bool map_mmc3_cpu_write(uint addr, uint val)
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   switch (addr & 0xE001) {
@@ -383,7 +383,7 @@ typedef struct
   u8 latch1;
 } map_mmc2;
 
-static bool map_mmc2_cpu_write(uint addr, u8 val)
+static bool map_mmc2_cpu_write(uint addr, uint val)
 {
   map_mmc2* reg = (map_mmc2*)map_reg();
   switch (addr & 0xF000) {
@@ -423,9 +423,9 @@ static bool map_mmc2_cpu_write(uint addr, u8 val)
   return false;
 }
 
-static bool map_mmc2_ppu_read(uint addr, u8* val)
+static bool map_mmc2_ppu_read(uint addr, uint* val)
 {
-  map_ppu_read_raw(addr, val);
+  *val = map_ppu_read_raw(addr, *val);
   map_mmc2* reg = (map_mmc2*)map_reg();
   if (addr == 0x0FD8) {
     reg->latch0 = 0xFD;
@@ -468,7 +468,7 @@ typedef struct
   u8 latch1;
 } map_mmc4;
 
-static bool map_mmc4_cpu_write(uint addr, u8 val)
+static bool map_mmc4_cpu_write(uint addr, uint val)
 {
   map_mmc4* reg = (map_mmc4*)map_reg();
   switch (addr & 0xF000) {
@@ -508,9 +508,9 @@ static bool map_mmc4_cpu_write(uint addr, u8 val)
   return false;
 }
 
-static bool map_mmc4_ppu_read(uint addr, u8* val)
+static bool map_mmc4_ppu_read(uint addr, uint* val)
 {
-  map_ppu_read_raw(addr, val);
+  *val = map_ppu_read_raw(addr, *val);
   map_mmc4* reg = (map_mmc4*)map_reg();
   if ((addr & 0xFFF8) == 0x0FD8) {
     reg->latch0 = 0xFD;

@@ -18,11 +18,11 @@ enum
 MN_CACHE_LINE static struct
 {
   void (*cpu_cyc)();
-  bool (*cpu_read)(uint, u8*, bool);
-  bool (*cpu_write)(uint, u8);
+  bool (*cpu_read)(uint, uint*, bool);
+  bool (*cpu_write)(uint, uint);
   void (*ppu_addr)(uint);
-  bool (*ppu_read)(uint, u8*);
-  bool (*ppu_write)(uint, u8);
+  bool (*ppu_read)(uint, uint*);
+  bool (*ppu_write)(uint, uint);
 
   mn_rom rom;
 
@@ -74,15 +74,16 @@ void map_cpu_cyc()
 }
 
 
-void map_cpu_read_raw(uint addr, u8* val)
+uint map_cpu_read_raw(uint addr, uint val)
 {
   const u8* page = map_dyn.cpu_read_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
-    *val = page[addr & MAP_PAGE_MASK];
+    val = page[addr & MAP_PAGE_MASK];
   }
+  return val;
 }
 
-void map_cpu_write_raw(uint addr, u8 val)
+void map_cpu_write_raw(uint addr, uint val)
 {
   u8* page = map_dyn.cpu_write_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
@@ -90,15 +91,16 @@ void map_cpu_write_raw(uint addr, u8 val)
   }
 }
 
-void map_ppu_read_raw(uint addr, u8* val)
+uint map_ppu_read_raw(uint addr, uint val)
 {
   const u8* page = map_dyn.ppu_read_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
-    *val = page[addr & MAP_PAGE_MASK];
+    val = page[addr & MAP_PAGE_MASK];
   }
+  return val;
 }
 
-void map_ppu_write_raw(uint addr, u8 val)
+void map_ppu_write_raw(uint addr, uint val)
 {
   u8* page = map_dyn.ppu_write_page[addr >> MAP_PAGE_SHIFT];
   if (page) {
@@ -106,14 +108,15 @@ void map_ppu_write_raw(uint addr, u8 val)
   }
 }
 
-void map_cpu_read(uint addr, u8* val, bool trace)
+uint map_cpu_read(uint addr, uint val, bool trace)
 {
-  if (!map_dyn.cpu_read || !map_dyn.cpu_read(addr, val, trace)) {
-    map_cpu_read_raw(addr, val);
+  if (!map_dyn.cpu_read || !map_dyn.cpu_read(addr, &val, trace)) {
+    val = map_cpu_read_raw(addr, val);
   }
+  return val;
 }
 
-void map_cpu_write(uint addr, u8 val)
+void map_cpu_write(uint addr, uint val)
 {
   if (!map_dyn.cpu_write || !map_dyn.cpu_write(addr, val)) {
     map_cpu_write_raw(addr, val);
@@ -127,14 +130,15 @@ void map_ppu_addr(uint addr)
   }
 }
 
-void map_ppu_read(uint addr, u8* val)
+uint map_ppu_read(uint addr, uint val)
 {
-  if (!map_dyn.ppu_read || !map_dyn.ppu_read(addr, val)) {
-    map_ppu_read_raw(addr, val);
+  if (!map_dyn.ppu_read || !map_dyn.ppu_read(addr, &val)) {
+    val = map_ppu_read_raw(addr, val);
   }
+  return val;
 }
 
-void map_ppu_write(uint addr, u8 val)
+void map_ppu_write(uint addr, uint val)
 {
   if (!map_dyn.ppu_write || !map_dyn.ppu_write(addr, val)) {
     map_ppu_write_raw(addr, val);

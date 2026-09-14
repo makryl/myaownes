@@ -41,7 +41,7 @@ static void map_action53_update()
   map_chr_page_8k(reg->chr_page, 0);
 }
 
-static bool map_action53_cpu_write(uint addr, u8 val)
+static bool map_action53_cpu_write(uint addr, uint val)
 {
   map_action53* reg = (map_action53*)map_reg();
   if ((addr & 0xF000) == 0x5000) {
@@ -82,7 +82,7 @@ typedef struct
 } map_sunsoft3;
 static_assert(sizeof(map_sunsoft3) <= MAP_REG_SIZE);
 
-static bool map_sunsoft3_cpu_write(uint addr, u8 val)
+static bool map_sunsoft3_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -189,7 +189,7 @@ static void map_sunsoft4_nt_update()
   }
 }
 
-static bool map_sunsoft4_cpu_read(uint addr, u8*, bool)
+static bool map_sunsoft4_cpu_read(uint addr, uint*, bool)
 {
   if (addr >= 0x8000 && addr <= 0xBFFF) {
     map_sunsoft4* reg = (map_sunsoft4*)map_reg();
@@ -200,7 +200,7 @@ static bool map_sunsoft4_cpu_read(uint addr, u8*, bool)
   return false;
 }
 
-static bool map_sunsoft4_cpu_write(uint addr, u8 val)
+static bool map_sunsoft4_cpu_write(uint addr, uint val)
 {
   map_sunsoft4* reg = (map_sunsoft4*)map_reg();
   if (!reg->wram_enabled && addr >= 0x6000 && addr < 0x7FFF) {
@@ -278,7 +278,7 @@ typedef struct
 } map_sunsoft_fme7;
 static_assert(sizeof(map_sunsoft_fme7) <= MAP_REG_SIZE);
 
-static bool map_sunsoft_fme7_cpu_write(uint addr, u8 val)
+static bool map_sunsoft_fme7_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -369,7 +369,7 @@ typedef struct
 } map_jaleco_ss;
 static_assert(sizeof(map_jaleco_ss) <= MAP_REG_SIZE);
 
-static bool map_jaleco_ss_cpu_write(uint addr, u8 val)
+static bool map_jaleco_ss_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -573,7 +573,7 @@ static void map_vrc2_vrc4_update_prg()
   }
 }
 
-static bool map_vrc2_vrc4_cpu_write(uint addr, u8 val)
+static bool map_vrc2_vrc4_cpu_write(uint addr, uint val)
 {
   map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
   if (!reg->is_vrc4 && addr >= 0x6000 && addr <= 0x6FFF) {
@@ -660,7 +660,7 @@ static bool map_vrc2_vrc4_cpu_write(uint addr, u8 val)
   return true;
 }
 
-static bool map_vrc2_cpu_read(uint addr, u8* val, bool)
+static bool map_vrc2_cpu_read(uint addr, uint* val, bool)
 {
   if (addr >= 0x6000 && addr <= 0x6FFF) {
     map_vrc2_vrc4* reg = (map_vrc2_vrc4*)map_reg();
@@ -876,7 +876,7 @@ static void map_vrc6_update()
   }
 }
 
-static bool map_vrc6_cpu_write(uint addr, u8 val)
+static bool map_vrc6_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -946,7 +946,7 @@ static void map_vrc6b_load()
   map_vrc6_load();
 }
 
-static bool map_vrc3_cpu_write(uint addr, u8 val)
+static bool map_vrc3_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -979,7 +979,7 @@ typedef struct
 } map_vrc1;
 static_assert(sizeof(map_vrc1) <= MAP_REG_SIZE);
 
-static bool map_vrc1_cpu_write(uint addr, u8 val)
+static bool map_vrc1_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -1025,7 +1025,7 @@ typedef struct
 } map_vrc7;
 static_assert(sizeof(map_vrc7) <= MAP_REG_SIZE);
 
-static bool map_vrc7_cpu_write(uint addr, u8 val)
+static bool map_vrc7_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -1138,7 +1138,7 @@ static void map_namco_163_chr_update()
   }
 }
 
-static bool map_namco_163_cpu_read(uint addr, u8* val, bool trace)
+static bool map_namco_163_cpu_read(uint addr, uint* val, bool trace)
 {
   map_namco_163* reg = (map_namco_163*)map_reg();
   switch (addr & 0xF800) {
@@ -1154,7 +1154,7 @@ static bool map_namco_163_cpu_read(uint addr, u8* val, bool trace)
   return false;
 }
 
-static bool map_namco_163_cpu_write(uint addr, u8 val)
+static bool map_namco_163_cpu_write(uint addr, uint val)
 {
   if (addr < 0x4800 || (addr >= 0x6000 && addr <= 0x7FFF)) {
     return false;
@@ -1277,7 +1277,7 @@ typedef struct
 } map_namco_108;
 static_assert(sizeof(map_namco_108) <= MAP_REG_SIZE);
 
-static bool map_namco_108_cpu_write(uint addr, u8 val)
+static bool map_namco_108_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -1390,7 +1390,7 @@ typedef struct
 } map_bandai_fcg;
 static_assert(sizeof(map_bandai_fcg) <= MAP_REG_SIZE);
 
-static bool map_bandai_fcg_cpu_read(uint addr, u8* val, bool)
+static bool map_bandai_fcg_cpu_read(uint addr, uint* val, bool)
 {
   map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
   if (reg->lz93d50 && !reg->has_wram && addr >= 0x6000 && addr <= 0x7FFF) {
@@ -1405,7 +1405,7 @@ static bool map_bandai_fcg_cpu_read(uint addr, u8* val, bool)
   return false;
 }
 
-static bool map_bandai_fcg_cpu_write(uint addr, u8 val)
+static bool map_bandai_fcg_cpu_write(uint addr, uint val)
 {
   map_bandai_fcg* reg = (map_bandai_fcg*)map_reg();
   if (reg->lz93d50 ? (addr & 0x8000) : ((addr & 0xE000) == 0x6000)) {
@@ -1639,7 +1639,7 @@ static void map_tengen_rambo1_update()
   }
 }
 
-static bool map_tengen_rambo1_cpu_write(uint addr, u8 val)
+static bool map_tengen_rambo1_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -1755,7 +1755,7 @@ static void map_tengen_rambo1_800037_load()
 }
 
 
-static bool map_taito_tc0190_cpu_write(uint addr, u8 val)
+static bool map_taito_tc0190_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -1792,7 +1792,7 @@ typedef struct
 } map_taito_tc0690;
 static_assert(sizeof(map_taito_tc0690) <= MAP_REG_SIZE);
 
-static bool map_taito_tc0690_cpu_write(uint addr, u8 val)
+static bool map_taito_tc0690_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -1873,7 +1873,7 @@ typedef struct
 } map_taito_x1005;
 static_assert(sizeof(map_taito_x1005) <= MAP_REG_SIZE);
 
-static bool map_taito_x1005_cpu_read(uint addr, u8* val, bool)
+static bool map_taito_x1005_cpu_read(uint addr, uint* val, bool)
 {
   map_taito_x1005* reg = (map_taito_x1005*)map_reg();
   if (reg->ram_enabled && (addr & 0xFF00) == 0x7F00) {
@@ -1884,7 +1884,7 @@ static bool map_taito_x1005_cpu_read(uint addr, u8* val, bool)
   return false;
 }
 
-static bool map_taito_x1005_cpu_write(uint addr, u8 val)
+static bool map_taito_x1005_cpu_write(uint addr, uint val)
 {
   map_taito_x1005* reg = (map_taito_x1005*)map_reg();
   if (reg->ram_enabled && (addr & 0xFF00) == 0x7F00) {
@@ -1991,7 +1991,7 @@ static uint map_taito_x1017_reverse_bits(u8 val)
   return b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7;
 }
 
-static bool map_taito_x1017_cpu_read(uint addr, u8* val, bool)
+static bool map_taito_x1017_cpu_read(uint addr, uint* val, bool)
 {
   map_taito_x1017* reg = (map_taito_x1017*)map_reg();
   if ((addr >= 0x6000 && addr <= 0x67FF && !reg->ram[0]) || (addr >= 0x6800 && addr <= 0x6FFF && !reg->ram[1])
@@ -2003,7 +2003,7 @@ static bool map_taito_x1017_cpu_read(uint addr, u8* val, bool)
   return false;
 }
 
-static bool map_taito_x1017_cpu_write(uint addr, u8 val)
+static bool map_taito_x1017_cpu_write(uint addr, uint val)
 {
   map_taito_x1017* reg = (map_taito_x1017*)map_reg();
   switch (addr & 0xFF7F) {
@@ -2093,7 +2093,7 @@ static void map_irem_g101_update()
   }
 }
 
-static bool map_irem_g101_cpu_write(uint addr, u8 val)
+static bool map_irem_g101_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -2162,7 +2162,7 @@ static void map_irem_h3001_update()
   }
 }
 
-static bool map_irem_h3001_cpu_write(uint addr, u8 val)
+static bool map_irem_h3001_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
@@ -2224,7 +2224,7 @@ static void map_irem_h3001_load()
   map_set_cpu_cyc_cb(map_irem_h3001_cpu_cyc);
 }
 
-static bool map_homebrew_nsf_subset_cpu_write(uint addr, u8 val)
+static bool map_homebrew_nsf_subset_cpu_write(uint addr, uint val)
 {
   if ((addr & 0xF000) == 0x5000) {
     map_prg_rom_page_4k(val, 8 + (addr & 7));

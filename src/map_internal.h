@@ -8,11 +8,11 @@ enum
 };
 
 typedef void (*map_cpu_cyc_cb)();
-typedef bool (*map_cpu_read_cb)(uint, u8*, bool);
-typedef bool (*map_cpu_write_cb)(uint, u8);
+typedef bool (*map_cpu_read_cb)(uint, uint*, bool);
+typedef bool (*map_cpu_write_cb)(uint, uint);
 typedef void (*map_ppu_addr_cb)(uint);
-typedef bool (*map_ppu_read_cb)(uint, u8*);
-typedef bool (*map_ppu_write_cb)(uint, u8);
+typedef bool (*map_ppu_read_cb)(uint, uint*);
+typedef bool (*map_ppu_write_cb)(uint, uint);
 
 void map_set_cpu_cyc_cb(map_cpu_cyc_cb cb);
 void map_set_cpu_read_cb(map_cpu_read_cb cb);
@@ -21,10 +21,10 @@ void map_set_ppu_addr_cb(map_ppu_addr_cb cb);
 void map_set_ppu_read_cb(map_ppu_read_cb cb);
 void map_set_ppu_write_cb(map_ppu_write_cb cb);
 
-void map_cpu_read_raw(uint addr, u8* val);
-void map_cpu_write_raw(uint addr, u8 val);
-void map_ppu_read_raw(uint addr, u8* val);
-void map_ppu_write_raw(uint addr, u8 val);
+uint map_cpu_read_raw(uint addr, uint val);
+void map_cpu_write_raw(uint addr, uint val);
+uint map_ppu_read_raw(uint addr, uint val);
+void map_ppu_write_raw(uint addr, uint val);
 
 u8* map_reg();
 void map_irq(bool enabled);

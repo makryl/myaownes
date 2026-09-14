@@ -261,10 +261,10 @@ static void ppu_addr(uint addr)
     //   ppu.addr |= ppu.open_bus;
     // }
     // approximation below
-    u8 val = ppu.open_bus;
-    map_ppu_read((ppu.addr | ppu.open_bus), &val);
-    if (ppu.open_bus == val) { // feedback loop is stable if conflicting data and address byte has same value
-      ppu.addr |= val;
+    uint old = ppu.open_bus;
+    ppu.open_bus = map_ppu_read((ppu.addr | ppu.open_bus), ppu.open_bus);
+    if (ppu.open_bus == old) { // feedback loop is stable if conflicting data and address byte has same value
+      ppu.addr |= ppu.open_bus;
     }
   }
   map_ppu_addr(ppu.addr);
@@ -273,9 +273,7 @@ static void ppu_addr(uint addr)
 static uint ppu_read()
 {
   ppu.read = true;
-  u8 val;
-  map_ppu_read(ppu.addr, &val);
-  ppu.open_bus = val;
+  ppu.open_bus = map_ppu_read(ppu.addr, ppu.open_bus);
   return ppu.open_bus;
 }
 

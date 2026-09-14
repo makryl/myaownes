@@ -194,9 +194,7 @@ static uint cpu_read_addr_raw(uint addr, bool trace)
       return apu_bus_read(addr, addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus, trace);
     }
   } else {
-    u8 val = cpu.external_open_bus;
-    map_cpu_read(addr, &val, trace);
-    return val;
+    return map_cpu_read(addr, cpu.external_open_bus, trace);
   }
 }
 
