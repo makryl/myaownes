@@ -5,7 +5,7 @@
 #include "common.h"
 #include <string.h>
 
-enum : u16
+enum
 {
   CPU_ITR_RESET = 0xFFFC,
   CPU_ITR_NMI = 0xFFFA,
@@ -47,11 +47,11 @@ MN_CACHE_LINE static struct Cpu
   uint joy_shift_idx;
   uint joy_shift_delay;
   uint dmc_dma_delay;
-  u16 dmc_dma_addr;
-  u16 oam_dma_addr;
-  u16 itr;
-  u16 addr;
-  u16 pc;
+  uint dmc_dma_addr;
+  uint oam_dma_addr;
+  uint itr;
+  uint addr;
+  uint pc;
   u8 s;
   u8 p;
   u8 a;
@@ -115,7 +115,7 @@ void cpu_power()
   cpu_poll();
 }
 
-void cpu_dmc(bool enabled, u16 addr)
+void cpu_dmc(bool enabled, uint addr)
 {
   if (enabled) {
     cpu.dmc_dma_addr = addr;
@@ -127,13 +127,13 @@ void cpu_dmc(bool enabled, u16 addr)
 static void cpu_dmc_dma();
 static void cpu_oam_dma();
 
-void cpu_input(u8 joy1, u8 joy2)
+void cpu_input(uint joy1, uint joy2)
 {
   cpu.joy_pending[0] = joy1;
   cpu.joy_pending[1] = joy2;
 }
 
-static u8 cpu_joy_poll(u16 addr, bool trace)
+static u8 cpu_joy_poll(uint addr, bool trace)
 {
   uint idx = (addr & 1);
   if (!trace) {
@@ -161,7 +161,7 @@ static void cpu_joy_strobe()
 static void cpu_cyc_begin()
 {
   cpu_oam_dma();
-  if (!cpu.pal || cpu.addr == cpu.pc - 1) {
+  if (!cpu.pal || cpu.addr == ((cpu.pc - 1) & 0xFFFF)) {
     cpu_dmc_dma();
   }
   cpu_poll();
@@ -181,7 +181,7 @@ static void cpu_cyc_end()
   ++cpu.cyc;
 }
 
-static u8 cpu_read_addr_raw(u16 addr, bool trace)
+static u8 cpu_read_addr_raw(uint addr, bool trace)
 {
   u8 val;
   if (addr < 0x2000) {
@@ -202,14 +202,14 @@ static u8 cpu_read_addr_raw(u16 addr, bool trace)
   return val;
 }
 
-static u8 cpu_read_addr_direct(u16 addr)
+static u8 cpu_read_addr_direct(uint addr)
 {
   cpu_cyc_begin();
   if ((addr & 0xFFE0) != 0x4000) {
     cpu.external_open_bus = cpu_read_addr_raw(addr, false);
   }
   if ((cpu.addr & 0xFFE0) == 0x4000) { // NES bug: internal addr activation by bus addr (DMA dont change it)
-    u16 internal_addr = (0x4000 | (addr & 0x1F));
+    uint internal_addr = (0x4000 | (addr & 0x1F));
     cpu.internal_open_bus = cpu_read_addr_raw(internal_addr, false);
     if (internal_addr == 0x4016 || internal_addr == 0x4017) { // NES bug: io bus conflict
       cpu.external_open_bus = (cpu.external_open_bus & 0xE0) | (cpu.internal_open_bus & 0x1F);
@@ -221,13 +221,13 @@ static u8 cpu_read_addr_direct(u16 addr)
   return cpu.internal_open_bus;
 }
 
-static u8 cpu_read_addr(u16 addr)
+static u8 cpu_read_addr(uint addr)
 {
   cpu.addr = addr;
   return cpu_read_addr_direct(addr);
 }
 
-static void cpu_write_addr_direct(u16 addr, u8 val)
+static void cpu_write_addr_direct(uint addr, u8 val)
 {
   cpu.write = true;
   cpu.internal_open_bus = val;
@@ -253,7 +253,7 @@ static void cpu_write_addr_direct(u16 addr, u8 val)
   cpu.write = false;
 }
 
-static void cpu_write_addr(u16 addr, u8 val)
+static void cpu_write_addr(uint addr, u8 val)
 {
   cpu.addr = addr;
   cpu_write_addr_direct(addr, val);
@@ -267,8 +267,8 @@ static struct
   int cpu_cyc;
   int ppu_dot;
   int ppu_sl;
-  u16 addr0;
-  u16 addr;
+  uint addr0;
+  uint addr;
   u8 val;
 } trace;
 
@@ -358,23 +358,30 @@ static void cpu_flag_overflow(bool cond)
   }
 }
 
-static u16 cpu_read16_addr(u16 addr)
+static uint cpu_read16_addr(uint addr)
 {
   uint lo = cpu_read_addr(addr);
   uint hi = cpu_read_addr(addr + 1) << 8;
   return lo | hi;
 }
 
-static u16 cpu_read16_zptr(u8 zptr)
+static uint cpu_read16_zptr(u8 zptr)
 {
   uint lo = cpu_read_addr(zptr);
   uint hi = cpu_read_addr((u8)(zptr + 1)) << 8;
   return lo | hi;
 }
 
-static u8 cpu_read_pc() { return cpu_read_addr(cpu.pc++); }
+static uint cpu_pc_inc()
+{
+  uint addr = cpu.pc;
+  cpu.pc = ((cpu.pc + 1) & 0xFFFF);
+  return addr;
+}
 
-static u16 cpu_read16_pc()
+static u8 cpu_read_pc() { return cpu_read_addr(cpu_pc_inc()); }
+
+static uint cpu_read16_pc()
 {
   uint lo = cpu_read_pc();
   uint hi = cpu_read_pc() << 8;
@@ -391,22 +398,22 @@ static u8 cpu_stack_pop(bool seq)
   return cpu_read_addr(++cpu.s | 0x0100);
 }
 
-static void cpu_stack_push16(u16 val)
+static void cpu_stack_push16(uint val)
 {
-  cpu_stack_push((u8)(val >> 8));
-  cpu_stack_push((u8)(val & 0xFF));
+  cpu_stack_push((val >> 8) & 0xFF);
+  cpu_stack_push(val & 0xFF);
 }
 
-static u16 cpu_stack_pop16(bool seq)
+static uint cpu_stack_pop16(bool seq)
 {
   uint lo = cpu_stack_pop(seq);
   uint hi = cpu_stack_pop(true) << 8;
   return lo | hi;
 }
 
-static u16 cpu_addr_offset(u16 addr, int offset, bool readonly)
+static uint cpu_addr_offset(uint addr, int offset, bool readonly)
 {
-  u16 target_addr = addr + offset;
+  uint target_addr = ((addr + offset) & 0xFFFF);
   cpu.page_crossed = (addr & 0xFF00) != (target_addr & 0xFF00);
   if (cpu.page_crossed || !readonly) {
     cpu_read_addr((addr & 0xFF00) | (target_addr & 0xFF));
@@ -414,19 +421,19 @@ static u16 cpu_addr_offset(u16 addr, int offset, bool readonly)
   return target_addr;
 }
 
-static u16 cpu_addr(u8 am, bool readonly)
+static uint cpu_addr(u8 am, bool readonly)
 {
   cpu.page_crossed = false;
   switch (am) {
     case CPU_ADDR_ACC:
     case CPU_ADDR_IMP: return cpu.pc;
-    case CPU_ADDR_IMM: return cpu.pc++;
+    case CPU_ADDR_IMM: return cpu_pc_inc();
     case CPU_ADDR_IND: {
-      u16 addr0 = trace_addr0(cpu_read16_pc());
-      u8 lo = cpu_read_addr(addr0);
-      u16 hi_addr = (addr0 & 0xFF00) | ((addr0 + 1) & 0x00FF); // NES bug: for hi byte read, inc only low addr byte
-      u8 hi = cpu_read_addr(hi_addr);
-      return trace_addr((u16)lo | ((u16)hi << 8));
+      uint addr0 = trace_addr0(cpu_read16_pc());
+      uint lo = cpu_read_addr(addr0);
+      uint hi_addr = (addr0 & 0xFF00) | ((addr0 + 1) & 0x00FF); // NES bug: for hi byte read, inc only low addr byte
+      uint hi = cpu_read_addr(hi_addr) << 8;
+      return trace_addr(lo | hi);
     }
     case CPU_ADDR_REL: {
       int off = (int)(i8)cpu_read_pc();
@@ -467,7 +474,7 @@ static void cpu_write(u8 am, u8 val) { cpu_write_addr(cpu_addr(am, false), val);
 
 static u8 cpu_read_write(u8 am, u8 (*cb)(u8))
 {
-  u16 addr = cpu_addr(am, false);
+  uint addr = cpu_addr(am, false);
   u8 val = cpu_read_addr(addr);
   if (am == CPU_ADDR_ACC) {
     cpu.a = cpu_flag_zn(cb(cpu.a));
@@ -598,7 +605,7 @@ static void cpu_branch(u8 am, u8 flag, bool cond)
     cpu.pc = cpu_addr(am, true);
   } else {
     int off = (int)(i8)cpu_read_pc();
-    (void)(trace_addr(cpu.pc + off));
+    (void)(trace_addr((cpu.pc + off) & 0xFFFF));
   }
 }
 
@@ -626,7 +633,7 @@ static void cpu_op_RTS(u8 am)
 {
   cpu_read(am);
   cpu.pc = cpu_stack_pop16(false);
-  cpu_read_addr(cpu.pc++);
+  cpu_read_addr(cpu_pc_inc());
 }
 
 static void cpu_op_BRK(u8 am)
@@ -646,7 +653,7 @@ static void cpu_op_NOP(u8 am) { cpu_read(am); }
 
 static void cpu_op_KIL(u8)
 {
-  --cpu.pc;
+  cpu.pc = ((cpu.pc - 1) & 0xFFFF);
   errorf("KIL $%02X\n", cpu_read_addr_raw(cpu.pc, true));
 }
 
@@ -676,8 +683,8 @@ static void cpu_op_ARR(u8 am)
 
 static void cpu_sh(u8 am, u8 val)
 {
-  u16 addr = cpu_addr(am, false);
-  u8 hi = addr >> 8;
+  uint addr = cpu_addr(am, false);
+  uint hi = addr >> 8;
   if (cpu.page_crossed) {
     addr &= ((hi & val) << 8) | 0xFF;
   }
@@ -694,7 +701,7 @@ static void cpu_op_SHY(u8 am) { cpu_sh(am, cpu.y); }
 
 static void cpu_itr_exec()
 {
-  u16 addr = cpu.itr;
+  uint addr = cpu.itr;
 
   if (!cpu.brk) {
     cpu_read_addr(cpu.pc);
