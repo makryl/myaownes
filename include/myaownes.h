@@ -19,6 +19,8 @@ enum
   MN_INPUT_DOWN = (1 << 5),
   MN_INPUT_LEFT = (1 << 6),
   MN_INPUT_RIGHT = (1 << 7),
+  MN_INPUT_TURBO_A = (1 << 8),
+  MN_INPUT_TURBO_B = (1 << 9),
 };
 
 enum
@@ -64,7 +66,7 @@ void mn_audio_freq(uint freq);
 i16* mn_audio_data();
 uint mn_audio_size();
 void mn_reset();
-void mn_frame(uint joy1, uint joy2);
+void mn_frame(uint port1, uint port2);
 bool mn_save(const char* path);
 bool mn_load(const char* path);
 void mn_palette(uint palette[64]);

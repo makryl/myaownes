@@ -165,13 +165,10 @@ static struct
   u64 perf_freq;
   uint auto_save_period;
   uint scale;
-  uint turbo;
   uint slot;
   uint audio_buffer_size;
   uint fast_forward_scale;
   uint region;
-  uint joy1_mask;
-  uint joy2_mask;
   uint joy1;
   uint joy2;
   bool pause;
@@ -181,10 +178,6 @@ static struct
   bool fast_forward;
   bool auto_aspect;
   bool overscan;
-  bool joy1_turbo_a;
-  bool joy1_turbo_b;
-  bool joy2_turbo_a;
-  bool joy2_turbo_b;
   bool dirty_config;
   mn_rom rom;
   char rom_info[6][15];
@@ -756,123 +749,43 @@ static void imp_slot_next()
   imp_popup(imp_save_slot_labels[imp.slot], 2);
 }
 
-static void imp_joy1_dpad_up_down()
-{
-  imp.joy1_mask |= MN_INPUT_UP;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_DOWN) | MN_INPUT_UP;
-}
-
-static void imp_joy1_dpad_up_up()
-{
-  imp.joy1_mask &= ~MN_INPUT_UP;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_UP) | (imp.joy1_mask & MN_INPUT_DOWN);
-}
-
-static void imp_joy1_dpad_left_down()
-{
-  imp.joy1_mask |= MN_INPUT_LEFT;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT;
-}
-
-static void imp_joy1_dpad_left_up()
-{
-  imp.joy1_mask &= ~MN_INPUT_LEFT;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_LEFT) | (imp.joy1_mask & MN_INPUT_RIGHT);
-}
-
-static void imp_joy1_dpad_down_down()
-{
-  imp.joy1_mask |= MN_INPUT_DOWN;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_UP) | MN_INPUT_DOWN;
-}
-
-static void imp_joy1_dpad_down_up()
-{
-  imp.joy1_mask &= ~MN_INPUT_DOWN;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_DOWN) | (imp.joy1_mask & MN_INPUT_UP);
-}
-
-static void imp_joy1_dpad_right_down()
-{
-  imp.joy1_mask |= MN_INPUT_RIGHT;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT;
-}
-
-static void imp_joy1_dpad_right_up()
-{
-  imp.joy1_mask &= ~MN_INPUT_RIGHT;
-  imp.joy1 = (imp.joy1 & ~MN_INPUT_RIGHT) | (imp.joy1_mask & MN_INPUT_LEFT);
-}
-
+static void imp_joy1_dpad_up_down() { imp.joy1 |= MN_INPUT_UP; }
+static void imp_joy1_dpad_up_up() { imp.joy1 &= ~MN_INPUT_UP; }
+static void imp_joy1_dpad_left_down() { imp.joy1 |= MN_INPUT_LEFT; }
+static void imp_joy1_dpad_left_up() { imp.joy1 &= ~MN_INPUT_LEFT; }
+static void imp_joy1_dpad_down_down() { imp.joy1 |= MN_INPUT_DOWN; }
+static void imp_joy1_dpad_down_up() { imp.joy1 &= ~MN_INPUT_DOWN; }
+static void imp_joy1_dpad_right_down() { imp.joy1 |= MN_INPUT_RIGHT; }
+static void imp_joy1_dpad_right_up() { imp.joy1 &= ~MN_INPUT_RIGHT; }
 static void imp_joy1_a_down() { imp.joy1 |= MN_INPUT_A; }
 static void imp_joy1_a_up() { imp.joy1 &= ~MN_INPUT_A; }
 static void imp_joy1_b_down() { imp.joy1 |= MN_INPUT_B; }
 static void imp_joy1_b_up() { imp.joy1 &= ~MN_INPUT_B; }
-static void imp_joy1_a_turbo_down() { imp.joy1_turbo_a = true; }
-static void imp_joy1_a_turbo_up() { imp.joy1_turbo_a = false; }
-static void imp_joy1_b_turbo_down() { imp.joy1_turbo_b = true; }
-static void imp_joy1_b_turbo_up() { imp.joy1_turbo_b = false; }
+static void imp_joy1_a_turbo_down() { imp.joy1 |= MN_INPUT_TURBO_A; }
+static void imp_joy1_a_turbo_up() { imp.joy1 &= ~MN_INPUT_TURBO_A; }
+static void imp_joy1_b_turbo_down() { imp.joy1 |= MN_INPUT_TURBO_B; }
+static void imp_joy1_b_turbo_up() { imp.joy1 &= ~MN_INPUT_TURBO_B; }
 static void imp_joy1_select_down() { imp.joy1 |= MN_INPUT_SELECT; }
 static void imp_joy1_select_up() { imp.joy1 &= ~MN_INPUT_SELECT; }
 static void imp_joy1_start_down() { imp.joy1 |= MN_INPUT_START; }
 static void imp_joy1_start_up() { imp.joy1 &= ~MN_INPUT_START; }
 
-static void imp_joy2_dpad_up_down()
-{
-  imp.joy2_mask |= MN_INPUT_UP;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_DOWN) | MN_INPUT_UP;
-}
-
-static void imp_joy2_dpad_up_up()
-{
-  imp.joy2_mask &= ~MN_INPUT_UP;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_UP) | (imp.joy2_mask & MN_INPUT_DOWN);
-}
-
-static void imp_joy2_dpad_left_down()
-{
-  imp.joy2_mask |= MN_INPUT_LEFT;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_RIGHT) | MN_INPUT_LEFT;
-}
-
-static void imp_joy2_dpad_left_up()
-{
-  imp.joy2_mask &= ~MN_INPUT_LEFT;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | (imp.joy2_mask & MN_INPUT_RIGHT);
-}
-
-static void imp_joy2_dpad_down_down()
-{
-  imp.joy2_mask |= MN_INPUT_DOWN;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_UP) | MN_INPUT_DOWN;
-}
-
-static void imp_joy2_dpad_down_up()
-{
-  imp.joy2_mask &= ~MN_INPUT_DOWN;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_DOWN) | (imp.joy2_mask & MN_INPUT_UP);
-}
-
-static void imp_joy2_dpad_right_down()
-{
-  imp.joy2_mask |= MN_INPUT_RIGHT;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_LEFT) | MN_INPUT_RIGHT;
-}
-
-static void imp_joy2_dpad_right_up()
-{
-  imp.joy2_mask &= ~MN_INPUT_RIGHT;
-  imp.joy2 = (imp.joy2 & ~MN_INPUT_RIGHT) | (imp.joy2_mask & MN_INPUT_LEFT);
-}
-
+static void imp_joy2_dpad_up_down() { imp.joy2 |= MN_INPUT_UP; }
+static void imp_joy2_dpad_up_up() { imp.joy2 &= ~MN_INPUT_UP; }
+static void imp_joy2_dpad_left_down() { imp.joy2 |= MN_INPUT_LEFT; }
+static void imp_joy2_dpad_left_up() { imp.joy2 &= ~MN_INPUT_LEFT; }
+static void imp_joy2_dpad_down_down() { imp.joy2 |= MN_INPUT_DOWN; }
+static void imp_joy2_dpad_down_up() { imp.joy2 &= ~MN_INPUT_DOWN; }
+static void imp_joy2_dpad_right_down() { imp.joy2 |= MN_INPUT_RIGHT; }
+static void imp_joy2_dpad_right_up() { imp.joy2 &= ~MN_INPUT_RIGHT; }
 static void imp_joy2_a_down() { imp.joy2 |= MN_INPUT_A; }
 static void imp_joy2_a_up() { imp.joy2 &= ~MN_INPUT_A; }
 static void imp_joy2_b_down() { imp.joy2 |= MN_INPUT_B; }
 static void imp_joy2_b_up() { imp.joy2 &= ~MN_INPUT_B; }
-static void imp_joy2_a_turbo_down() { imp.joy2_turbo_a = true; }
-static void imp_joy2_a_turbo_up() { imp.joy2_turbo_a = false; }
-static void imp_joy2_b_turbo_down() { imp.joy2_turbo_b = true; }
-static void imp_joy2_b_turbo_up() { imp.joy2_turbo_b = false; }
+static void imp_joy2_a_turbo_down() { imp.joy2 |= MN_INPUT_TURBO_A; }
+static void imp_joy2_a_turbo_up() { imp.joy2 &= ~MN_INPUT_TURBO_A; }
+static void imp_joy2_b_turbo_down() { imp.joy2 |= MN_INPUT_TURBO_B; }
+static void imp_joy2_b_turbo_up() { imp.joy2 &= ~MN_INPUT_TURBO_B; }
 
 static void imp_drop_file(const char* path)
 {
@@ -1090,20 +1003,6 @@ SDL_AppResult SDL_AppIterate(void*)
   while (!imp.pause && (imp.curr_time >= imp.target_frame_time || queued_size < imp.audio_buffer_size)) {
     if (imp.fps) {
       ++imp.fps_count;
-    }
-    if (++imp.turbo & 1) {
-      if (imp.joy1_turbo_a) {
-        imp.joy1 ^= MN_INPUT_A;
-      }
-      if (imp.joy1_turbo_b) {
-        imp.joy1 ^= MN_INPUT_B;
-      }
-      if (imp.joy2_turbo_a) {
-        imp.joy2 ^= MN_INPUT_A;
-      }
-      if (imp.joy2_turbo_b) {
-        imp.joy2 ^= MN_INPUT_B;
-      }
     }
 
     mn_frame(imp.joy1, imp.joy2);

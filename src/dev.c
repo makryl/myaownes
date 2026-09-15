@@ -57,12 +57,12 @@ void mn_reset()
   ppu_reset();
 }
 
-void mn_frame(uint joy1, uint joy2)
+void mn_frame(uint port1, uint port2)
 {
   if (!map_ready()) {
     return;
   }
-  iou_input(joy1, joy2);
+  iou_input(port1, port2);
   apu_reset_out();
   bool vblank_before;
   do {
