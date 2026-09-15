@@ -139,6 +139,14 @@ enum
   IMP_PATH_SIZE = 4096,
 };
 
+enum
+{
+  IMP_MENU_OFF = 0,
+  IMP_MENU_MAIN,
+  IMP_MENU_OPTIONS,
+  IMP_MENU_HELP,
+};
+
 static struct
 {
   SDL_Window* window;
@@ -171,8 +179,12 @@ static struct
   uint region;
   uint joy1;
   uint joy2;
+  uint menu_state;
+  uint menu_state_prev;
+  int menu_selection;
+  uint menu_input;
+  uint menu_input_prev;
   bool pause;
-  bool help;
   bool fps;
   bool fps_test;
   bool fast_forward;
@@ -188,48 +200,16 @@ static struct
   char palette_path[IMP_PATH_SIZE];
 } imp;
 
-static const char* const imp_save_slot_labels[10] = {
-  "Slot 0", "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5", "Slot 6", "Slot 7", "Slot 8", "Slot 9",
-};
-
-static void imp_draw_help()
-{
-  float x = imp.ui_offset.x;
-  float y = imp.ui_offset.y;
-  SDL_FRect fill = { x, y, 256, 240 };
-  SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xC0);
-  SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
-  SDL_RenderFillRect(imp.renderer, &fill);
-
-  uint i = 2;
-  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Help        F1        MyaowNES ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Open DnDrop,F2          v" MN_VERSION " ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Region      F3                 ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Reset       F4    /\\____/\\     ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick save  F5                 ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Aspect      F6   |  o..o  |    ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Overscan    F7   |=<+__+>=|    ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quick load  F8   |        |    ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, "                                ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Quit       F10   [_m____m_]    ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Fullscreen F11                 ");
-  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Screenshot F12  %s ", imp.rom_info[0]);
-  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Save slot  0-9  %s ", imp.rom_info[1]);
-  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " F-forward  Tab  %s ", imp.rom_info[2]);
-  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Pause      Esc  %s ", imp.rom_info[3]);
-  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " Scale      -/+  %s ", imp.rom_info[4]);
-  SDL_RenderDebugTextFormat(imp.renderer, x, y + 8 * i++, " FPS          `  %s ", imp.rom_info[5]);
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, "                                ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, "           Joy1    Joy2          ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " D-pad     WASD  Arrows          ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " B            J   NUM_1          ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " A            K   NUM_2          ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " B turbo      U   NUM_4          ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " A turbo      I   NUM_5          ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Start        H   Enter          ");
-  SDL_RenderDebugText(imp.renderer, x, y + 8 * i++, " Select       F   Space          ");
-}
+static const char* const imp_save_slot_labels[10] = { "Slot 0", "Slot 1", "Slot 2", "Slot 3", "Slot 4",
+                                                      "Slot 5", "Slot 6", "Slot 7", "Slot 8", "Slot 9" };
+static const char* const imp_scale_labels[8] = { "Scale 1", "Scale 2", "Scale 3", "Scale 4",
+                                                 "Scale 5", "Scale 6", "Scale 7", "Scale 8" };
+static const char* const imp_region_labels[4] = { "Region NTSC", "Region PAL", "Region Auto", "Region Dendy" };
+static const char* const imp_aspect_labels[2] = { "Aspect OFF", "Aspect ON" };
+static const char* const imp_overscan_labels[2] = { "Overscan OFF", "Overscan ON" };
+static const char* const imp_fps_labels[2] = { "Show FPS OFF", "Show FPS ON" };
+static const char* const imp_fps_test_labels[2] = { "Max FPS OFF", "Max FPS ON" };
+static const char* const imp_fullscreen_labels[2] = { "Fullscreen OFF", "Fullscreen ON" };
 
 static void imp_draw_popup()
 {
@@ -307,8 +287,9 @@ static void imp_save_path(char* dst, const char* subdir, const char* ext)
 static void imp_rom_update()
 {
   mn_rom rom = imp.rom;
-  imp.help = !rom || rom->mapper_error;
-  imp.pause = !rom || rom->mapper_error;
+  bool error = !rom || rom->mapper_error;
+  imp.menu_state = error ? IMP_MENU_MAIN : IMP_MENU_OFF;
+  imp.pause = error;
   if (!rom) {
     for (uint i = 0; i < 6; ++i) {
       imp.rom_info[i][0] = 0;
@@ -350,6 +331,32 @@ static void imp_rom_update()
   imp_try_resize();
 }
 
+static void imp_config_defaults()
+{
+  imp.scale = 2;
+  imp.auto_aspect = true;
+  imp.overscan = false;
+  imp.auto_save_period = 60;
+  imp.fps = false;
+  imp.fps_test = false;
+  imp.fast_forward_scale = 4;
+  imp.region = MN_REGION_AUTO;
+}
+
+static void imp_reset_config()
+{
+  uint old_region = imp.region;
+  imp_config_defaults();
+  imp.dirty_config = true;
+  if (imp.region != old_region) {
+    mn_region_set(imp.region);
+    if (imp.rom) {
+      mn_rom_set(imp.rom);
+    }
+  }
+  imp_try_resize();
+}
+
 static void imp_save_config()
 {
   if (!imp.dirty_config) {
@@ -373,13 +380,7 @@ static void imp_save_config()
 
 static void imp_load_config()
 {
-  imp.scale = 2;
-  imp.auto_aspect = true;
-  imp.overscan = false;
-  imp.auto_save_period = 60;
-  imp.fps = false;
-  imp.fast_forward_scale = 4;
-  imp.region = MN_REGION_AUTO;
+  imp_config_defaults();
 
   FILE* f = fopen(imp.config_path, "r");
   if (!f) {
@@ -580,19 +581,24 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   return inited ? SDL_APP_CONTINUE : SDL_APP_FAILURE;
 }
 
-static void imp_help()
+static void imp_menu_state(uint state)
 {
-  if (imp.rom) {
-    if (imp.help) {
-      imp.help = false;
-      imp.pause = false;
-    } else {
-      imp.help = true;
-      imp.pause = true;
-      imp_draw_help();
-    }
+  if (state == IMP_MENU_OFF && !imp.rom) {
+    state = IMP_MENU_MAIN;
   }
+  if (state == imp.menu_state) {
+    return;
+  }
+  if (imp.menu_state != IMP_MENU_HELP) {
+    imp.menu_state_prev = imp.menu_state;
+  }
+  imp.menu_state = state;
+  imp.menu_selection = 0;
+  imp.pause = state != IMP_MENU_OFF;
 }
+
+static void imp_toggle_menu() { imp_menu_state(imp.menu_state == IMP_MENU_MAIN ? IMP_MENU_OFF : IMP_MENU_MAIN); }
+static void imp_toggle_help() { imp_menu_state(imp.menu_state == IMP_MENU_HELP ? imp.menu_state_prev : IMP_MENU_HELP); }
 
 static void imp_open_file()
 {
@@ -609,12 +615,7 @@ static void imp_toggle_region()
     mn_rom_set(imp.rom);
   }
   imp_try_resize();
-  switch (imp.region) {
-    case MN_REGION_NTSC: imp_popup("Region NTSC", 2); break;
-    case MN_REGION_PAL: imp_popup("Region PAL", 2); break;
-    case MN_REGION_AUTO: imp_popup("Region Auto", 2); break;
-    case MN_REGION_DENDY: imp_popup("Region Dendy", 2); break;
-  }
+  imp_popup(imp_region_labels[imp.region], 2);
 }
 
 static void imp_toggle_aspect()
@@ -622,7 +623,7 @@ static void imp_toggle_aspect()
   imp.auto_aspect = !imp.auto_aspect;
   imp.dirty_config = true;
   imp_try_resize();
-  imp_popup(imp.auto_aspect ? "Aspect ON" : "Aspect OFF", 2);
+  imp_popup(imp_aspect_labels[imp.auto_aspect], 2);
 }
 
 static void imp_toggle_overscan()
@@ -630,7 +631,7 @@ static void imp_toggle_overscan()
   imp.overscan = !imp.overscan;
   imp.dirty_config = true;
   imp_try_resize();
-  imp_popup(imp.overscan ? "Overscan ON" : "Overscan OFF", 2);
+  imp_popup(imp_overscan_labels[imp.overscan], 2);
 }
 
 static void imp_toggle_fullscreen()
@@ -638,6 +639,7 @@ static void imp_toggle_fullscreen()
   Uint32 flags = SDL_GetWindowFlags(imp.window);
   bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
   SDL_SetWindowFullscreen(imp.window, !is_fullscreen);
+  imp_popup(imp_fullscreen_labels[is_fullscreen], 2);
 }
 
 static void imp_screenshot()
@@ -667,16 +669,7 @@ static void imp_upscale()
     ++imp.scale;
     imp.dirty_config = true;
   }
-  switch (imp.scale) {
-    case 1: imp_popup("Scale x1", 2); break;
-    case 2: imp_popup("Scale x2", 2); break;
-    case 3: imp_popup("Scale x3", 2); break;
-    case 4: imp_popup("Scale x4", 2); break;
-    case 5: imp_popup("Scale x5", 2); break;
-    case 6: imp_popup("Scale x6", 2); break;
-    case 7: imp_popup("Scale x7", 2); break;
-    case 8: imp_popup("Scale x8", 2); break;
-  }
+  imp_popup(imp_scale_labels[imp.scale - 1], 2);
   imp_try_resize();
 }
 
@@ -686,25 +679,13 @@ static void imp_downscale()
     --imp.scale;
     imp.dirty_config = true;
   }
-  switch (imp.scale) {
-    case 1: imp_popup("Scale x1", 2); break;
-    case 2: imp_popup("Scale x2", 2); break;
-    case 3: imp_popup("Scale x3", 2); break;
-    case 4: imp_popup("Scale x4", 2); break;
-    case 5: imp_popup("Scale x5", 2); break;
-    case 6: imp_popup("Scale x6", 2); break;
-    case 7: imp_popup("Scale x7", 2); break;
-    case 8: imp_popup("Scale x8", 2); break;
-  }
+  imp_popup(imp_scale_labels[imp.scale - 1], 2);
   imp_try_resize();
 }
 
 static void imp_toggle_pause()
 {
-  if (imp.help) {
-    imp.help = false;
-    imp.pause = false;
-  } else {
+  if (imp.menu_state == IMP_MENU_OFF) {
     imp.pause = !imp.pause;
     if (imp.pause) {
       imp_popup("Pause", 2);
@@ -734,7 +715,7 @@ static void imp_toggle_fps_test()
 {
   imp.fps_test = !imp.fps_test;
   SDL_SetRenderVSync(imp.renderer, !imp.fps_test);
-  imp_popup(imp.fps_test ? "Max FPS ON" : "Max FPS OFF", 2);
+  imp_popup(imp_fps_test_labels[imp.fps_test], 2);
 }
 
 static void imp_slot(uint slot)
@@ -795,6 +776,186 @@ static void imp_drop_file(const char* path)
   }
 }
 
+#define imp_draw_line(line, fmt, ...)                                                    \
+  SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x, imp.ui_offset.y + 8 * (line), \
+                            fmt __VA_OPT__(, ) __VA_ARGS__);
+
+static bool imp_menu_pressed(uint mask) { return (imp.menu_input & mask) && !(imp.menu_input_prev & mask); }
+
+static bool imp_draw_menu_line(const char* label, uint line, int selection_id)
+{
+  bool selected = imp.menu_selection == selection_id;
+  if (selected) {
+    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
+  }
+  imp_draw_line(line, "          %s %s", selected ? "*" : " ", label);
+  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+  return selected && imp_menu_pressed(MN_INPUT_A | MN_INPUT_START);
+}
+
+static uint imp_draw_menu_line_left_right(const char* label, uint line, int selection_id)
+{
+  bool selected = imp.menu_selection == selection_id;
+  if (selected) {
+    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
+  }
+  imp_draw_line(line, "          %s %s", selected ? "*" : " ", label);
+  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+  if (selected) {
+    if (imp_menu_pressed(MN_INPUT_LEFT | MN_INPUT_B)) {
+      return MN_INPUT_LEFT;
+    }
+    if (imp_menu_pressed(MN_INPUT_RIGHT | MN_INPUT_A)) {
+      return MN_INPUT_RIGHT;
+    }
+  }
+  return 0;
+}
+
+static void imp_draw_menu_prepare(int menu_size)
+{
+  imp.menu_input_prev = imp.menu_input;
+  imp.menu_input = (imp.joy1 | imp.joy2);
+
+  if (imp_menu_pressed(MN_INPUT_DOWN | MN_INPUT_SELECT)) {
+    ++imp.menu_selection;
+  }
+  if (imp_menu_pressed(MN_INPUT_UP)) {
+    --imp.menu_selection;
+  }
+  if (imp.menu_selection >= menu_size) {
+    imp.menu_selection = 0;
+  }
+  if (imp.menu_selection < 0) {
+    imp.menu_selection = menu_size - 1;
+  }
+
+  SDL_FRect fill = { imp.ui_offset.x, imp.ui_offset.y, 256, 240 };
+  SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xC0);
+  SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
+  SDL_RenderFillRect(imp.renderer, &fill);
+  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+}
+
+static void imp_draw_menu()
+{
+  imp_draw_menu_prepare(imp.rom ? 7 : 3);
+  uint line = 9;
+  uint menu = 0;
+  if (imp.rom) {
+    if (imp_draw_menu_line("Continue", line++, menu++)) {
+      imp_menu_state(IMP_MENU_OFF);
+    }
+    ++line;
+    if (imp_draw_menu_line(imp_save_slot_labels[imp.slot], line++, menu++)) {
+      imp_slot_next();
+    }
+    if (imp_draw_menu_line("Save", line++, menu++)) {
+      imp_save();
+    }
+    if (imp_draw_menu_line("Load", line++, menu++)) {
+      imp_load();
+    }
+    ++line;
+  }
+  if (imp_draw_menu_line("Open ROM", line++, menu++)) {
+    imp_open_file();
+  }
+  ++line;
+  if (imp_draw_menu_line("Options", line++, menu++)) {
+    imp_menu_state(IMP_MENU_OPTIONS);
+  }
+  if (imp_draw_menu_line("Help", line++, menu++)) {
+    imp_menu_state(IMP_MENU_HELP);
+  }
+  ++line;
+  ++line;
+  imp_draw_line(line++, "       Press F1 for help        ");
+  ++line;
+  imp_draw_line(line++, " Drag-n-drop *.nes file to play ");
+}
+
+static void imp_draw_options()
+{
+  imp_draw_menu_prepare(9);
+  uint line = 9;
+  uint menu = 0;
+  if (imp_draw_menu_line("Back", line++, menu++)) {
+    imp_menu_state(IMP_MENU_MAIN);
+  }
+  ++line;
+  uint res = imp_draw_menu_line_left_right(imp_scale_labels[imp.scale - 1], line++, menu++);
+  if (res) {
+    switch (res) {
+      case MN_INPUT_B:
+      case MN_INPUT_LEFT: imp_downscale(); break;
+      case MN_INPUT_A:
+      case MN_INPUT_RIGHT: imp_upscale(); break;
+    }
+  }
+  if (imp_draw_menu_line(imp_aspect_labels[imp.auto_aspect], line++, menu++)) {
+    imp_toggle_aspect();
+  }
+  if (imp_draw_menu_line(imp_overscan_labels[imp.overscan], line++, menu++)) {
+    imp_toggle_overscan();
+  }
+  if (imp_draw_menu_line(imp_fps_labels[imp.fps], line++, menu++)) {
+    imp_toggle_fps();
+  }
+  if (imp_draw_menu_line(imp_fps_test_labels[imp.fps_test], line++, menu++)) {
+    imp_toggle_fps_test();
+  }
+  if (imp_draw_menu_line(imp_region_labels[imp.region], line++, menu++)) {
+    imp_toggle_region();
+  }
+  Uint32 flags = SDL_GetWindowFlags(imp.window);
+  bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+  if (imp_draw_menu_line(imp_fullscreen_labels[is_fullscreen], line++, menu++)) {
+    imp_toggle_fullscreen();
+  }
+  // todo: auto_save_period
+  // todo: fast_forward_scale
+  ++line;
+  if (imp_draw_menu_line("Defaults", line++, menu++)) {
+    imp_reset_config();
+  }
+}
+
+static void imp_draw_help()
+{
+  imp_draw_menu_prepare(0);
+  uint i = 2;
+  imp_draw_line(i++, " Help        F1        MyaowNES ");
+  imp_draw_line(i++, " Open DnDrop,F2          v" MN_VERSION " ");
+  imp_draw_line(i++, " Region      F3                 ");
+  imp_draw_line(i++, " Reset       F4    /\\____/\\     ");
+  imp_draw_line(i++, " Quick save  F5                 ");
+  imp_draw_line(i++, " Aspect      F6   |  o..o  |    ");
+  imp_draw_line(i++, " Overscan    F7   |=<+__+>=|    ");
+  imp_draw_line(i++, " Quick load  F8   |        |    ");
+  imp_draw_line(i++, "                                ");
+  imp_draw_line(i++, " Quit       F10   [_m____m_]    ");
+  imp_draw_line(i++, " Fullscreen F11                 ");
+  imp_draw_line(i++, " Screenshot F12  %s ", imp.rom_info[0]);
+  imp_draw_line(i++, " Save slot  0-9  %s ", imp.rom_info[1]);
+  imp_draw_line(i++, " F-forward  Tab  %s ", imp.rom_info[2]);
+  imp_draw_line(i++, " Pause      Esc  %s ", imp.rom_info[3]);
+  imp_draw_line(i++, " Scale      -/+  %s ", imp.rom_info[4]);
+  imp_draw_line(i++, " FPS          `  %s ", imp.rom_info[5]);
+  imp_draw_line(i++, "                                ");
+  imp_draw_line(i++, "           Joy1    Joy2          ");
+  imp_draw_line(i++, " D-pad     WASD  Arrows          ");
+  imp_draw_line(i++, " B            J   NUM_1          ");
+  imp_draw_line(i++, " A            K   NUM_2          ");
+  imp_draw_line(i++, " B turbo      U   NUM_4          ");
+  imp_draw_line(i++, " A turbo      I   NUM_5          ");
+  imp_draw_line(i++, " Start        H   Enter          ");
+  imp_draw_line(i++, " Select       F   Space          ");
+  if (imp_menu_pressed(-1)) {
+    imp_toggle_help();
+  }
+}
+
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
 {
   switch (event->type) {
@@ -804,7 +965,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     case SDL_EVENT_DROP_FILE: imp_drop_file(event->drop.data); break;
     case SDL_EVENT_KEY_DOWN:
       switch (event->key.key) {
-        case SDLK_F1: imp_help(); break;
+        case SDLK_F1: imp_toggle_help(); break;
         case SDLK_F2: imp_open_file(); break;
         case SDLK_F3: imp_toggle_region(); break;
         case SDLK_F4: mn_reset(); break;
@@ -817,7 +978,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_F12: imp_screenshot(); break;
         case SDLK_EQUALS: imp_upscale(); break;
         case SDLK_MINUS: imp_downscale(); break;
-        case SDLK_ESCAPE: imp_toggle_pause(); break;
+        case SDLK_PAUSE: imp_toggle_pause(); break;
+        case SDLK_ESCAPE: imp_toggle_menu(); break;
         case SDLK_TAB: imp_fast_forward_on(); break;
         case SDLK_GRAVE: imp_toggle_fps(); break;
         case SDLK_Z: imp_toggle_fps_test(); break;
@@ -1042,8 +1204,10 @@ SDL_AppResult SDL_AppIterate(void*)
   SDL_RenderTexture(imp.renderer, imp.tex_out, nullptr, &imp.rect);
 
   SDL_SetRenderScale(imp.renderer, imp.ui_offset.w, imp.ui_offset.h);
-  if (imp.help) {
-    imp_draw_help();
+  switch (imp.menu_state) {
+    case IMP_MENU_MAIN: imp_draw_menu(); break;
+    case IMP_MENU_OPTIONS: imp_draw_options(); break;
+    case IMP_MENU_HELP: imp_draw_help(); break;
   }
   if (imp.popup_time > 0) {
     imp_draw_popup();
