@@ -2,6 +2,7 @@
 #include "ppu.h"
 #include "apu.h"
 #include "map.h"
+#include "iou.h"
 #include "common.h"
 #include <string.h>
 
@@ -44,8 +45,6 @@ enum
 MN_CACHE_LINE static struct Cpu
 {
   uint cyc;
-  uint joy_shift_idx;
-  uint joy_shift_delay;
   uint dmc_dma_delay;
   uint dmc_dma_addr;
   uint oam_dma_addr;
@@ -57,11 +56,8 @@ MN_CACHE_LINE static struct Cpu
   uint a;
   uint x;
   uint y;
-  uint joy_pending[2];
-  uint joy_shift[2];
   uint internal_open_bus;
   uint external_open_bus;
-  uint out;
 
   bool reset: 1;
   bool nmi: 1;
@@ -128,37 +124,6 @@ void cpu_dmc(bool enabled, uint addr)
 static void cpu_dmc_dma();
 static void cpu_oam_dma();
 
-void cpu_input(uint joy1, uint joy2)
-{
-  cpu.joy_pending[0] = joy1;
-  cpu.joy_pending[1] = joy2;
-}
-
-static uint cpu_joy_poll(uint addr, bool trace)
-{
-  uint idx = (addr & 1);
-  if (!trace) {
-    cpu.joy_shift_idx = idx;
-    cpu.joy_shift_delay = 2;
-  }
-  uint val = (cpu.joy_shift[idx] & 1);
-  // val |= (val & 1) << 1; // todo: Dendy uses expansion port for joy2?
-  return val | (cpu.external_open_bus & 0xE0);
-}
-
-static void cpu_joy_strobe()
-{
-  if (cpu.joy_shift_delay > 0) {
-    if (--cpu.joy_shift_delay == 0) {
-      cpu.joy_shift[cpu.joy_shift_idx] = (cpu.joy_shift[cpu.joy_shift_idx] >> 1) | 0x80;
-    }
-  }
-  if ((cpu.cyc & 1) && (cpu.out & 1)) {
-    cpu.joy_shift[0] = cpu.joy_pending[0];
-    cpu.joy_shift[1] = cpu.joy_pending[1];
-  }
-}
-
 static void cpu_cyc_begin()
 {
   cpu_oam_dma();
@@ -168,7 +133,7 @@ static void cpu_cyc_begin()
   cpu_poll();
   ppu_tick();
   ppu_tick();
-  cpu_joy_strobe();
+  iou_tick();
   apu_tick();
   map_cpu_cyc();
 }
@@ -190,7 +155,7 @@ static uint cpu_read_addr_raw(uint addr, bool trace)
     return ppu_bus_read(addr, trace);
   } else if (addr < 0x4020) {
     if (addr == 0x4016 || addr == 0x4017) {
-      return cpu_joy_poll(addr, trace);
+      return iou_bus_read(addr, cpu.external_open_bus, trace);
     } else {
       return apu_bus_read(addr, addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus, trace);
     }
@@ -239,7 +204,7 @@ static void cpu_write_addr_direct(uint addr, uint val)
       cpu.oam_dma_addr = val << 8;
       cpu.oam_dma_trig = true;
     } else if (addr == 0x4016) {
-      cpu.out = val;
+      iou_bus_write(addr, val);
     } else {
       apu_bus_write(addr, val);
     }

@@ -741,7 +741,7 @@ static void imp_toggle_fps_test()
 {
   imp.fps_test = !imp.fps_test;
   SDL_SetRenderVSync(imp.renderer, !imp.fps_test);
-  imp_popup(imp.fps_test ? "FPS test ON" : "FPS test OFF", 2);
+  imp_popup(imp.fps_test ? "Max FPS ON" : "Max FPS OFF", 2);
 }
 
 static void imp_slot(uint slot)

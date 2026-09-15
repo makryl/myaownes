@@ -4,6 +4,7 @@
 #include "ppu.h"
 #include "apu.h"
 #include "map.h"
+#include "iou.h"
 #include "common.h"
 #include <errno.h>
 #include <stdlib.h>
@@ -46,6 +47,7 @@ void dev_power()
   apu_power();
   cpu_power();
   ppu_power();
+  iou_power();
 }
 
 void mn_reset()
@@ -60,7 +62,7 @@ void mn_frame(uint joy1, uint joy2)
   if (!map_ready()) {
     return;
   }
-  cpu_input(joy1, joy2);
+  iou_input(joy1, joy2);
   apu_reset_out();
   bool vblank_before;
   do {
