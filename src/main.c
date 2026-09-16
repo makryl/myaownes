@@ -183,6 +183,7 @@ static struct
   u64 perf_freq;
   u64 touch_button[IMP_TOUCH_COUNT];
   uint auto_save_period;
+  uint volume;
   uint scale;
   uint slot;
   uint audio_buffer_size;
@@ -237,6 +238,9 @@ static const char* const imp_save_slot_labels[10] = { "Slot 0", "Slot 1", "Slot 
                                                       "Slot 5", "Slot 6", "Slot 7", "Slot 8", "Slot 9" };
 static const char* const imp_scale_labels[8] = { "Scale 1", "Scale 2", "Scale 3", "Scale 4",
                                                  "Scale 5", "Scale 6", "Scale 7", "Scale 8" };
+static const char* const imp_volume_labels[11] = { "Volume OFF", "Volume 1", "Volume 2", "Volume 3",
+                                                   "Volume 4",   "Volume 5", "Volume 6", "Volume 7",
+                                                   "Volume 8",   "Volume 9", "Volume 10" };
 static const char* const imp_region_labels[4] = { "Region NTSC", "Region PAL", "Region Auto", "Region Dendy" };
 static const char* const imp_aspect_labels[2] = { "Aspect OFF", "Aspect ON" };
 static const char* const imp_overscan_labels[2] = { "Overscan OFF", "Overscan ON" };
@@ -305,6 +309,8 @@ static void imp_try_resize()
 #endif
   imp_onresize();
 }
+
+static void imp_volume_update() { SDL_SetAudioStreamGain(imp.stream, (float)imp.volume / 10.0f); }
 
 static void imp_ensure_dir(const char* subdir)
 {
@@ -381,10 +387,12 @@ static void imp_rom_update()
 
   imp_update_frame_time();
   imp_try_resize();
+  imp_volume_update();
 }
 
 static void imp_config_defaults()
 {
+  imp.volume = 10;
   imp.scale = 2;
   imp.auto_aspect = true;
   imp.overscan = false;
@@ -418,6 +426,7 @@ static void imp_save_config()
   if (!f) {
     return;
   }
+  fprintf(f, "volume %u\n", imp.volume);
   fprintf(f, "scale %u\n", imp.scale);
   fprintf(f, "auto_aspect %u\n", imp.auto_aspect);
   fprintf(f, "overscan %u\n", imp.overscan);
@@ -440,7 +449,9 @@ static void imp_load_config()
   }
   char key[32];
   while (fscanf(f, "%31s", key) == 1) {
-    if (strcmp(key, "scale") == 0) {
+    if (strcmp(key, "volume") == 0) {
+      fscanf(f, "%u", &imp.volume);
+    } else if (strcmp(key, "scale") == 0) {
       fscanf(f, "%u", &imp.scale);
     } else if (strcmp(key, "auto_aspect") == 0) {
       uint val;
@@ -716,6 +727,26 @@ static void imp_screenshot()
   }
 }
 
+static void imp_volume_down()
+{
+  if (imp.volume > 0) {
+    --imp.volume;
+    imp.dirty_config = true;
+  }
+  imp_popup(imp_volume_labels[imp.volume], 2);
+  imp_volume_update();
+}
+
+static void imp_volume_up()
+{
+  if (imp.volume < 10) {
+    ++imp.volume;
+    imp.dirty_config = true;
+  }
+  imp_popup(imp_volume_labels[imp.volume], 2);
+  imp_volume_update();
+}
+
 static void imp_upscale()
 {
   if (imp.scale < 8) {
@@ -783,6 +814,12 @@ static void imp_slot_next()
   imp_popup(imp_save_slot_labels[imp.slot], 2);
 }
 
+static void imp_slot_prev()
+{
+  imp.slot = (imp.slot + 9) % 10;
+  imp_popup(imp_save_slot_labels[imp.slot], 2);
+}
+
 static void imp_joy1_dpad_up_down() { imp.joy1 |= MN_INPUT_UP; }
 static void imp_joy1_dpad_up_up() { imp.joy1 &= ~MN_INPUT_UP; }
 static void imp_joy1_dpad_left_down() { imp.joy1 |= MN_INPUT_LEFT; }
@@ -835,18 +872,7 @@ static void imp_drop_file(const char* path)
 
 static bool imp_menu_pressed(uint mask) { return (imp.menu_input & mask) && !(imp.menu_input_prev & mask); }
 
-static bool imp_draw_menu_line(const char* label, uint line, int selection_id)
-{
-  bool selected = imp.menu_selection == selection_id;
-  if (selected) {
-    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
-  }
-  imp_draw_line(line, "          %s %s", selected ? "*" : " ", label);
-  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-  return selected && imp_menu_pressed(MN_INPUT_A | MN_INPUT_START);
-}
-
-static uint imp_draw_menu_line_left_right(const char* label, uint line, int selection_id)
+static uint imp_draw_menu_line(const char* label, uint line, int selection_id)
 {
   bool selected = imp.menu_selection == selection_id;
   if (selected) {
@@ -858,7 +884,7 @@ static uint imp_draw_menu_line_left_right(const char* label, uint line, int sele
     if (imp_menu_pressed(MN_INPUT_LEFT | MN_INPUT_B)) {
       return MN_INPUT_LEFT;
     }
-    if (imp_menu_pressed(MN_INPUT_RIGHT | MN_INPUT_A)) {
+    if (imp_menu_pressed(MN_INPUT_RIGHT | MN_INPUT_A | MN_INPUT_START)) {
       return MN_INPUT_RIGHT;
     }
   }
@@ -901,8 +927,9 @@ static void imp_draw_menu()
       imp_menu_state(IMP_MENU_OFF);
     }
     ++line;
-    if (imp_draw_menu_line(imp_save_slot_labels[imp.slot], line++, menu++)) {
-      imp_slot_next();
+    switch (imp_draw_menu_line(imp_save_slot_labels[imp.slot], line++, menu++)) {
+      case MN_INPUT_RIGHT: imp_slot_next(); break;
+      case MN_INPUT_LEFT: imp_slot_prev(); break;
     }
     if (imp_draw_menu_line("Save", line++, menu++)) {
       imp_save();
@@ -935,21 +962,20 @@ static void imp_draw_menu()
 
 static void imp_draw_options()
 {
-  imp_draw_menu_prepare(9);
+  imp_draw_menu_prepare(10);
   uint line = 9;
   uint menu = 0;
   if (imp_draw_menu_line("Back", line++, menu++)) {
     imp_menu_state(IMP_MENU_MAIN);
   }
   ++line;
-  uint res = imp_draw_menu_line_left_right(imp_scale_labels[imp.scale - 1], line++, menu++);
-  if (res) {
-    switch (res) {
-      case MN_INPUT_B:
-      case MN_INPUT_LEFT: imp_downscale(); break;
-      case MN_INPUT_A:
-      case MN_INPUT_RIGHT: imp_upscale(); break;
-    }
+  switch (imp_draw_menu_line(imp_volume_labels[imp.volume], line++, menu++)) {
+    case MN_INPUT_LEFT: imp_volume_down(); break;
+    case MN_INPUT_RIGHT: imp_volume_up(); break;
+  }
+  switch (imp_draw_menu_line(imp_scale_labels[imp.scale - 1], line++, menu++)) {
+    case MN_INPUT_LEFT: imp_downscale(); break;
+    case MN_INPUT_RIGHT: imp_upscale(); break;
   }
   if (imp_draw_menu_line(imp_aspect_labels[imp.auto_aspect], line++, menu++)) {
     imp_toggle_aspect();
