@@ -217,6 +217,7 @@ static struct
   uint touch_dpad_orig_y;
   int width;
   int height;
+  SDL_AtomicInt load_rom_dialog_done;
   bool pause;
   bool fps;
   bool fps_test;
@@ -225,8 +226,10 @@ static struct
   bool overscan;
   bool dirty_config;
   bool touch_active;
+  bool load_rom_dialog_wait;
   mn_rom rom;
   char rom_info[6][15];
+  char load_rom_path[IMP_PATH_SIZE];
   char rom_path[IMP_PATH_SIZE];
   char sram_path[IMP_PATH_SIZE];
   char save_dir[IMP_PATH_SIZE];
@@ -544,15 +547,6 @@ static void imp_load()
   }
 }
 
-static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
-{
-  if (!files || !*files) {
-    return;
-  }
-  imp_rom_load(files[0]);
-  imp_rom_update();
-}
-
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 {
   SDL_Log("MyaowNES v%s", MN_VERSION);
@@ -671,8 +665,32 @@ static void imp_menu_state(uint state)
 static void imp_toggle_menu() { imp_menu_state(imp.menu_state == IMP_MENU_MAIN ? IMP_MENU_OFF : IMP_MENU_MAIN); }
 static void imp_toggle_help() { imp_menu_state(imp.menu_state == IMP_MENU_HELP ? imp.menu_state_prev : IMP_MENU_HELP); }
 
+static void imp_toggle_pause()
+{
+  if (imp.menu_state == IMP_MENU_OFF) {
+    imp.pause = !imp.pause;
+    if (imp.pause) {
+      imp_popup("Pause", 2);
+    }
+  }
+}
+
+static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
+{
+  if (files && files[0]) {
+    SDL_strlcpy(imp.load_rom_path, files[0], IMP_PATH_SIZE);
+  } else {
+    imp.load_rom_path[0] = 0;
+  }
+  SDL_SetAtomicInt(&imp.load_rom_dialog_done, 1);
+}
+
 static void imp_open_file()
 {
+  if (imp.load_rom_dialog_wait) {
+    return;
+  }
+  imp.load_rom_dialog_wait = true;
   SDL_DialogFileFilter filters[] = { { "iNES / NES 2.0 ROMs (*.nes)", "nes" }, { "All Files (*.*)", "*" } };
   SDL_ShowOpenFileDialog(imp_file_dialog_cb, nullptr, imp.window, filters, 2, nullptr, false);
 }
@@ -772,16 +790,6 @@ static void imp_downscale()
   }
   imp_popup(imp_scale_labels[imp.scale - 1], 2);
   imp_try_resize();
-}
-
-static void imp_toggle_pause()
-{
-  if (imp.menu_state == IMP_MENU_OFF) {
-    imp.pause = !imp.pause;
-    if (imp.pause) {
-      imp_popup("Pause", 2);
-    }
-  }
 }
 
 static void imp_fast_forward_on()
@@ -1387,6 +1395,16 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
 
 SDL_AppResult SDL_AppIterate(void*)
 {
+  if (imp.load_rom_dialog_wait) {
+    if (SDL_CompareAndSwapAtomicInt(&imp.load_rom_dialog_done, 1, 0)) {
+      imp.load_rom_dialog_wait = false;
+      if (imp.load_rom_path[0]) {
+        imp_rom_load(imp.load_rom_path);
+        imp_rom_update();
+      }
+    }
+  }
+
   Uint64 time = SDL_GetPerformanceCounter();
   if (imp.last_time == 0) {
     imp.last_time = time;
