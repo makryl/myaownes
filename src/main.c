@@ -147,6 +147,17 @@ enum
   IMP_MENU_HELP,
 };
 
+enum
+{
+  IMP_TOUCH_A = 0,
+  IMP_TOUCH_B,
+  IMP_TOUCH_START,
+  IMP_TOUCH_SELECT,
+  IMP_TOUCH_FF,
+  IMP_TOUCH_DPAD,
+  IMP_TOUCH_COUNT,
+};
+
 static struct
 {
   SDL_Window* window;
@@ -171,6 +182,7 @@ static struct
   u64 fps_value;
   u64 auto_save_time;
   u64 perf_freq;
+  u64 touch_button[IMP_TOUCH_COUNT];
   uint auto_save_period;
   uint scale;
   uint slot;
@@ -184,6 +196,27 @@ static struct
   int menu_selection;
   uint menu_input;
   uint menu_input_prev;
+  int touch_button_radius;
+  uint touch_a_x;
+  uint touch_a_y;
+  uint touch_b_x;
+  uint touch_b_y;
+  uint touch_start_x;
+  uint touch_start_y;
+  uint touch_select_x;
+  uint touch_select_y;
+  uint touch_menu_x;
+  uint touch_menu_y;
+  uint touch_ff_x;
+  uint touch_ff_y;
+  int touch_dpad_radius;
+  int touch_dpad_threshold;
+  uint touch_dpad_x;
+  uint touch_dpad_y;
+  uint touch_dpad_orig_x;
+  uint touch_dpad_orig_y;
+  int width;
+  int height;
   bool pause;
   bool fps;
   bool fps_test;
@@ -191,6 +224,7 @@ static struct
   bool auto_aspect;
   bool overscan;
   bool dirty_config;
+  bool touch_active;
   mn_rom rom;
   char rom_info[6][15];
   char rom_path[IMP_PATH_SIZE];
@@ -233,14 +267,33 @@ static void imp_update_frame_time()
 
 static void imp_onresize()
 {
-  int width;
-  int height;
-  SDL_GetWindowSizeInPixels(imp.window, &width, &height);
-  mn_video_fit(imp.auto_aspect, imp.overscan, width, height, &imp.rect.x, &imp.rect.y, &imp.rect.w, &imp.rect.h);
+  SDL_GetWindowSizeInPixels(imp.window, &imp.width, &imp.height);
+  mn_video_fit(imp.auto_aspect, imp.overscan, imp.width, imp.height, &imp.rect.x, &imp.rect.y, &imp.rect.w,
+               &imp.rect.h);
   imp.ui_offset.w = imp.rect.w / 256;
   imp.ui_offset.h = imp.rect.h / 240;
   imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
   imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
+
+  uint ph = imp.height / 20;
+
+  imp.touch_button_radius = ph;
+  imp.touch_a_x = imp.width - 2 * ph;
+  imp.touch_a_y = imp.height - 3 * ph;
+  imp.touch_b_x = imp.width - 6 * ph;
+  imp.touch_b_y = imp.height - 3 * ph;
+  imp.touch_start_x = imp.width - 2 * ph;
+  imp.touch_start_y = imp.height / 2;
+  imp.touch_select_x = 2 * ph;
+  imp.touch_select_y = imp.height / 2;
+  imp.touch_menu_x = imp.width - 2 * ph;
+  imp.touch_menu_y = 2 * ph;
+  imp.touch_ff_x = 2 * ph;
+  imp.touch_ff_y = 2 * ph;
+  imp.touch_dpad_radius = 2 * ph;
+  imp.touch_dpad_threshold = ph;
+  imp.touch_dpad_x = 3 * ph;
+  imp.touch_dpad_y = imp.height - 3 * ph;
 }
 
 static void imp_try_resize()
@@ -524,6 +577,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   imp_load_config();
   mn_region_set(imp.region);
 
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 #ifdef __EMSCRIPTEN__
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
@@ -839,10 +893,11 @@ static void imp_draw_menu_prepare(int menu_size)
 
 static void imp_draw_menu()
 {
-  imp_draw_menu_prepare(imp.rom ? 7 : 3);
+  bool rom_loaded = imp.rom && !imp.rom->mapper_error;
+  imp_draw_menu_prepare(rom_loaded ? 7 : 3);
   uint line = 9;
   uint menu = 0;
-  if (imp.rom) {
+  if (rom_loaded) {
     if (imp_draw_menu_line("Continue", line++, menu++)) {
       imp_menu_state(IMP_MENU_OFF);
     }
@@ -872,7 +927,11 @@ static void imp_draw_menu()
   ++line;
   imp_draw_line(line++, "       Press F1 for help        ");
   ++line;
+  ++line;
   imp_draw_line(line++, " Drag-n-drop *.nes file to play ");
+  ++line;
+  ++line;
+  imp_draw_line(line++, "     Touch to show controls     ");
 }
 
 static void imp_draw_options()
@@ -921,12 +980,43 @@ static void imp_draw_options()
   }
 }
 
+static void imp_draw_touch_button(const char* label, uint x, uint y, uint r)
+{
+  SDL_FRect rect = { x - r, y - r, 2 * r, 2 * r };
+  SDL_RenderRect(imp.renderer, &rect);
+  SDL_RenderDebugText(imp.renderer, x - 4, y - 4, label);
+}
+
+static void imp_draw_touch()
+{
+  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0x80, 0x80, 0x80);
+
+  if (imp.touch_button[IMP_TOUCH_DPAD]) {
+    imp_draw_touch_button("D", imp.touch_dpad_orig_x, imp.touch_dpad_orig_y, imp.touch_dpad_threshold);
+  } else {
+    imp_draw_touch_button("D", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius);
+  }
+  imp_draw_touch_button("M", imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius);
+  imp_draw_touch_button("F", imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius);
+  imp_draw_touch_button("St", imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius);
+  imp_draw_touch_button("Se", imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius);
+  imp_draw_touch_button("A", imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius);
+  imp_draw_touch_button("B", imp.touch_b_x, imp.touch_b_y, imp.touch_button_radius);
+}
+
+static bool imp_touch_hit(SDL_TouchFingerEvent* e, int x, int y, int r)
+{
+  int dx = e->x * imp.width - x;
+  int dy = e->y * imp.height - y;
+  return (dx * dx + dy * dy) < (r * r);
+}
+
 static void imp_draw_help()
 {
   imp_draw_menu_prepare(0);
   uint i = 2;
   imp_draw_line(i++, " Help        F1        MyaowNES ");
-  imp_draw_line(i++, " Open DnDrop,F2          v" MN_VERSION " ");
+  imp_draw_line(i++, " Open        F2          v" MN_VERSION " ");
   imp_draw_line(i++, " Region      F3                 ");
   imp_draw_line(i++, " Reset       F4    /\\____/\\     ");
   imp_draw_line(i++, " Quick save  F5                 ");
@@ -964,6 +1054,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: imp_onresize(); break;
     case SDL_EVENT_DROP_FILE: imp_drop_file(event->drop.data); break;
     case SDL_EVENT_KEY_DOWN:
+      imp.touch_active = false;
       switch (event->key.key) {
         case SDLK_F1: imp_toggle_help(); break;
         case SDLK_F2: imp_open_file(); break;
@@ -1065,6 +1156,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       }
       break;
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+      imp.touch_active = false;
       switch (event->gbutton.button) {
         case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_slot_next(); break;
         case SDL_GAMEPAD_BUTTON_RIGHT_STICK: imp_fast_forward_on(); break;
@@ -1128,6 +1220,84 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           case SDL_GAMEPAD_BUTTON_NORTH: imp_joy2_a_turbo_up(); break;
           case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_up(); break;
           case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_up(); break;
+        }
+      }
+      break;
+    case SDL_EVENT_FINGER_DOWN:
+      imp.touch_active = true;
+      if (!imp.touch_button[IMP_TOUCH_DPAD]
+          && imp_touch_hit(&event->tfinger, imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius))
+      {
+        imp.touch_button[IMP_TOUCH_DPAD] = event->tfinger.fingerID;
+        imp.touch_dpad_orig_x = event->tfinger.x * imp.width;
+        imp.touch_dpad_orig_y = event->tfinger.y * imp.height;
+      } else if (imp_touch_hit(&event->tfinger, imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius)) {
+        imp.touch_button[IMP_TOUCH_A] = event->tfinger.fingerID;
+        imp_joy1_a_down();
+      } else if (imp_touch_hit(&event->tfinger, imp.touch_b_x, imp.touch_b_y, imp.touch_button_radius)) {
+        imp.touch_button[IMP_TOUCH_B] = event->tfinger.fingerID;
+        imp_joy1_b_down();
+      } else if (imp_touch_hit(&event->tfinger, imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius)) {
+        imp.touch_button[IMP_TOUCH_START] = event->tfinger.fingerID;
+        imp_joy1_start_down();
+      } else if (imp_touch_hit(&event->tfinger, imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius)) {
+        imp.touch_button[IMP_TOUCH_SELECT] = event->tfinger.fingerID;
+        imp_joy1_select_down();
+      } else if (imp_touch_hit(&event->tfinger, imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius)) {
+        imp_toggle_menu();
+      } else if (imp_touch_hit(&event->tfinger, imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius)) {
+        imp.touch_button[IMP_TOUCH_FF] = event->tfinger.fingerID;
+        imp_fast_forward_on();
+      }
+      break;
+    case SDL_EVENT_FINGER_UP:
+    case SDL_EVENT_FINGER_CANCELED:
+      if (imp.touch_button[IMP_TOUCH_DPAD] == event->tfinger.fingerID) {
+        imp.touch_button[IMP_TOUCH_DPAD] = 0;
+        imp_joy1_dpad_up_up();
+        imp_joy1_dpad_down_up();
+        imp_joy1_dpad_left_up();
+        imp_joy1_dpad_right_up();
+      } else if (imp.touch_button[IMP_TOUCH_A] == event->tfinger.fingerID) {
+        imp.touch_button[IMP_TOUCH_A] = 0;
+        imp_joy1_a_up();
+      } else if (imp.touch_button[IMP_TOUCH_B] == event->tfinger.fingerID) {
+        imp.touch_button[IMP_TOUCH_B] = 0;
+        imp_joy1_b_up();
+      } else if (imp.touch_button[IMP_TOUCH_START] == event->tfinger.fingerID) {
+        imp.touch_button[IMP_TOUCH_START] = 0;
+        imp_joy1_start_up();
+      } else if (imp.touch_button[IMP_TOUCH_SELECT] == event->tfinger.fingerID) {
+        imp.touch_button[IMP_TOUCH_SELECT] = 0;
+        imp_joy1_select_up();
+      } else if (imp.touch_button[IMP_TOUCH_FF] == event->tfinger.fingerID) {
+        imp.touch_button[IMP_TOUCH_FF] = 0;
+        imp_fast_forward_off();
+      }
+      break;
+    case SDL_EVENT_FINGER_MOTION:
+      if (imp.touch_button[IMP_TOUCH_DPAD] == event->tfinger.fingerID) {
+        int dx = event->tfinger.x * imp.width - imp.touch_dpad_orig_x;
+        int dy = event->tfinger.y * imp.height - imp.touch_dpad_orig_y;
+        if (dx > imp.touch_dpad_threshold) {
+          imp_joy1_dpad_right_down();
+        } else {
+          imp_joy1_dpad_right_up();
+        }
+        if (dx < -imp.touch_dpad_threshold) {
+          imp_joy1_dpad_left_down();
+        } else {
+          imp_joy1_dpad_left_up();
+        }
+        if (dy > imp.touch_dpad_threshold) {
+          imp_joy1_dpad_down_down();
+        } else {
+          imp_joy1_dpad_down_up();
+        }
+        if (dy < -imp.touch_dpad_threshold) {
+          imp_joy1_dpad_up_down();
+        } else {
+          imp_joy1_dpad_up_up();
         }
       }
       break;
@@ -1219,6 +1389,10 @@ SDL_AppResult SDL_AppIterate(void*)
     SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
     SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8 - 1, imp.ui_offset.y + 12, "%4d",
                               (int)imp.fps_value);
+  }
+  if (imp.touch_active) {
+    SDL_SetRenderScale(imp.renderer, 1, 1);
+    imp_draw_touch();
   }
 
   SDL_RenderPresent(imp.renderer);
