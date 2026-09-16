@@ -2,7 +2,6 @@
 #include "cpu.h"
 #include "map.h"
 #include "common.h"
-#include <string.h>
 
 // Smooth (FBX)
 MN_CACHE_LINE static uint ppu_palette[64] = {

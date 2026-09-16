@@ -6,7 +6,6 @@
 #include "map_discrete.h"
 #include "map_mmc.h"
 #include "map_other.h"
-#include <string.h>
 
 enum
 {

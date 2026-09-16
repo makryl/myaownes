@@ -1,6 +1,6 @@
 #include "iou.h"
 #include "cpu.h"
-#include <string.h>
+#include "common.h"
 
 static struct
 {

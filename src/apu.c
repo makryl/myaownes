@@ -2,7 +2,6 @@
 #include "cpu.h"
 #include "map.h"
 #include "common.h"
-#include <string.h>
 
 enum
 {
