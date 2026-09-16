@@ -247,14 +247,21 @@ static const char* const imp_overscan_labels[2] = { "Overscan OFF", "Overscan ON
 static const char* const imp_fps_labels[2] = { "Show FPS OFF", "Show FPS ON" };
 static const char* const imp_fps_test_labels[2] = { "Max FPS OFF", "Max FPS ON" };
 static const char* const imp_fullscreen_labels[2] = { "Fullscreen OFF", "Fullscreen ON" };
+static const char* const imp_fast_forward_labels[4] = { "Fast forward x2", "Fast forward x3", "Fast forward x4",
+                                                        "Fast forward x5" };
+static const char* const imp_auto_save_period_labels[11] = {
+  "Auto-save OFF",     "Auto-save 30 sec",  "Auto-save 60 sec",  "Auto-save 90 sec",
+  "Auto-save 120 sec", "Auto-save 150 sec", "Auto-save 180 sec", "Auto-save 210 sec",
+  "Auto-save 240 sec", "Auto-save 270 sec", "Auto-save 300 sec"
+};
 
 static void imp_draw_popup()
 {
   imp.popup_time -= imp.popup_time > imp.real_frame_time ? imp.real_frame_time : imp.popup_time;
   SDL_SetRenderDrawColor(imp.renderer, 0x80, 0, 0x80, 0xFF);
-  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 2, imp.ui_offset.y + 13, imp.popup_text);
+  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 2, imp.ui_offset.y + 21, imp.popup_text);
   SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
-  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 1, imp.ui_offset.y + 12, imp.popup_text);
+  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 1, imp.ui_offset.y + 20, imp.popup_text);
 }
 
 static void imp_popup(const char* text, float time)
@@ -789,6 +796,40 @@ static void imp_fast_forward_off()
   SDL_SetAudioStreamFrequencyRatio(imp.stream, 1.0f);
 }
 
+static void imp_fast_forward_down()
+{
+  if (imp.fast_forward_scale > 2) {
+    --imp.fast_forward_scale;
+    imp.dirty_config = true;
+  }
+}
+
+static void imp_fast_forward_up()
+{
+  if (imp.fast_forward_scale < 5) {
+    ++imp.fast_forward_scale;
+    imp.dirty_config = true;
+  }
+}
+
+static void imp_auto_save_period_down()
+{
+  imp.auto_save_period = (imp.auto_save_period / 30) * 30;
+  if (imp.auto_save_period > 0) {
+    imp.auto_save_period -= 30;
+    imp.dirty_config = true;
+  }
+}
+
+static void imp_auto_save_period_up()
+{
+  imp.auto_save_period = (imp.auto_save_period / 30) * 30;
+  if (imp.auto_save_period < 300) {
+    imp.auto_save_period += 30;
+    imp.dirty_config = true;
+  }
+}
+
 static void imp_toggle_fps()
 {
   imp.fps = !imp.fps;
@@ -920,7 +961,7 @@ static void imp_draw_menu()
 {
   bool rom_loaded = imp.rom && !imp.rom->mapper_error;
   imp_draw_menu_prepare(rom_loaded ? 7 : 3);
-  uint line = 9;
+  uint line = 8;
   uint menu = 0;
   if (rom_loaded) {
     if (imp_draw_menu_line("Continue", line++, menu++)) {
@@ -962,8 +1003,8 @@ static void imp_draw_menu()
 
 static void imp_draw_options()
 {
-  imp_draw_menu_prepare(10);
-  uint line = 9;
+  imp_draw_menu_prepare(12);
+  uint line = 8;
   uint menu = 0;
   if (imp_draw_menu_line("Back", line++, menu++)) {
     imp_menu_state(IMP_MENU_MAIN);
@@ -996,6 +1037,18 @@ static void imp_draw_options()
   bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
   if (imp_draw_menu_line(imp_fullscreen_labels[is_fullscreen], line++, menu++)) {
     imp_toggle_fullscreen();
+  }
+  switch (imp_draw_menu_line(imp_fast_forward_labels[imp.fast_forward_scale - 2], line++, menu++)) {
+    case MN_INPUT_LEFT: imp_fast_forward_down(); break;
+    case MN_INPUT_RIGHT: imp_fast_forward_up(); break;
+  }
+  imp.auto_save_period = (imp.auto_save_period / 30) * 30;
+  if (imp.auto_save_period > 300) {
+    imp.auto_save_period = 300;
+  }
+  switch (imp_draw_menu_line(imp_auto_save_period_labels[imp.auto_save_period / 30], line++, menu++)) {
+    case MN_INPUT_LEFT: imp_auto_save_period_down(); break;
+    case MN_INPUT_RIGHT: imp_auto_save_period_up(); break;
   }
   // todo: auto_save_period
   // todo: fast_forward_scale
@@ -1055,9 +1108,9 @@ static void imp_draw_help()
   imp_draw_line(i++, " Save slot  0-9  %s ", imp.rom_info[1]);
   imp_draw_line(i++, " F-forward  Tab  %s ", imp.rom_info[2]);
   imp_draw_line(i++, " Pause      Esc  %s ", imp.rom_info[3]);
-  imp_draw_line(i++, " Scale      -/+  %s ", imp.rom_info[4]);
-  imp_draw_line(i++, " FPS          `  %s ", imp.rom_info[5]);
-  imp_draw_line(i++, "                                ");
+  imp_draw_line(i++, " Scale      [/]  %s ", imp.rom_info[4]);
+  imp_draw_line(i++, " Volume     -/+  %s ", imp.rom_info[5]);
+  imp_draw_line(i++, " FPS          `                 ");
   imp_draw_line(i++, "           Joy1    Joy2          ");
   imp_draw_line(i++, " D-pad     WASD  Arrows          ");
   imp_draw_line(i++, " B            J   NUM_1          ");
@@ -1092,8 +1145,10 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_F10: return SDL_APP_SUCCESS;
         case SDLK_F11: imp_toggle_fullscreen(); break;
         case SDLK_F12: imp_screenshot(); break;
-        case SDLK_EQUALS: imp_upscale(); break;
-        case SDLK_MINUS: imp_downscale(); break;
+        case SDLK_MINUS: imp_volume_down(); break;
+        case SDLK_EQUALS: imp_volume_up(); break;
+        case SDLK_LEFTBRACKET: imp_downscale(); break;
+        case SDLK_RIGHTBRACKET: imp_upscale(); break;
         case SDLK_PAUSE: imp_toggle_pause(); break;
         case SDLK_ESCAPE: imp_toggle_menu(); break;
         case SDLK_TAB: imp_fast_forward_on(); break;
@@ -1409,10 +1464,10 @@ SDL_AppResult SDL_AppIterate(void*)
   }
   if (imp.fps) {
     SDL_SetRenderDrawColor(imp.renderer, 0x80, 0, 0x80, 0xFF);
-    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8, imp.ui_offset.y + 13, "%4d",
+    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8, imp.ui_offset.y + 21, "%4d",
                               (int)imp.fps_value);
     SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
-    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8 - 1, imp.ui_offset.y + 12, "%4d",
+    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8 - 1, imp.ui_offset.y + 20, "%4d",
                               (int)imp.fps_value);
   }
   if (imp.touch_active) {
