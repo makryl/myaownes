@@ -551,8 +551,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   int vsync;
   SDL_GetRenderVSync(imp.renderer, &vsync);
-  SDL_Log("Video: %s %s %s", SDL_GetRendererName(imp.renderer), vsync ? "vsync" : "no-vsync",
-          SDL_ScreenSaverEnabled() ? "screensaver" : "no-screensaver");
+  SDL_Log("Video: %s %s %s", SDL_GetRendererName(imp.renderer), vsync ? "vsync:on" : "vsync:off",
+          SDL_ScreenSaverEnabled() ? "screensaver:on" : "screensaver:off");
 
   imp.tex_out = SDL_CreateTexture(imp.renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
   if (!imp.tex_out) {
