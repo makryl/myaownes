@@ -6,6 +6,7 @@
 #include "map.h"
 #include "iou.h"
 #include "common.h"
+#include <errno.h>
 
 struct NESHeader
 {
