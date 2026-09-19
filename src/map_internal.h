@@ -10,6 +10,7 @@ enum
 typedef void (*map_cpu_cyc_cb)();
 typedef bool (*map_cpu_read_cb)(uint, uint*, bool);
 typedef bool (*map_cpu_write_cb)(uint, uint);
+typedef void (*map_cpu_internal_cb)(uint, uint);
 typedef void (*map_ppu_addr_cb)(uint);
 typedef bool (*map_ppu_read_cb)(uint, uint*);
 typedef bool (*map_ppu_write_cb)(uint, uint);
@@ -17,6 +18,7 @@ typedef bool (*map_ppu_write_cb)(uint, uint);
 void map_set_cpu_cyc_cb(map_cpu_cyc_cb cb);
 void map_set_cpu_read_cb(map_cpu_read_cb cb);
 void map_set_cpu_write_cb(map_cpu_write_cb cb);
+void map_set_cpu_internal_cb(map_cpu_internal_cb cb);
 void map_set_ppu_addr_cb(map_ppu_addr_cb cb);
 void map_set_ppu_read_cb(map_ppu_read_cb cb);
 void map_set_ppu_write_cb(map_ppu_write_cb cb);
@@ -37,6 +39,7 @@ void map_prg_ram_page(uint sp, uint dp, uint shift, bool readonly);
 void map_chr_page(uint sp, uint dp, uint shift);
 
 void map_nt_page(uint sp, uint dp, bool use_chr);
+void map_cpu_ciram_page(uint sp, uint dp, bool readonly);
 void map_ciram_page(uint sp, uint dp);
 void map_ciram_single_low();
 void map_ciram_single_high();

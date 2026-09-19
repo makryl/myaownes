@@ -105,6 +105,7 @@ MN_CACHE_LINE static struct Ppu
   uint sl_end;
   uint sl_vblank;
   uint sl_pre_render;
+  uint fetch_unused_step;
 
   uint addr;
   uint t;
@@ -695,11 +696,8 @@ static void ppu_fetch_sprites_finish() { memcpy(ppu.sprite_shift_x, ppu.sprite_x
 
 static void ppu_fetch_unused()
 {
-  if (ppu.dot == PPU_DOT_ZERO) {
-    ppu_addr(ppu.nt);
-    return;
-  }
-  switch (ppu_pipe_step()) {
+  ppu.fetch_unused_step = ppu.dot == PPU_DOT_ZERO ? ++ppu.fetch_unused_step : ppu_pipe_step();
+  switch (ppu.fetch_unused_step) {
     case 0: { // 337
       ppu_addr(ppu_nt_addr());
       break;
@@ -713,9 +711,13 @@ static void ppu_fetch_unused()
       ppu_addr(ppu_nt_addr());
       break;
     }
-    case 3: { // 340
+    case 3: { // 340 or 0
       ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // ignored NT
+      break;
+    }
+    case 4: { // 0
+      ppu_addr(ppu.nt);
       break;
     }
   }

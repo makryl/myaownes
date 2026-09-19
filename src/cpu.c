@@ -151,7 +151,9 @@ static uint cpu_read_addr_raw(uint addr, bool trace)
   if (addr < 0x2000) {
     return cpu.ram[addr & 0x07FF];
   } else if (addr < 0x4000) {
-    return ppu_bus_read(addr, trace);
+    uint val = ppu_bus_read(addr, trace);
+    map_cpu_internal(addr, val);
+    return val;
   } else if (addr < 0x4020) {
     if (addr == 0x4016 || addr == 0x4017) {
       return iou_bus_read(addr, cpu.external_open_bus, trace);
@@ -198,10 +200,12 @@ static void cpu_write_addr_direct(uint addr, uint val)
     cpu.ram[addr & 0x07FF] = val;
   } else if (addr < 0x4000) {
     ppu_bus_write(addr, val);
+    map_cpu_internal(addr, val);
   } else if (addr < 0x4020) {
     if (addr == 0x4014) {
       cpu.oam_dma_addr = val << 8;
       cpu.oam_dma_trig = true;
+      map_cpu_internal(addr, val);
     } else if (addr == 0x4016) {
       iou_bus_write(addr, val);
     } else {

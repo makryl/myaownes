@@ -29,6 +29,7 @@ static bool imp_init()
   // test = "nes-test-roms/other/sprite_evaluation_test(2).nes"; // todo
   // test = "nes-test-roms/other/sprite_evaluation_test.nes"; // todo
   // test = "nes-test-roms/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // 4015 open bus bit?
+  // test = "nes-test-roms/mmc5test_v2/mmc5test.nes";
 
   // test = "GoodNES/USA/Mega Man (U) [!].nes";
   // test = "GoodNES/USA/Contra (U) [!].nes";
@@ -45,6 +46,7 @@ static bool imp_init()
   // test = "GoodNES/USA/Legend of Zelda, The (U) (V1.1) [!].nes";
   // test = "GoodNES/USA/Kirby's Adventure (U) (V1.1) [!].nes";
   // test = "GoodNES/USA/Immortal, The (U) [!].nes";
+  // test = "no-intro-2025/Games/Castlevania III - Dracula's Curse (World) (Castlevania Anniversary Collection).nes";
 
   // test = "no-intro-2025/Games/Super Mario Bros. (Europe).nes";
   // test = "GoodNES/USA/Elite (U) (Proto) [!].nes";

@@ -156,7 +156,7 @@ static TestParams tests[] = {
   { "dmc_dma_during_read4/dma_4016_read.nes", MN_REGION_NTSC, 0, 0, { { 0x441C2F34, 20, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/double_2007_read.nes", MN_REGION_NTSC, 0, 0, { { 0x80B4A112, 16, 0x00, 0 } } }, //
   { "dmc_dma_during_read4/read_write_2007.nes", MN_REGION_NTSC, 0, 0, { { 0xEB956420, 18, 0x00, 0 } } }, //
-  // exram/mmc5exram.nes // todo
+  { "exram/mmc5exram.nes", MN_REGION_NTSC, 0, 0, { { 0x03366E31, 60, 0, 0 } } }, //
   { "dpcmletterbox/dpcmletterbox.nes",
     MN_REGION_NTSC,
     0,
@@ -301,6 +301,7 @@ static TestParams tests[] = {
     0,
     0,
     { { 0xF54230B4, 10, 0x00, 0 }, { 0x44A5C30F, 70, MN_INPUT_START, 0 } } }, //
+  { "mmc5test/mmc5test.nes", MN_REGION_NTSC, 0, 0, { { 0xE3DAEE3D, 120, 0, 0 } } },
   // { "mmc5test_v2/mmc5test.nes", MN_REGION_NTSC, 0, 0, {} }, // todo
   { "nes_instr_test/rom_singles/01-implied.nes", MN_REGION_NTSC, 0, 0, { { 0x0F76F905, 63, 0x00, 0 } } }, //
   { "nes_instr_test/rom_singles/02-immediate.nes", MN_REGION_NTSC, 0, 0, { { 0x60452B1E, 57, 0x00, 0 } } }, //

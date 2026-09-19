@@ -16,12 +16,13 @@ enum
 
 MN_CACHE_LINE static struct
 {
-  void (*cpu_cyc)();
-  bool (*cpu_read)(uint, uint*, bool);
-  bool (*cpu_write)(uint, uint);
-  void (*ppu_addr)(uint);
-  bool (*ppu_read)(uint, uint*);
-  bool (*ppu_write)(uint, uint);
+  map_cpu_cyc_cb cpu_cyc;
+  map_cpu_read_cb cpu_read;
+  map_cpu_write_cb cpu_write;
+  map_cpu_internal_cb cpu_internal;
+  map_ppu_addr_cb ppu_addr;
+  map_ppu_read_cb ppu_read;
+  map_ppu_write_cb ppu_write;
 
   mn_rom rom;
 
@@ -42,6 +43,7 @@ MN_CACHE_LINE static struct
 void map_set_cpu_cyc_cb(map_cpu_cyc_cb cb) { map_dyn.cpu_cyc = cb; }
 void map_set_cpu_read_cb(map_cpu_read_cb cb) { map_dyn.cpu_read = cb; }
 void map_set_cpu_write_cb(map_cpu_write_cb cb) { map_dyn.cpu_write = cb; }
+void map_set_cpu_internal_cb(map_cpu_internal_cb cb) { map_dyn.cpu_internal = cb; }
 void map_set_ppu_addr_cb(map_ppu_addr_cb cb) { map_dyn.ppu_addr = cb; }
 void map_set_ppu_read_cb(map_ppu_read_cb cb) { map_dyn.ppu_read = cb; }
 void map_set_ppu_write_cb(map_ppu_write_cb cb) { map_dyn.ppu_write = cb; }
@@ -119,6 +121,13 @@ void map_cpu_write(uint addr, uint val)
 {
   if (!map_dyn.cpu_write || !map_dyn.cpu_write(addr, val)) {
     map_cpu_write_raw(addr, val);
+  }
+}
+
+void map_cpu_internal(uint addr, uint val)
+{
+  if (map_dyn.cpu_internal) {
+    map_dyn.cpu_internal(addr, val);
   }
 }
 
@@ -294,6 +303,12 @@ void map_nt_page(uint sp, uint dp, bool use_chr)
   } else {
     map_ciram_page(sp, dp);
   }
+}
+
+void map_cpu_ciram_page(uint sp, uint dp, bool readonly)
+{
+  map_cpu_read_pages(map.ciram, sp, dp, 1);
+  map_cpu_write_pages(readonly ? nullptr : map.ciram, sp, dp, 1);
 }
 
 void map_ciram_page(uint sp, uint dp)
