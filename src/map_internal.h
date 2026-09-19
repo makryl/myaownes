@@ -65,8 +65,6 @@ void map_prg_ram_page_1k(uint sp, uint dp, bool readonly);
 void map_prg_ram_page_2k(uint sp, uint dp, bool readonly);
 void map_prg_ram_page_4k(uint sp, uint dp, bool readonly);
 void map_prg_ram_page_8k(uint sp, uint dp, bool readonly);
-void map_prg_ram_page_16k(uint sp, uint dp, bool readonly);
-void map_prg_ram_page_32k(uint sp, uint dp, bool readonly);
 
 void map_chr_page_1k(uint sp, uint dp);
 void map_chr_page_2k(uint sp, uint dp);

@@ -584,7 +584,9 @@ static void map_mmc5_prg_16k(u8 reg, u8 dp, bool ram_readonly)
   if (reg & 0x80) {
     map_prg_rom_page_16k(reg >> 1, dp);
   } else {
-    map_prg_ram_page_16k(reg >> 1, dp, ram_readonly);
+    // map_prg_ram_page_16k(reg >> 1, dp, ram_readonly);
+    map_prg_ram_page_8k(reg & ~1, dp << 1, ram_readonly);
+    map_prg_ram_page_8k(reg | 1, (dp << 1) | 1, ram_readonly);
   }
 }
 
