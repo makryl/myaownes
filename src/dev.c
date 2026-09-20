@@ -92,8 +92,8 @@ static uint dev_dpad_filter(uint input, uint port, uint changed)
 
 static void dev_input(uint port1, uint port2)
 {
-  uint changed1 = (port1 ^ dev.io_mask[0]);
-  uint changed2 = (port2 ^ dev.io_mask[1]);
+  uint changed1 = (port1 ^ dev.io_mask[0]) | 0x0F;
+  uint changed2 = (port2 ^ dev.io_mask[1]) | 0x0F;
   dev.io_mask[0] = port1;
   dev.io_mask[1] = port2;
   dev.io_input[0] = dev_dpad_filter(dev.io_input[0], port1, changed1);
