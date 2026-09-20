@@ -145,6 +145,7 @@ enum
   IMP_MENU_OFF = 0,
   IMP_MENU_MAIN,
   IMP_MENU_OPTIONS,
+  IMP_MENU_INFO,
   IMP_MENU_HELP,
 };
 
@@ -357,9 +358,8 @@ static void imp_save_path(char* dst, const char* subdir, const char* ext)
 static void imp_rom_update()
 {
   mn_rom rom = imp.rom;
-  bool error = !rom || rom->mapper_error;
-  imp.menu_state = error ? IMP_MENU_MAIN : IMP_MENU_OFF;
-  imp.pause = error;
+  imp.menu_state = !rom ? IMP_MENU_MAIN : rom->mapper_error ? IMP_MENU_INFO : IMP_MENU_OFF;
+  imp.pause = !rom || rom->mapper_error;
   if (!rom) {
     for (uint i = 0; i < 6; ++i) {
       imp.rom_info[i][0] = 0;
@@ -970,9 +970,11 @@ static void imp_draw_menu_prepare(int menu_size)
 static void imp_draw_menu()
 {
   bool rom_loaded = imp.rom && !imp.rom->mapper_error;
-  imp_draw_menu_prepare(rom_loaded ? 7 : 3);
-  uint line = 8;
+  imp_draw_menu_prepare(rom_loaded ? 8 : 3);
+  uint line = 2;
   uint menu = 0;
+  imp_draw_line(line++, "                MyaowNES v" MN_VERSION " ");
+  line += 5;
   if (rom_loaded) {
     if (imp_draw_menu_line("Continue", line++, menu++)) {
       imp_menu_state(IMP_MENU_OFF);
@@ -989,6 +991,10 @@ static void imp_draw_menu()
       imp_load();
     }
     ++line;
+    if (imp_draw_menu_line("ROM info", line++, menu++)) {
+      imp_menu_state(IMP_MENU_INFO);
+    }
+    ++line;
   }
   if (imp_draw_menu_line("Open ROM", line++, menu++)) {
     imp_open_file();
@@ -1002,11 +1008,9 @@ static void imp_draw_menu()
   }
   ++line;
   ++line;
-  imp_draw_line(line++, "       Press F1 for help        ");
-  ++line;
-  ++line;
   imp_draw_line(line++, " Drag-n-drop *.nes file to play ");
   ++line;
+  imp_draw_line(line++, "     Press F1 to show keymap    ");
   ++line;
   imp_draw_line(line++, "     Touch to show controls     ");
 }
@@ -1068,6 +1072,25 @@ static void imp_draw_options()
   }
 }
 
+static void imp_draw_info()
+{
+  imp_draw_menu_prepare(1);
+  uint line = 8;
+  uint menu = 0;
+  if (imp_draw_menu_line("Back", line++, menu++)) {
+    imp_menu_state(IMP_MENU_MAIN);
+  }
+  ++line;
+  imp_draw_line(line++, "          ROM %s", !imp.rom || imp.rom->mapper_error ? "ERROR!" : "loaded");
+  ++line;
+  imp_draw_line(line++, "          %s", imp.rom_info[0]);
+  imp_draw_line(line++, "          %s", imp.rom_info[1]);
+  imp_draw_line(line++, "          %s", imp.rom_info[2]);
+  imp_draw_line(line++, "          %s", imp.rom_info[3]);
+  imp_draw_line(line++, "          %s", imp.rom_info[4]);
+  imp_draw_line(line++, "          %s", imp.rom_info[5]);
+}
+
 static void imp_draw_touch_button(const char* label, uint x, uint y, uint r)
 {
   SDL_FRect rect = { x - r, y - r, 2 * r, 2 * r };
@@ -1101,37 +1124,34 @@ static bool imp_touch_hit(SDL_TouchFingerEvent* e, int x, int y, int r)
 
 static void imp_draw_help()
 {
-  imp_draw_menu_prepare(0);
-  uint i = 2;
-  imp_draw_line(i++, " Help        F1        MyaowNES ");
-  imp_draw_line(i++, " Open        F2          v" MN_VERSION " ");
-  imp_draw_line(i++, " Region      F3                 ");
-  imp_draw_line(i++, " Reset       F4    /\\____/\\     ");
-  imp_draw_line(i++, " Quick save  F5                 ");
-  imp_draw_line(i++, " Aspect      F6   |  o..o  |    ");
-  imp_draw_line(i++, " Overscan    F7   |=<+__+>=|    ");
-  imp_draw_line(i++, " Quick load  F8   |        |    ");
-  imp_draw_line(i++, "                                ");
-  imp_draw_line(i++, " Quit       F10   [_m____m_]    ");
-  imp_draw_line(i++, " Fullscreen F11                 ");
-  imp_draw_line(i++, " Screenshot F12  %s ", imp.rom_info[0]);
-  imp_draw_line(i++, " Save slot  0-9  %s ", imp.rom_info[1]);
-  imp_draw_line(i++, " F-forward  Tab  %s ", imp.rom_info[2]);
-  imp_draw_line(i++, " Pause      Esc  %s ", imp.rom_info[3]);
-  imp_draw_line(i++, " Scale      [/]  %s ", imp.rom_info[4]);
-  imp_draw_line(i++, " Volume     -/+  %s ", imp.rom_info[5]);
-  imp_draw_line(i++, " FPS          `                 ");
-  imp_draw_line(i++, "           Joy1    Joy2          ");
-  imp_draw_line(i++, " D-pad     WASD  Arrows          ");
-  imp_draw_line(i++, " B            J   NUM_1          ");
-  imp_draw_line(i++, " A            K   NUM_2          ");
-  imp_draw_line(i++, " B turbo      U   NUM_4          ");
-  imp_draw_line(i++, " A turbo      I   NUM_5          ");
-  imp_draw_line(i++, " Start        H   Enter          ");
-  imp_draw_line(i++, " Select       F   Space          ");
+  imp_draw_menu_prepare(1);
+  uint line = 4;
+  uint menu = 0;
+  imp_draw_menu_line("Back", line++, menu++);
   if (imp_menu_pressed(-1)) {
     imp_toggle_help();
   }
+  ++line;
+  imp_draw_line(line++, "           Joy1            Joy2 ");
+  imp_draw_line(line++, " D-pad     WASD          Arrows ");
+  imp_draw_line(line++, " B            J           NUM_1 ");
+  imp_draw_line(line++, " A            K           NUM_2 ");
+  imp_draw_line(line++, " B turbo      U           NUM_4 ");
+  imp_draw_line(line++, " A turbo      I           NUM_5 ");
+  imp_draw_line(line++, " Start        H           Enter ");
+  imp_draw_line(line++, " Select       F           Space ");
+  imp_draw_line(line++, "                                ");
+  imp_draw_line(line++, " Help        F1  Save slot  0-9 ");
+  imp_draw_line(line++, " Open        F2  Menu       Esc ");
+  imp_draw_line(line++, " Region      F3  F-forward  Tab ");
+  imp_draw_line(line++, " Reset       F4  Pause    Pause ");
+  imp_draw_line(line++, " Quick save  F5  Scale      [/] ");
+  imp_draw_line(line++, " Aspect      F6  Volume     -/+ ");
+  imp_draw_line(line++, " Overscan    F7  Show FPS     ` ");
+  imp_draw_line(line++, " Quick load  F8  Test FPS     Z ");
+  imp_draw_line(line++, " Quit       F10                 ");
+  imp_draw_line(line++, " Fullscreen F11                 ");
+  imp_draw_line(line++, " Screenshot F12                 ");
 }
 
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
@@ -1477,6 +1497,7 @@ SDL_AppResult SDL_AppIterate(void*)
   switch (imp.menu_state) {
     case IMP_MENU_MAIN: imp_draw_menu(); break;
     case IMP_MENU_OPTIONS: imp_draw_options(); break;
+    case IMP_MENU_INFO: imp_draw_info(); break;
     case IMP_MENU_HELP: imp_draw_help(); break;
   }
   if (imp.popup_time > 0) {
