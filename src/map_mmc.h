@@ -912,14 +912,20 @@ static void map_mmc5_cpu_internal(uint addr, uint val)
   }
 }
 
-void map_mmc5_load()
+void map_mmc5_load(bool init)
 {
   map_set_cpu_cyc_cb(map_mmc5_cpu_cyc);
   map_set_cpu_read_cb(map_mmc5_cpu_read);
   map_set_cpu_write_cb(map_mmc5_cpu_write);
   map_set_cpu_internal_cb(map_mmc5_cpu_internal);
   map_set_ppu_read_cb(map_mmc5_ppu_read);
-  map_mmc5_reset();
+  if (init) {
+    map_mmc5_reset();
+  } else {
+    map_mmc5_update_prg();
+    map_mmc5_update_chr();
+    map_mmc5_update_nt();
+  }
 }
 
 bool map_mmc_load(bool init)
@@ -928,7 +934,7 @@ bool map_mmc_load(bool init)
   switch (rom->mapper) {
     case 1: map_mmc1_load(init); break;
     case 4: map_mmc3_load(); break;
-    case 5: map_mmc5_load(); break;
+    case 5: map_mmc5_load(init); break;
     case 9: map_mmc2_load(init); break;
     case 10: map_mmc4_load(init); break;
     case 12: map_mmc3a_huang1_load(); break;
