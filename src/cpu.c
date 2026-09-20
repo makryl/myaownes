@@ -2,7 +2,7 @@
 #include "ppu.h"
 #include "apu.h"
 #include "map.h"
-#include "iou.h"
+#include "dev.h"
 #include "common.h"
 
 enum
@@ -132,7 +132,7 @@ static void cpu_cyc_begin()
   cpu_poll();
   ppu_tick();
   ppu_tick();
-  iou_tick();
+  dev_tick();
   apu_tick();
   map_cpu_cyc();
 }
@@ -156,7 +156,7 @@ static uint cpu_read_addr_raw(uint addr, bool trace)
     return val;
   } else if (addr < 0x4020) {
     if (addr == 0x4016 || addr == 0x4017) {
-      return iou_bus_read(addr, cpu.external_open_bus, trace);
+      return dev_bus_read(addr, cpu.external_open_bus, trace);
     } else {
       return apu_bus_read(addr, addr == 0x4015 ? cpu.internal_open_bus : cpu.external_open_bus, trace);
     }
@@ -207,7 +207,7 @@ static void cpu_write_addr_direct(uint addr, uint val)
       cpu.oam_dma_trig = true;
       map_cpu_internal(addr, val);
     } else if (addr == 0x4016) {
-      iou_bus_write(addr, val);
+      dev_bus_write(addr, val);
     } else {
       apu_bus_write(addr, val);
     }

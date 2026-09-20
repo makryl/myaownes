@@ -4,7 +4,6 @@
 #include "ppu.h"
 #include "apu.h"
 #include "map.h"
-#include "iou.h"
 #include "common.h"
 #include <errno.h>
 
@@ -40,12 +39,22 @@ enum
 static uint dev_region_forced = MN_REGION_AUTO;
 static uint dev_region = MN_REGION_AUTO;
 
+static struct
+{
+  uint io_out;
+  uint io_shift_idx;
+  uint io_shift_delay;
+  uint io_input[2];
+  uint io_mask[2];
+  uint io_shift[2];
+} dev;
+
 void dev_power()
 {
+  memset(&dev, 0, sizeof(dev));
   apu_power();
   cpu_power();
   ppu_power();
-  iou_power();
 }
 
 void mn_reset()
@@ -55,12 +64,90 @@ void mn_reset()
   ppu_reset();
 }
 
+static uint dev_dpad_filter_pair(uint input, uint port, uint changed, uint a, uint b)
+{
+  if (changed & a) {
+    if (port & a) {
+      input &= ~b;
+    } else {
+      input |= (port & b);
+    }
+  } else if (changed & b) {
+    if (port & b) {
+      input &= ~a;
+    } else {
+      input |= (port & a);
+    }
+  }
+  return input;
+}
+
+static uint dev_dpad_filter(uint input, uint port, uint changed)
+{
+  input = (input & ~changed) | (port & changed);
+  input = dev_dpad_filter_pair(input, port, changed, MN_INPUT_UP, MN_INPUT_DOWN);
+  input = dev_dpad_filter_pair(input, port, changed, MN_INPUT_LEFT, MN_INPUT_RIGHT);
+  return input;
+}
+
+static void dev_input(uint port1, uint port2)
+{
+  uint changed1 = (port1 ^ dev.io_mask[0]);
+  uint changed2 = (port2 ^ dev.io_mask[1]);
+  dev.io_mask[0] = port1;
+  dev.io_mask[1] = port2;
+  dev.io_input[0] = dev_dpad_filter(dev.io_input[0], port1, changed1);
+  dev.io_input[1] = dev_dpad_filter(dev.io_input[1], port2, changed2);
+}
+
+uint dev_bus_read(uint addr, uint val, bool trace)
+{
+  uint idx = (addr & 1);
+  if (!trace) {
+    dev.io_shift_idx = idx;
+    dev.io_shift_delay = 2;
+  }
+  val &= 0xE0;
+  val |= (dev.io_shift[idx] & 1);
+  // val |= (val & 1) << 1; // todo: Dendy uses expansion port for joy2?
+  return val;
+}
+
+void dev_bus_write(uint, uint val) { dev.io_out = val; }
+
+void dev_tick()
+{
+  if (dev.io_shift_delay > 0) {
+    if (--dev.io_shift_delay == 0) {
+      dev.io_shift[dev.io_shift_idx] = (dev.io_shift[dev.io_shift_idx] >> 1) | 0x80;
+    }
+  }
+  if ((cpu_cyc() & 1)) {
+    if (dev.io_input[0] & MN_INPUT_TURBO_A) {
+      dev.io_input[0] ^= MN_INPUT_A;
+    }
+    if (dev.io_input[0] & MN_INPUT_TURBO_B) {
+      dev.io_input[0] ^= MN_INPUT_B;
+    }
+    if (dev.io_input[1] & MN_INPUT_TURBO_A) {
+      dev.io_input[1] ^= MN_INPUT_A;
+    }
+    if (dev.io_input[1] & MN_INPUT_TURBO_B) {
+      dev.io_input[1] ^= MN_INPUT_B;
+    }
+    if ((dev.io_out & 1)) {
+      dev.io_shift[0] = (dev.io_input[0] & 0xFF);
+      dev.io_shift[1] = (dev.io_input[1] & 0xFF);
+    }
+  }
+}
+
 void mn_frame(uint port1, uint port2)
 {
   if (!map_ready()) {
     return;
   }
-  iou_input(port1, port2);
+  dev_input(port1, port2);
   apu_reset_out();
   bool vblank_before;
   do {

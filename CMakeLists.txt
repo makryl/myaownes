@@ -17,7 +17,6 @@ add_library(myaownes-static
   src/dev.c
   src/map.c
   src/ppu.c
-  src/iou.c
 )
 target_include_directories(myaownes-static PUBLIC include)
 target_link_libraries(myaownes-static PUBLIC SDL3-static)
