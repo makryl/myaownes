@@ -294,7 +294,7 @@ static void imp_onresize()
   imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
   imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
 
-  uint ph = imp.height / 16;
+  uint ph = (imp.height < imp.width ? imp.height : imp.width) / 16;
 
   imp.touch_button_radius = ph;
   imp.touch_a_x = imp.width - 3 * ph;
@@ -729,12 +729,17 @@ static void imp_toggle_overscan()
   imp_popup(imp_overscan_labels[imp.overscan], 2);
 }
 
+static void imp_set_fullscreen(bool enabled)
+{
+  SDL_SetWindowFullscreen(imp.window, enabled);
+  imp_onresize();
+  imp_popup(imp_fullscreen_labels[enabled], 2);
+}
+
 static void imp_toggle_fullscreen()
 {
   Uint32 flags = SDL_GetWindowFlags(imp.window);
-  bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
-  SDL_SetWindowFullscreen(imp.window, !is_fullscreen);
-  imp_popup(imp_fullscreen_labels[is_fullscreen], 2);
+  imp_set_fullscreen((flags & SDL_WINDOW_FULLSCREEN) == 0);
 }
 
 static void imp_screenshot()
@@ -1202,6 +1207,10 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: imp_onresize(); break;
     case SDL_EVENT_DROP_FILE: imp_drop_file(event->drop.data); break;
+    case SDL_EVENT_DISPLAY_ORIENTATION:
+      imp_set_fullscreen(event->display.data1 == SDL_ORIENTATION_LANDSCAPE
+                         || event->display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED);
+      break;
     case SDL_EVENT_KEY_DOWN:
       imp.touch_active = false;
       switch (event->key.key) {
