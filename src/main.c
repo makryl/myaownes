@@ -15,6 +15,7 @@ static bool imp_init()
 
   // test = "nes-test-roms/other/nestest.nes";
   // test = "nes-test-roms/240pee/240pee.nes";
+  // test = "nes-test-roms/other/allpads.nes";
   // test = "nes-test-roms/other/AccuracyCoin.nes";
   // test = "nes-test-roms/ppu_vbl_nmi/ppu_vbl_nmi.nes";
   // test = "nes-test-roms/nmi_sync/demo_ntsc.nes";
@@ -216,20 +217,10 @@ static struct
   uint touch_menu_y;
   uint touch_ff_x;
   uint touch_ff_y;
-  uint touch_up_x;
-  uint touch_up_y;
-  uint touch_down_x;
-  uint touch_down_y;
-  uint touch_left_x;
-  uint touch_left_y;
-  uint touch_right_x;
-  uint touch_right_y;
-  // int touch_dpad_radius;
-  // int touch_dpad_threshold;
-  // uint touch_dpad_x;
-  // uint touch_dpad_y;
-  // uint touch_dpad_orig_x;
-  // uint touch_dpad_orig_y;
+  int touch_dpad_radius;
+  int touch_dpad_threshold;
+  uint touch_dpad_x;
+  uint touch_dpad_y;
   int width;
   int height;
   SDL_AtomicInt load_rom_dialog_done;
@@ -318,18 +309,10 @@ static void imp_onresize()
   imp.touch_menu_y = 2 * ph;
   imp.touch_ff_x = 3 * ph;
   imp.touch_ff_y = 2 * ph;
-  imp.touch_up_x = 4 * ph;
-  imp.touch_up_y = imp.height - 6 * ph;
-  imp.touch_down_x = 4 * ph;
-  imp.touch_down_y = imp.height - 2 * ph;
-  imp.touch_left_x = 2 * ph;
-  imp.touch_left_y = imp.height - 4 * ph;
-  imp.touch_right_x = 6 * ph;
-  imp.touch_right_y = imp.height - 4 * ph;
-  // imp.touch_dpad_radius = 2 * ph;
-  // imp.touch_dpad_threshold = ph;
-  // imp.touch_dpad_x = 3 * ph;
-  // imp.touch_dpad_y = imp.height - 3 * ph;
+  imp.touch_dpad_radius = 3 * ph;
+  imp.touch_dpad_threshold = ph;
+  imp.touch_dpad_x = 4 * ph;
+  imp.touch_dpad_y = imp.height - 4 * ph;
 }
 
 static void imp_try_resize()
@@ -610,7 +593,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   imp_load_config();
   mn_region_set(imp.region);
 
-  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
 #ifdef __EMSCRIPTEN__
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
@@ -622,6 +604,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
+
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "1");
 
   imp.perf_freq = SDL_GetPerformanceFrequency();
 
@@ -1122,21 +1106,14 @@ static void imp_draw_touch()
 {
   SDL_SetRenderDrawColor(imp.renderer, 0x80, 0x80, 0x80, 0x80);
 
-  // if (imp.touch_button[IMP_TOUCH_DPAD]) {
-  //   imp_draw_touch_button("D", imp.touch_dpad_orig_x, imp.touch_dpad_orig_y, imp.touch_dpad_threshold);
-  // } else {
-  //   imp_draw_touch_button("D", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius);
-  // }
   imp_draw_touch_button("M", imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius);
   imp_draw_touch_button("F", imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius);
   imp_draw_touch_button("St", imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius);
   imp_draw_touch_button("Se", imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius);
   imp_draw_touch_button("A", imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius);
   imp_draw_touch_button("B", imp.touch_b_x, imp.touch_b_y, imp.touch_button_radius);
-  imp_draw_touch_button("^", imp.touch_up_x, imp.touch_up_y, imp.touch_button_radius);
-  imp_draw_touch_button("v", imp.touch_down_x, imp.touch_down_y, imp.touch_button_radius);
-  imp_draw_touch_button("<", imp.touch_left_x, imp.touch_left_y, imp.touch_button_radius);
-  imp_draw_touch_button(">", imp.touch_right_x, imp.touch_right_y, imp.touch_button_radius);
+  imp_draw_touch_button("+", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius);
+  imp_draw_touch_button("", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_threshold);
 }
 
 static bool imp_touch_hit(SDL_TouchFingerEvent* e, int x, int y, int r)
@@ -1176,6 +1153,46 @@ static void imp_draw_help()
   imp_draw_line(line++, " Quit       F10                 ");
   imp_draw_line(line++, " Fullscreen F11                 ");
   imp_draw_line(line++, " Screenshot F12                 ");
+}
+
+static void imp_touch_cancel(SDL_FingerID fingerID)
+{
+  if (imp.touch_button[IMP_TOUCH_A] == fingerID) {
+    imp.touch_button[IMP_TOUCH_A] = 0;
+    imp_joy1_a_up();
+  }
+  if (imp.touch_button[IMP_TOUCH_B] == fingerID) {
+    imp.touch_button[IMP_TOUCH_B] = 0;
+    imp_joy1_b_up();
+  }
+  if (imp.touch_button[IMP_TOUCH_START] == fingerID) {
+    imp.touch_button[IMP_TOUCH_START] = 0;
+    imp_joy1_start_up();
+  }
+  if (imp.touch_button[IMP_TOUCH_SELECT] == fingerID) {
+    imp.touch_button[IMP_TOUCH_SELECT] = 0;
+    imp_joy1_select_up();
+  }
+  if (imp.touch_button[IMP_TOUCH_FF] == fingerID) {
+    imp.touch_button[IMP_TOUCH_FF] = 0;
+    imp_fast_forward_off();
+  }
+  if (imp.touch_button[IMP_TOUCH_UP] == fingerID) {
+    imp.touch_button[IMP_TOUCH_UP] = 0;
+    imp_joy1_dpad_up_up();
+  }
+  if (imp.touch_button[IMP_TOUCH_DOWN] == fingerID) {
+    imp.touch_button[IMP_TOUCH_DOWN] = 0;
+    imp_joy1_dpad_down_up();
+  }
+  if (imp.touch_button[IMP_TOUCH_LEFT] == fingerID) {
+    imp.touch_button[IMP_TOUCH_LEFT] = 0;
+    imp_joy1_dpad_left_up();
+  }
+  if (imp.touch_button[IMP_TOUCH_RIGHT] == fingerID) {
+    imp.touch_button[IMP_TOUCH_RIGHT] = 0;
+    imp_joy1_dpad_right_up();
+  }
 }
 
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
@@ -1359,13 +1376,6 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       break;
     case SDL_EVENT_FINGER_DOWN:
       imp.touch_active = true;
-      /*if (!imp.touch_button[IMP_TOUCH_DPAD]
-          && imp_touch_hit(&event->tfinger, imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius))
-      {
-        imp.touch_button[IMP_TOUCH_DPAD] = event->tfinger.fingerID;
-        imp.touch_dpad_orig_x = event->tfinger.x * imp.width;
-        imp.touch_dpad_orig_y = event->tfinger.y * imp.height;
-      } else */
       if (imp_touch_hit(&event->tfinger, imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius)) {
         imp.touch_button[IMP_TOUCH_A] = event->tfinger.fingerID;
         imp_joy1_a_down();
@@ -1379,87 +1389,103 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         imp.touch_button[IMP_TOUCH_SELECT] = event->tfinger.fingerID;
         imp_joy1_select_down();
       } else if (imp_touch_hit(&event->tfinger, imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius)) {
-        imp_toggle_menu();
+        imp_menu_state(IMP_MENU_MAIN);
       } else if (imp_touch_hit(&event->tfinger, imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius)) {
         imp.touch_button[IMP_TOUCH_FF] = event->tfinger.fingerID;
         imp_fast_forward_on();
-      } else if (imp_touch_hit(&event->tfinger, imp.touch_up_x, imp.touch_up_y, imp.touch_button_radius)) {
-        imp.touch_button[IMP_TOUCH_UP] = event->tfinger.fingerID;
-        imp_joy1_dpad_up_down();
-      } else if (imp_touch_hit(&event->tfinger, imp.touch_down_x, imp.touch_down_y, imp.touch_button_radius)) {
-        imp.touch_button[IMP_TOUCH_DOWN] = event->tfinger.fingerID;
-        imp_joy1_dpad_down_down();
-      } else if (imp_touch_hit(&event->tfinger, imp.touch_left_x, imp.touch_left_y, imp.touch_button_radius)) {
-        imp.touch_button[IMP_TOUCH_LEFT] = event->tfinger.fingerID;
-        imp_joy1_dpad_left_down();
-      } else if (imp_touch_hit(&event->tfinger, imp.touch_right_x, imp.touch_right_y, imp.touch_button_radius)) {
-        imp.touch_button[IMP_TOUCH_RIGHT] = event->tfinger.fingerID;
-        imp_joy1_dpad_right_down();
+      } else {
+        int dx = event->tfinger.x * imp.width - imp.touch_dpad_x;
+        int dy = event->tfinger.y * imp.height - imp.touch_dpad_y;
+        int d2 = dx * dx + dy * dy;
+        int r2 = imp.touch_dpad_radius * imp.touch_dpad_radius;
+        int t2 = imp.touch_dpad_threshold * imp.touch_dpad_threshold;
+        if (d2 < r2 && d2 > t2) {
+          float a = SDL_atan2f(dy, dx);
+          if (a >= -0.875f * SDL_PI_F && a < -0.125f * SDL_PI_F) {
+            imp.touch_button[IMP_TOUCH_UP] = event->tfinger.fingerID;
+            imp_joy1_dpad_up_down();
+          }
+          if (a >= 0.125f * SDL_PI_F && a < 0.875f * SDL_PI_F) {
+            imp.touch_button[IMP_TOUCH_DOWN] = event->tfinger.fingerID;
+            imp_joy1_dpad_down_down();
+          }
+          if (a < -0.625f * SDL_PI_F || a >= 0.625f * SDL_PI_F) {
+            imp.touch_button[IMP_TOUCH_LEFT] = event->tfinger.fingerID;
+            imp_joy1_dpad_left_down();
+          }
+          if (a >= -0.375f * SDL_PI_F && a < 0.375f * SDL_PI_F) {
+            imp.touch_button[IMP_TOUCH_RIGHT] = event->tfinger.fingerID;
+            imp_joy1_dpad_right_down();
+          }
+        }
       }
       break;
     case SDL_EVENT_FINGER_UP:
-    case SDL_EVENT_FINGER_CANCELED:
-      /*if (imp.touch_button[IMP_TOUCH_DPAD] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_DPAD] = 0;
-        imp_joy1_dpad_up_up();
-        imp_joy1_dpad_down_up();
-        imp_joy1_dpad_left_up();
-        imp_joy1_dpad_right_up();
-      } else */
-      if (imp.touch_button[IMP_TOUCH_A] == event->tfinger.fingerID) {
+    case SDL_EVENT_FINGER_CANCELED: imp_touch_cancel(event->tfinger.fingerID); break;
+    case SDL_EVENT_FINGER_MOTION:
+      if (imp_touch_hit(&event->tfinger, imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius)) {
+        if (imp.touch_button[IMP_TOUCH_A] != event->tfinger.fingerID) {
+          imp.touch_button[IMP_TOUCH_A] = event->tfinger.fingerID;
+          imp_joy1_a_down();
+        }
+      } else if (imp.touch_button[IMP_TOUCH_A] == event->tfinger.fingerID) {
         imp.touch_button[IMP_TOUCH_A] = 0;
         imp_joy1_a_up();
+      }
+      if (imp_touch_hit(&event->tfinger, imp.touch_b_x, imp.touch_b_y, imp.touch_button_radius)) {
+        if (imp.touch_button[IMP_TOUCH_B] != event->tfinger.fingerID) {
+          imp.touch_button[IMP_TOUCH_B] = event->tfinger.fingerID;
+          imp_joy1_b_down();
+        }
       } else if (imp.touch_button[IMP_TOUCH_B] == event->tfinger.fingerID) {
         imp.touch_button[IMP_TOUCH_B] = 0;
         imp_joy1_b_up();
-      } else if (imp.touch_button[IMP_TOUCH_START] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_START] = 0;
-        imp_joy1_start_up();
-      } else if (imp.touch_button[IMP_TOUCH_SELECT] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_SELECT] = 0;
-        imp_joy1_select_up();
-      } else if (imp.touch_button[IMP_TOUCH_FF] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_FF] = 0;
-        imp_fast_forward_off();
-      } else if (imp.touch_button[IMP_TOUCH_UP] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_UP] = 0;
-        imp_joy1_dpad_up_up();
-      } else if (imp.touch_button[IMP_TOUCH_DOWN] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_DOWN] = 0;
-        imp_joy1_dpad_down_up();
-      } else if (imp.touch_button[IMP_TOUCH_LEFT] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_LEFT] = 0;
-        imp_joy1_dpad_left_up();
-      } else if (imp.touch_button[IMP_TOUCH_RIGHT] == event->tfinger.fingerID) {
-        imp.touch_button[IMP_TOUCH_RIGHT] = 0;
-        imp_joy1_dpad_right_up();
       }
-      break;
-    case SDL_EVENT_FINGER_MOTION:
-      // if (imp.touch_button[IMP_TOUCH_DPAD] == event->tfinger.fingerID) {
-      //   int dx = event->tfinger.x * imp.width - imp.touch_dpad_orig_x;
-      //   int dy = event->tfinger.y * imp.height - imp.touch_dpad_orig_y;
-      //   if (dx > imp.touch_dpad_threshold) {
-      //     imp_joy1_dpad_right_down();
-      //   } else {
-      //     imp_joy1_dpad_right_up();
-      //   }
-      //   if (dx < -imp.touch_dpad_threshold) {
-      //     imp_joy1_dpad_left_down();
-      //   } else {
-      //     imp_joy1_dpad_left_up();
-      //   }
-      //   if (dy > imp.touch_dpad_threshold) {
-      //     imp_joy1_dpad_down_down();
-      //   } else {
-      //     imp_joy1_dpad_down_up();
-      //   }
-      //   if (dy < -imp.touch_dpad_threshold) {
-      //     imp_joy1_dpad_up_down();
-      //   } else {
-      //     imp_joy1_dpad_up_up();
-      //   }
-      // }
+      {
+        int dx = event->tfinger.x * imp.width - imp.touch_dpad_x;
+        int dy = event->tfinger.y * imp.height - imp.touch_dpad_y;
+        int d2 = dx * dx + dy * dy;
+        int r2 = imp.touch_dpad_radius * imp.touch_dpad_radius;
+        int t2 = imp.touch_dpad_threshold * imp.touch_dpad_threshold;
+        bool hit = d2 < r2 && d2 > t2;
+        float a = SDL_atan2f(dy, dx);
+        if (hit && a >= -0.875f * SDL_PI_F && a < -0.125f * SDL_PI_F) {
+          if (imp.touch_button[IMP_TOUCH_UP] != event->tfinger.fingerID) {
+            imp.touch_button[IMP_TOUCH_UP] = event->tfinger.fingerID;
+            imp_joy1_dpad_up_down();
+          }
+        } else if (imp.touch_button[IMP_TOUCH_UP] == event->tfinger.fingerID) {
+          imp.touch_button[IMP_TOUCH_UP] = 0;
+          imp_joy1_dpad_up_up();
+        }
+        if (hit && a >= 0.125f * SDL_PI_F && a < 0.875f * SDL_PI_F) {
+          if (imp.touch_button[IMP_TOUCH_DOWN] != event->tfinger.fingerID) {
+            imp.touch_button[IMP_TOUCH_DOWN] = event->tfinger.fingerID;
+            imp_joy1_dpad_down_down();
+          }
+        } else if (imp.touch_button[IMP_TOUCH_DOWN] == event->tfinger.fingerID) {
+          imp.touch_button[IMP_TOUCH_DOWN] = 0;
+          imp_joy1_dpad_down_up();
+        }
+        if (hit && (a < -0.625f * SDL_PI_F || a >= 0.625f * SDL_PI_F)) {
+          if (imp.touch_button[IMP_TOUCH_LEFT] != event->tfinger.fingerID) {
+            imp.touch_button[IMP_TOUCH_LEFT] = event->tfinger.fingerID;
+            imp_joy1_dpad_left_down();
+          }
+        } else if (imp.touch_button[IMP_TOUCH_LEFT] == event->tfinger.fingerID) {
+          imp.touch_button[IMP_TOUCH_LEFT] = 0;
+          imp_joy1_dpad_left_up();
+        }
+        if (hit && a >= -0.375f * SDL_PI_F && a < 0.375f * SDL_PI_F) {
+          if (imp.touch_button[IMP_TOUCH_RIGHT] != event->tfinger.fingerID) {
+            imp.touch_button[IMP_TOUCH_RIGHT] = event->tfinger.fingerID;
+            imp_joy1_dpad_right_down();
+          }
+        } else if (imp.touch_button[IMP_TOUCH_RIGHT] == event->tfinger.fingerID) {
+          imp.touch_button[IMP_TOUCH_RIGHT] = 0;
+          imp_joy1_dpad_right_up();
+        }
+      }
       break;
   }
   return SDL_APP_CONTINUE;

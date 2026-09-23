@@ -6,7 +6,7 @@ set(SDL_STATIC ON)
 set(SDL_SHARED OFF)
 set(SDL_TEST_LIBRARY OFF)
 set(SDL_TESTS OFF)
-add_subdirectory(external/SDL-release-3.4.14 EXCLUDE_FROM_ALL)
+add_subdirectory(external/SDL-release-3.4.16 EXCLUDE_FROM_ALL)
 
 set(CMAKE_C_STANDARD 23)
 add_compile_options(-Wall -Wextra)
