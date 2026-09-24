@@ -139,6 +139,7 @@ static bool imp_init()
 enum
 {
   IMP_PATH_SIZE = 4096,
+  IMP_RECENT_COUNT = 20,
 };
 
 enum
@@ -148,6 +149,7 @@ enum
   IMP_MENU_OPTIONS,
   IMP_MENU_INFO,
   IMP_MENU_HELP,
+  IMP_MENU_RECENT,
 };
 
 enum
@@ -205,6 +207,7 @@ static struct
   uint menu_input;
   uint menu_input_prev;
   int touch_button_radius;
+  int touch_button_ab_radius;
   uint touch_a_x;
   uint touch_a_y;
   uint touch_b_x;
@@ -240,7 +243,9 @@ static struct
   char sram_path[IMP_PATH_SIZE];
   char save_dir[IMP_PATH_SIZE];
   char config_path[IMP_PATH_SIZE];
+  char history_path[IMP_PATH_SIZE];
   char palette_path[IMP_PATH_SIZE];
+  char recent_files[IMP_RECENT_COUNT][IMP_PATH_SIZE];
 } imp;
 
 static const char* const imp_save_slot_labels[10] = { "Slot 0", "Slot 1", "Slot 2", "Slot 3", "Slot 4",
@@ -297,19 +302,20 @@ static void imp_onresize()
   uint ph = (imp.height < imp.width ? imp.height : imp.width) / 16;
 
   imp.touch_button_radius = ph;
+  imp.touch_button_ab_radius = 2 * ph;
   imp.touch_a_x = imp.width - 3 * ph;
   imp.touch_a_y = imp.height - 4 * ph;
   imp.touch_b_x = imp.width - 7 * ph;
   imp.touch_b_y = imp.height - 4 * ph;
   imp.touch_start_x = imp.width - 3 * ph;
-  imp.touch_start_y = imp.height / 2 - 2 * ph;
+  imp.touch_start_y = 5 * ph;
   imp.touch_select_x = 3 * ph;
-  imp.touch_select_y = imp.height / 2 - 2 * ph;
+  imp.touch_select_y = 5 * ph;
   imp.touch_menu_x = imp.width - 3 * ph;
   imp.touch_menu_y = 2 * ph;
   imp.touch_ff_x = 3 * ph;
   imp.touch_ff_y = 2 * ph;
-  imp.touch_dpad_radius = 3 * ph;
+  imp.touch_dpad_radius = 4 * ph;
   imp.touch_dpad_threshold = ph;
   imp.touch_dpad_x = 4 * ph;
   imp.touch_dpad_y = imp.height - 4 * ph;
@@ -336,11 +342,11 @@ static void imp_ensure_dir(const char* subdir)
   SDL_CreateDirectory(path);
 }
 
-static const char* imp_rom_name()
+static const char* imp_rom_name(const char* path)
 {
-  const char* name = imp.rom_path;
-  const char* slash = SDL_strrchr(imp.rom_path, '/');
-  const char* backslash = SDL_strrchr(imp.rom_path, '\\');
+  const char* name = path;
+  const char* slash = SDL_strrchr(path, '/');
+  const char* backslash = SDL_strrchr(path, '\\');
   if (slash || backslash) {
     name = (slash > backslash ? slash : backslash) + 1;
   }
@@ -350,12 +356,61 @@ static const char* imp_rom_name()
 static void imp_save_path(char* dst, const char* subdir, const char* ext)
 {
   dst[0] = 0;
-  SDL_snprintf(dst, IMP_PATH_SIZE, "%s%s/%s", imp.save_dir, subdir, imp_rom_name());
+  SDL_snprintf(dst, IMP_PATH_SIZE, "%s%s/%s", imp.save_dir, subdir, imp_rom_name(imp.rom_path));
   char* dot = SDL_strrchr(dst, '.');
   if (dot) {
     *dot = 0;
   }
   SDL_strlcat(dst, ext, IMP_PATH_SIZE);
+}
+
+static void imp_load_history()
+{
+  for (uint i = 0; i < IMP_RECENT_COUNT; ++i) {
+    imp.recent_files[i][0] = 0;
+  }
+  FILE* f = fopen(imp.history_path, "r");
+  if (!f) {
+    return;
+  }
+  for (uint i = 0; i < IMP_RECENT_COUNT; ++i) {
+    if (!fscanf(f, "%[^\n]%*c", imp.recent_files[i])) {
+      break;
+    }
+  }
+  fclose(f);
+}
+
+static void imp_save_history()
+{
+  int idx = -1;
+  for (int i = 0; i < IMP_RECENT_COUNT; ++i) {
+    if (SDL_strcmp(imp.recent_files[i], imp.rom_path) == 0) {
+      idx = i;
+      break;
+    }
+  }
+  if (idx == 0) {
+    return;
+  }
+  if (idx == -1) {
+    idx = IMP_RECENT_COUNT - 1;
+  }
+  for (int i = idx; i > 0; --i) {
+    SDL_strlcpy(imp.recent_files[i], imp.recent_files[i - 1], IMP_PATH_SIZE);
+  }
+  SDL_strlcpy(imp.recent_files[0], imp.rom_path, IMP_PATH_SIZE);
+  FILE* f = fopen(imp.history_path, "w");
+  if (!f) {
+    return;
+  }
+  for (uint i = 0; i < IMP_RECENT_COUNT; ++i) {
+    if (imp.recent_files[i][0] == 0) {
+      break;
+    }
+    fprintf(f, "%s\n", imp.recent_files[i]);
+  }
+  fclose(f);
 }
 
 static void imp_rom_update()
@@ -371,7 +426,7 @@ static void imp_rom_update()
   }
 
   char title[256] = {};
-  SDL_strlcat(title, imp_rom_name(), IMP_PATH_SIZE);
+  SDL_strlcat(title, imp_rom_name(imp.rom_path), IMP_PATH_SIZE);
   SDL_strlcat(title, " - MyaowNES", IMP_PATH_SIZE);
 
   SDL_SetWindowTitle(imp.window, title);
@@ -402,7 +457,7 @@ static void imp_rom_update()
 
   imp_update_frame_time();
   imp_try_resize();
-  imp_volume_update();
+  imp_save_history();
 }
 
 static void imp_config_defaults()
@@ -590,7 +645,12 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   SDL_strlcat(imp.config_path, imp.save_dir, IMP_PATH_SIZE);
   SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
 
+  SDL_strlcat(imp.history_path, imp.save_dir, IMP_PATH_SIZE);
+  SDL_strlcat(imp.history_path, "history.txt", IMP_PATH_SIZE);
+
   imp_load_config();
+  imp_load_history();
+  imp_volume_update();
   mn_region_set(imp.region);
 
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
@@ -941,7 +1001,7 @@ static uint imp_draw_menu_line(const char* label, uint line, int selection_id)
   imp_draw_line(line, "          %s %s", selected ? "*" : " ", label);
   SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
   if (selected) {
-    if (imp_menu_pressed(MN_INPUT_LEFT | MN_INPUT_B)) {
+    if (imp_menu_pressed(MN_INPUT_LEFT)) {
       return MN_INPUT_LEFT;
     }
     if (imp_menu_pressed(MN_INPUT_RIGHT | MN_INPUT_A | MN_INPUT_START)) {
@@ -979,13 +1039,13 @@ static void imp_draw_menu_prepare(int menu_size)
 static void imp_draw_menu()
 {
   bool rom_loaded = imp.rom && !imp.rom->mapper_error;
-  imp_draw_menu_prepare(rom_loaded ? 8 : 3);
+  imp_draw_menu_prepare(rom_loaded ? 9 : 3);
   uint line = 2;
   uint menu = 0;
   imp_draw_line(line++, "                MyaowNES v" MN_VERSION " ");
   line += 5;
   if (rom_loaded) {
-    if (imp_draw_menu_line("Continue", line++, menu++)) {
+    if (imp_draw_menu_line("Continue", line++, menu++) || imp_menu_pressed(MN_INPUT_B)) {
       imp_menu_state(IMP_MENU_OFF);
     }
     ++line;
@@ -999,7 +1059,6 @@ static void imp_draw_menu()
     if (imp_draw_menu_line("Load", line++, menu++)) {
       imp_load();
     }
-    ++line;
     if (imp_draw_menu_line("ROM info", line++, menu++)) {
       imp_menu_state(IMP_MENU_INFO);
     }
@@ -1008,11 +1067,14 @@ static void imp_draw_menu()
   if (imp_draw_menu_line("Open ROM", line++, menu++)) {
     imp_open_file();
   }
+  if (imp_draw_menu_line("Recent ROMs", line++, menu++)) {
+    imp_menu_state(IMP_MENU_RECENT);
+  }
   ++line;
   if (imp_draw_menu_line("Options", line++, menu++)) {
     imp_menu_state(IMP_MENU_OPTIONS);
   }
-  if (imp_draw_menu_line("Help", line++, menu++)) {
+  if (imp_draw_menu_line("Keymap", line++, menu++)) {
     imp_menu_state(IMP_MENU_HELP);
   }
   ++line;
@@ -1029,10 +1091,15 @@ static void imp_draw_options()
   imp_draw_menu_prepare(12);
   uint line = 8;
   uint menu = 0;
-  if (imp_draw_menu_line("Back", line++, menu++)) {
+  if (imp_draw_menu_line("Back", line++, menu++) || imp_menu_pressed(MN_INPUT_B)) {
     imp_menu_state(IMP_MENU_MAIN);
   }
   ++line;
+  Uint32 flags = SDL_GetWindowFlags(imp.window);
+  bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
+  if (imp_draw_menu_line(imp_fullscreen_labels[is_fullscreen], line++, menu++)) {
+    imp_toggle_fullscreen();
+  }
   switch (imp_draw_menu_line(imp_volume_labels[imp.volume], line++, menu++)) {
     case MN_INPUT_LEFT: imp_volume_down(); break;
     case MN_INPUT_RIGHT: imp_volume_up(); break;
@@ -1055,11 +1122,6 @@ static void imp_draw_options()
   }
   if (imp_draw_menu_line(imp_region_labels[imp.region], line++, menu++)) {
     imp_toggle_region();
-  }
-  Uint32 flags = SDL_GetWindowFlags(imp.window);
-  bool is_fullscreen = (flags & SDL_WINDOW_FULLSCREEN) != 0;
-  if (imp_draw_menu_line(imp_fullscreen_labels[is_fullscreen], line++, menu++)) {
-    imp_toggle_fullscreen();
   }
   switch (imp_draw_menu_line(imp_fast_forward_labels[imp.fast_forward_scale - 2], line++, menu++)) {
     case MN_INPUT_LEFT: imp_fast_forward_down(); break;
@@ -1086,7 +1148,7 @@ static void imp_draw_info()
   imp_draw_menu_prepare(1);
   uint line = 8;
   uint menu = 0;
-  if (imp_draw_menu_line("Back", line++, menu++)) {
+  if (imp_draw_menu_line("Back", line++, menu++) || imp_menu_pressed(MN_INPUT_B)) {
     imp_menu_state(IMP_MENU_MAIN);
   }
   ++line;
@@ -1100,41 +1162,12 @@ static void imp_draw_info()
   imp_draw_line(line++, "          %s", imp.rom_info[5]);
 }
 
-static void imp_draw_touch_button(const char* label, uint x, uint y, uint r)
-{
-  SDL_FRect rect = { x - r, y - r, 2 * r, 2 * r };
-  SDL_RenderRect(imp.renderer, &rect);
-  SDL_RenderDebugText(imp.renderer, x - 4, y - 4, label);
-}
-
-static void imp_draw_touch()
-{
-  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0x80, 0x80, 0x80);
-
-  imp_draw_touch_button("M", imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius);
-  imp_draw_touch_button("F", imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius);
-  imp_draw_touch_button("St", imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius);
-  imp_draw_touch_button("Se", imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius);
-  imp_draw_touch_button("A", imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius);
-  imp_draw_touch_button("B", imp.touch_b_x, imp.touch_b_y, imp.touch_button_radius);
-  imp_draw_touch_button("+", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius);
-  imp_draw_touch_button("", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_threshold);
-}
-
-static bool imp_touch_hit(SDL_TouchFingerEvent* e, int x, int y, int r)
-{
-  int dx = e->x * imp.width - x;
-  int dy = e->y * imp.height - y;
-  return (dx * dx + dy * dy) < (r * r);
-}
-
 static void imp_draw_help()
 {
   imp_draw_menu_prepare(1);
   uint line = 4;
   uint menu = 0;
-  imp_draw_menu_line("Back", line++, menu++);
-  if (imp_menu_pressed(-1)) {
+  if (imp_draw_menu_line("Back", line++, menu++) || imp_menu_pressed(-1)) {
     imp_toggle_help();
   }
   ++line;
@@ -1158,6 +1191,57 @@ static void imp_draw_help()
   imp_draw_line(line++, " Quit       F10                 ");
   imp_draw_line(line++, " Fullscreen F11                 ");
   imp_draw_line(line++, " Screenshot F12                 ");
+}
+
+static void imp_draw_recent()
+{
+  uint count = 0;
+  for (; count < IMP_RECENT_COUNT; ++count) {
+    if (imp.recent_files[count][0] == 0) {
+      break;
+    }
+  }
+  imp_draw_menu_prepare(count + 1);
+  uint line = 4;
+  uint menu = 0;
+  if (imp_draw_menu_line("Back", line++, menu++) || imp_menu_pressed(MN_INPUT_B)) {
+    imp_menu_state(IMP_MENU_MAIN);
+  }
+  ++line;
+  for (uint i = 0; i < count; ++i) {
+    if (imp_draw_menu_line(imp_rom_name(imp.recent_files[i]), line++, menu++)) {
+      imp_rom_load(imp.recent_files[i]);
+      imp_rom_update();
+    }
+  }
+}
+
+static void imp_draw_touch_button(const char* label, uint x, uint y, uint r)
+{
+  SDL_FRect rect = { x - r, y - r, 2 * r, 2 * r };
+  SDL_RenderRect(imp.renderer, &rect);
+  SDL_RenderDebugText(imp.renderer, x - 4, y - 4, label);
+}
+
+static void imp_draw_touch()
+{
+  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0x80, 0x80, 0x80);
+
+  imp_draw_touch_button("M", imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius);
+  imp_draw_touch_button("F", imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius);
+  imp_draw_touch_button("St", imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius);
+  imp_draw_touch_button("Se", imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius);
+  imp_draw_touch_button("A", imp.touch_a_x, imp.touch_a_y, imp.touch_button_ab_radius);
+  imp_draw_touch_button("B", imp.touch_b_x, imp.touch_b_y, imp.touch_button_ab_radius);
+  imp_draw_touch_button("+", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius);
+  imp_draw_touch_button("", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_threshold);
+}
+
+static bool imp_touch_hit(SDL_TouchFingerEvent* e, int x, int y, int r)
+{
+  int dx = e->x * imp.width - x;
+  int dy = e->y * imp.height - y;
+  return (dx * dx + dy * dy) < (r * r);
 }
 
 static void imp_touch_cancel(SDL_FingerID fingerID)
@@ -1207,10 +1291,10 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: imp_onresize(); break;
     case SDL_EVENT_DROP_FILE: imp_drop_file(event->drop.data); break;
-    case SDL_EVENT_DISPLAY_ORIENTATION:
-      imp_set_fullscreen(event->display.data1 == SDL_ORIENTATION_LANDSCAPE
-                         || event->display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED);
-      break;
+    // case SDL_EVENT_DISPLAY_ORIENTATION:
+    //   imp_set_fullscreen(event->display.data1 == SDL_ORIENTATION_LANDSCAPE
+    //                      || event->display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED);
+    // break;
     case SDL_EVENT_KEY_DOWN:
       imp.touch_active = false;
       switch (event->key.key) {
@@ -1384,11 +1468,13 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       }
       break;
     case SDL_EVENT_FINGER_DOWN:
-      imp.touch_active = true;
-      if (imp_touch_hit(&event->tfinger, imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius)) {
+      if (!imp.touch_active) {
+        break;
+      }
+      if (imp_touch_hit(&event->tfinger, imp.touch_a_x, imp.touch_a_y, imp.touch_button_ab_radius)) {
         imp.touch_button[IMP_TOUCH_A] = event->tfinger.fingerID;
         imp_joy1_a_down();
-      } else if (imp_touch_hit(&event->tfinger, imp.touch_b_x, imp.touch_b_y, imp.touch_button_radius)) {
+      } else if (imp_touch_hit(&event->tfinger, imp.touch_b_x, imp.touch_b_y, imp.touch_button_ab_radius)) {
         imp.touch_button[IMP_TOUCH_B] = event->tfinger.fingerID;
         imp_joy1_b_down();
       } else if (imp_touch_hit(&event->tfinger, imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius)) {
@@ -1430,9 +1516,18 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       }
       break;
     case SDL_EVENT_FINGER_UP:
-    case SDL_EVENT_FINGER_CANCELED: imp_touch_cancel(event->tfinger.fingerID); break;
+    case SDL_EVENT_FINGER_CANCELED:
+      if (!imp.touch_active) {
+        imp.touch_active = true;
+        break;
+      }
+      imp_touch_cancel(event->tfinger.fingerID);
+      break;
     case SDL_EVENT_FINGER_MOTION:
-      if (imp_touch_hit(&event->tfinger, imp.touch_a_x, imp.touch_a_y, imp.touch_button_radius)) {
+      if (!imp.touch_active) {
+        break;
+      }
+      if (imp_touch_hit(&event->tfinger, imp.touch_a_x, imp.touch_a_y, imp.touch_button_ab_radius)) {
         if (imp.touch_button[IMP_TOUCH_A] != event->tfinger.fingerID) {
           imp.touch_button[IMP_TOUCH_A] = event->tfinger.fingerID;
           imp_joy1_a_down();
@@ -1441,7 +1536,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         imp.touch_button[IMP_TOUCH_A] = 0;
         imp_joy1_a_up();
       }
-      if (imp_touch_hit(&event->tfinger, imp.touch_b_x, imp.touch_b_y, imp.touch_button_radius)) {
+      if (imp_touch_hit(&event->tfinger, imp.touch_b_x, imp.touch_b_y, imp.touch_button_ab_radius)) {
         if (imp.touch_button[IMP_TOUCH_B] != event->tfinger.fingerID) {
           imp.touch_button[IMP_TOUCH_B] = event->tfinger.fingerID;
           imp_joy1_b_down();
@@ -1584,6 +1679,7 @@ SDL_AppResult SDL_AppIterate(void*)
     case IMP_MENU_OPTIONS: imp_draw_options(); break;
     case IMP_MENU_INFO: imp_draw_info(); break;
     case IMP_MENU_HELP: imp_draw_help(); break;
+    case IMP_MENU_RECENT: imp_draw_recent(); break;
   }
   if (imp.popup_time > 0) {
     imp_draw_popup();
