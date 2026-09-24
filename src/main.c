@@ -395,6 +395,11 @@ static void imp_save_history()
   }
   if (idx == -1) {
     idx = IMP_RECENT_COUNT - 1;
+#ifdef __EMSCRIPTEN__
+    if (imp.recent_files[idx][0]) {
+      SDL_RemovePath(imp.recent_files[idx]);
+    }
+#endif
   }
   for (int i = idx; i > 0; --i) {
     SDL_strlcpy(imp.recent_files[i], imp.recent_files[i - 1], IMP_PATH_SIZE);
@@ -641,6 +646,9 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   imp_ensure_dir("Saves");
   imp_ensure_dir("Screenshots");
+#ifdef __EMSCRIPTEN__
+  imp_ensure_dir("Roms");
+#endif
 
   SDL_strlcat(imp.config_path, imp.save_dir, IMP_PATH_SIZE);
   SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
@@ -744,7 +752,12 @@ static void imp_toggle_pause()
 static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
 {
   if (files && files[0]) {
+#ifdef __EMSCRIPTEN__
+    SDL_snprintf(imp.load_rom_path, IMP_PATH_SIZE, "%s%s/%s", imp.save_dir, "Roms", imp_rom_name(files[0]));
+    SDL_CopyFile(files[0], imp.load_rom_path);
+#else
     SDL_strlcpy(imp.load_rom_path, files[0], IMP_PATH_SIZE);
+#endif
   } else {
     imp.load_rom_path[0] = 0;
   }
