@@ -171,17 +171,19 @@ typedef struct
   u8 prg0;
   u8 prg1;
   u8 ctrl;
-  u8 filter;
-  u8 counter;
-  u8 latch;
-  u8 reload;
-  u8 enabled;
-  u8 old_irq;
+  u8 irq_filter;
+  u8 irq_counter;
+  u8 irq_latch;
+  u8 irq_reload;
+  u8 irq_enabled;
+  u8 nec_irq;
+  u8 mcacc_irq;
   u8 alt_mirror;
   u8 use_chr_ram;
   u8 has_outer_chr;
   u8 outer_chr0;
   u8 outer_chr1;
+  uint irq_addr;
 } map_mmc3;
 static_assert(sizeof(map_mmc3) <= MAP_REG_SIZE);
 
@@ -287,13 +289,18 @@ static bool map_mmc3_cpu_write(uint addr, uint val)
       //   map_prg_clear_page_8k(3);
       // }
       return true;
-    case 0xC000: reg->latch = val; return true;
-    case 0xC001: reg->reload = 1; return true;
+    case 0xC000: reg->irq_latch = val; return true;
+    case 0xC001:
+      reg->irq_reload = 1;
+      if (reg->mcacc_irq) {
+        reg->irq_filter = 0;
+      }
+      return true;
     case 0xE000:
-      reg->enabled = 0;
+      reg->irq_enabled = 0;
       map_irq(false);
       return true;
-    case 0xE001: reg->enabled = 1; return true;
+    case 0xE001: reg->irq_enabled = 1; return true;
   }
   if (reg->has_outer_chr && (addr & 0xE100)) {
     reg->outer_chr0 = (val & 1);
@@ -303,32 +310,50 @@ static bool map_mmc3_cpu_write(uint addr, uint val)
   return false;
 }
 
+static void map_mmc3_irq_clock()
+{
+  map_mmc3* reg = (map_mmc3*)map_reg();
+  if (reg->irq_counter == 0 || reg->irq_reload) {
+    reg->irq_counter = reg->irq_latch;
+  } else {
+    --reg->irq_counter;
+  }
+  if (reg->irq_counter == 0 && reg->irq_enabled && (reg->irq_reload || !reg->nec_irq || reg->irq_latch)) {
+    map_irq(true);
+  }
+  reg->irq_reload = 0;
+}
+
 static void map_mmc3_ppu_addr(uint addr)
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
-  if (addr & 0x1000) {
-    if (reg->filter == 0) {
-      if (reg->counter == 0 || reg->reload) {
-        reg->counter = reg->latch;
-      } else {
-        --reg->counter;
+  if (reg->mcacc_irq) {
+    if ((reg->irq_addr & 0x1000) && !(addr & 0x1000)) {
+      switch (++reg->irq_filter) {
+        case 2: map_mmc3_irq_clock(); break;
+        case 8: reg->irq_filter = 0; break;
       }
-      if (reg->counter == 0 && reg->enabled && (reg->reload || !reg->old_irq || reg->latch)) {
-        map_irq(true);
-      }
-      reg->reload = 0;
     }
-    reg->filter = 5;
-  } else if (reg->filter == 5) {
-    --reg->filter;
+    reg->irq_addr = addr;
+  } else {
+    if (addr & 0x1000) {
+      if (reg->irq_filter == 0) {
+        map_mmc3_irq_clock();
+      }
+      reg->irq_filter = 5;
+    } else if (reg->irq_filter == 5) {
+      --reg->irq_filter;
+    }
   }
 }
 
 static void map_mmc3_cpu_cyc()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
-  if (reg->filter > 0 && reg->filter < 5) {
-    --reg->filter;
+  if (!reg->mcacc_irq) {
+    if (reg->irq_filter > 0 && reg->irq_filter < 5) {
+      --reg->irq_filter;
+    }
   }
 }
 
@@ -343,7 +368,8 @@ static void map_mmc3_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   mn_rom rom = mn_rom_get();
-  reg->old_irq = (rom->submapper == 4);
+  reg->mcacc_irq = (rom->submapper == 3);
+  reg->nec_irq = (rom->submapper == 4);
   map_mmc3_set_cb();
   map_mmc3_update();
 }
@@ -351,7 +377,7 @@ static void map_mmc3_load()
 static void map_mmc3a_huang1_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
-  reg->old_irq = true;
+  reg->nec_irq = true;
   reg->has_outer_chr = true;
   map_mmc3_set_cb();
   map_mmc3_update();
