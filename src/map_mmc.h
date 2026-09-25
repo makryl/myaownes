@@ -171,6 +171,7 @@ typedef struct
   u8 prg0;
   u8 prg1;
   u8 ctrl;
+  u8 mirror_mode;
   u8 irq_filter;
   u8 irq_counter;
   u8 irq_latch;
@@ -187,7 +188,7 @@ typedef struct
 } map_mmc3;
 static_assert(sizeof(map_mmc3) <= MAP_REG_SIZE);
 
-static void map_mmc3_update()
+static void map_mmc3_update_prg_chr()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   uint chr0 = reg->chr0;
@@ -260,26 +261,33 @@ static void map_mmc3_update()
   }
 }
 
+static void map_mmc3_update_ciram()
+{
+  map_mmc3* reg = (map_mmc3*)map_reg();
+  if (!mn_rom_get()->alt_mirror && !reg->alt_mirror) {
+    if (reg->mirror_mode & 1) {
+      map_ciram_horiz_mirror();
+    } else {
+      map_ciram_vert_mirror();
+    }
+  }
+}
+
 static bool map_mmc3_cpu_write(uint addr, uint val)
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   switch (addr & 0xE001) {
     case 0x8000:
       reg->ctrl = val;
-      map_mmc3_update();
+      map_mmc3_update_prg_chr();
       return true;
     case 0x8001:
       map_reg()[reg->ctrl & 7] = val;
-      map_mmc3_update();
+      map_mmc3_update_prg_chr();
       return true;
     case 0xA000:
-      if (!mn_rom_get()->alt_mirror && !reg->alt_mirror) {
-        if (val & 1) {
-          map_ciram_horiz_mirror();
-        } else {
-          map_ciram_vert_mirror();
-        }
-      }
+      reg->mirror_mode = val;
+      map_mmc3_update_ciram();
       return true;
     case 0xA001:
       // sram protect not needed?
@@ -305,7 +313,7 @@ static bool map_mmc3_cpu_write(uint addr, uint val)
   if (reg->has_outer_chr && (addr & 0xE100)) {
     reg->outer_chr0 = (val & 1);
     reg->outer_chr1 = ((val & 0x10) >> 4);
-    map_mmc3_update();
+    map_mmc3_update_prg_chr();
   }
   return false;
 }
@@ -371,7 +379,8 @@ static void map_mmc3_load()
   reg->mcacc_irq = (rom->submapper == 3);
   reg->nec_irq = (rom->submapper == 4);
   map_mmc3_set_cb();
-  map_mmc3_update();
+  map_mmc3_update_prg_chr();
+  map_mmc3_update_ciram();
 }
 
 static void map_mmc3a_huang1_load()
@@ -380,7 +389,8 @@ static void map_mmc3a_huang1_load()
   reg->nec_irq = true;
   reg->has_outer_chr = true;
   map_mmc3_set_cb();
-  map_mmc3_update();
+  map_mmc3_update_prg_chr();
+  map_mmc3_update_ciram();
 }
 
 static void map_mmc3_txsrom_load()
@@ -388,7 +398,8 @@ static void map_mmc3_txsrom_load()
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->alt_mirror = true;
   map_mmc3_set_cb();
-  map_mmc3_update();
+  map_mmc3_update_prg_chr();
+  map_mmc3_update_ciram();
 }
 
 static void map_mmc3_tqrom_load()
@@ -396,7 +407,8 @@ static void map_mmc3_tqrom_load()
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->use_chr_ram = true;
   map_mmc3_set_cb();
-  map_mmc3_update();
+  map_mmc3_update_prg_chr();
+  map_mmc3_update_ciram();
 }
 
 typedef struct

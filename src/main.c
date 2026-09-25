@@ -601,15 +601,17 @@ static void imp_save()
   }
 }
 
-static void imp_load()
+static bool imp_load()
 {
   char qs_path[IMP_PATH_SIZE] = {};
   char ext[5] = ".qs0";
   ext[3] += imp.slot;
   imp_save_path(qs_path, "Saves", ext);
-  if (mn_load(qs_path)) {
+  bool result = mn_load(qs_path);
+  if (result) {
     imp_popup("Loaded", 2);
   }
+  return result;
 }
 
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
@@ -713,6 +715,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
           SDL_AUDIO_BITSIZE(spec.format), SDL_AUDIO_ISBIGENDIAN(spec.format) ? "BE" : "LE", spec.channels, samples);
   imp.audio_buffer_size = samples * sizeof(i16);
   mn_audio_freq(spec.freq);
+  imp_volume_update();
 
   bool inited = imp_init();
   imp_rom_update();
@@ -1070,7 +1073,9 @@ static void imp_draw_menu()
       imp_save();
     }
     if (imp_draw_menu_line("Load", line++, menu++)) {
-      imp_load();
+      if (imp_load()) {
+        imp_menu_state(IMP_MENU_OFF);
+      }
     }
     if (imp_draw_menu_line("ROM info", line++, menu++)) {
       imp_menu_state(IMP_MENU_INFO);

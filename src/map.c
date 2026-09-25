@@ -382,6 +382,7 @@ static void map_nrom_load()
 
 bool map_rom_load(mn_rom rom, bool init)
 {
+  memset(&map_dyn, 0, sizeof(map_dyn));
   map_dyn.rom = rom;
   rom->mapper_error = false;
   dev_region_update();
