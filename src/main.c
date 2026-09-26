@@ -1055,7 +1055,7 @@ static void imp_draw_menu_prepare(int menu_size)
 static void imp_draw_menu()
 {
   bool rom_loaded = imp.rom && !imp.rom->mapper_error;
-  imp_draw_menu_prepare(rom_loaded ? 9 : 3);
+  imp_draw_menu_prepare(rom_loaded ? 9 : 4);
   uint line = 2;
   uint menu = 0;
   imp_draw_line(line++, "                MyaowNES v" MN_VERSION " ");
