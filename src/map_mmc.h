@@ -120,7 +120,7 @@ static bool map_mmc1_cpu_write(uint addr, uint val)
     reg->shift |= (val & 1) << 4;
     if (last) {
       uint idx = (addr >> 13) & 3;
-      map_reg()[idx] = reg->shift & 0x1F;
+      ((u8*)reg)[idx] = reg->shift & 0x1F;
       reg->shift = 0x10;
       map_mmc1_update();
     }
@@ -282,7 +282,7 @@ static bool map_mmc3_cpu_write(uint addr, uint val)
       map_mmc3_update_prg_chr();
       return true;
     case 0x8001:
-      map_reg()[reg->ctrl & 7] = val;
+      ((u8*)reg)[reg->ctrl & 7] = val;
       map_mmc3_update_prg_chr();
       return true;
     case 0xA000:

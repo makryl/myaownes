@@ -28,7 +28,9 @@ void map_cpu_write_raw(uint addr, uint val);
 uint map_ppu_read_raw(uint addr, uint val);
 void map_ppu_write_raw(uint addr, uint val);
 
-u8* map_reg();
+void* map_reg();
+uint map_reg_read(uint idx);
+void map_reg_write(uint idx, uint val);
 void map_irq(bool enabled);
 void map_cpu_irq();
 void map_clear_pages();

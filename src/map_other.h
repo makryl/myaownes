@@ -1284,7 +1284,7 @@ static bool map_namco_108_cpu_write(uint addr, uint val)
   }
   map_namco_108* reg = (map_namco_108*)map_reg();
   switch (addr & 0xE001) {
-    case 0x8000: map_reg()[0] = val; break;
+    case 0x8000: reg->ctrl = val; break;
     case 0x8001:
       if (reg->is_3446) {
         switch (reg->ctrl & 7) {

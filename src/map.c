@@ -48,7 +48,9 @@ void map_set_ppu_addr_cb(map_ppu_addr_cb cb) { map_dyn.ppu_addr = cb; }
 void map_set_ppu_read_cb(map_ppu_read_cb cb) { map_dyn.ppu_read = cb; }
 void map_set_ppu_write_cb(map_ppu_write_cb cb) { map_dyn.ppu_write = cb; }
 
-u8* map_reg() { return map.reg; }
+void* map_reg() { return map.reg; }
+uint map_reg_read(uint idx) { return ((uint*)map.reg)[idx]; }
+void map_reg_write(uint idx, uint val) { ((uint*)map.reg)[idx] = val; }
 mn_rom mn_rom_get() { return map_dyn.rom; }
 uint map_size() { return sizeof(map); }
 void* map_data() { return &map; }
