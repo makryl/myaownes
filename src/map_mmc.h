@@ -365,11 +365,13 @@ static void map_mmc3_cpu_cyc()
   }
 }
 
-static void map_mmc3_set_cb()
+static void map_mmc3_load_common()
 {
   map_set_cpu_cyc_cb(map_mmc3_cpu_cyc);
   map_set_cpu_write_cb(map_mmc3_cpu_write);
   map_set_ppu_addr_cb(map_mmc3_ppu_addr);
+  map_mmc3_update_prg_chr();
+  map_mmc3_update_ciram();
 }
 
 static void map_mmc3_load()
@@ -378,9 +380,7 @@ static void map_mmc3_load()
   mn_rom rom = mn_rom_get();
   reg->mcacc_irq = (rom->submapper == 3);
   reg->nec_irq = (rom->submapper == 4);
-  map_mmc3_set_cb();
-  map_mmc3_update_prg_chr();
-  map_mmc3_update_ciram();
+  map_mmc3_load_common();
 }
 
 static void map_mmc3a_huang1_load()
@@ -388,27 +388,21 @@ static void map_mmc3a_huang1_load()
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->nec_irq = true;
   reg->has_outer_chr = true;
-  map_mmc3_set_cb();
-  map_mmc3_update_prg_chr();
-  map_mmc3_update_ciram();
+  map_mmc3_load_common();
 }
 
 static void map_mmc3_txsrom_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->alt_mirror = true;
-  map_mmc3_set_cb();
-  map_mmc3_update_prg_chr();
-  map_mmc3_update_ciram();
+  map_mmc3_load_common();
 }
 
 static void map_mmc3_tqrom_load()
 {
   map_mmc3* reg = (map_mmc3*)map_reg();
   reg->use_chr_ram = true;
-  map_mmc3_set_cb();
-  map_mmc3_update_prg_chr();
-  map_mmc3_update_ciram();
+  map_mmc3_load_common();
 }
 
 typedef struct
