@@ -419,44 +419,71 @@ typedef struct
   u8 chr1fe;
   u8 latch0;
   u8 latch1;
+  u8 prg;
+  u8 mirror_mode;
 } map_mmc2;
 static_assert(sizeof(map_mmc2) <= MAP_REG_SIZE);
+
+static void map_mmc2_update_prg()
+{
+  map_mmc2* reg = (map_mmc2*)map_reg();
+  map_prg_rom_page_8k(reg->prg & 0x0F, 4);
+}
+
+static void map_mmc2_update_chr()
+{
+  map_mmc2* reg = (map_mmc2*)map_reg();
+  if (reg->latch0 == 0xFD) {
+    map_chr_page_4k(reg->chr0fd, 0);
+  }
+  if (reg->latch0 == 0xFE) {
+    map_chr_page_4k(reg->chr0fe, 0);
+  }
+  if (reg->latch1 == 0xFD) {
+    map_chr_page_4k(reg->chr1fd, 1);
+  }
+  if (reg->latch1 == 0xFE) {
+    map_chr_page_4k(reg->chr1fe, 1);
+  }
+}
+
+static void map_mmc2_update_ciram()
+{
+  map_mmc2* reg = (map_mmc2*)map_reg();
+  if (reg->mirror_mode & 1) {
+    map_ciram_horiz_mirror();
+  } else {
+    map_ciram_vert_mirror();
+  }
+}
 
 static bool map_mmc2_cpu_write(uint addr, uint val)
 {
   map_mmc2* reg = (map_mmc2*)map_reg();
   switch (addr & 0xF000) {
-    case 0xA000: map_prg_rom_page_8k(val & 0x0F, 4); return true;
+    case 0xA000:
+      reg->prg = val;
+      map_mmc2_update_prg();
+      return true;
     case 0xB000:
       reg->chr0fd = val & 0x1F;
-      if (reg->latch0 == 0xFD) {
-        map_chr_page_4k(reg->chr0fd, 0);
-      }
+      map_mmc2_update_chr();
       return true;
     case 0xC000:
       reg->chr0fe = val & 0x1F;
-      if (reg->latch0 == 0xFE) {
-        map_chr_page_4k(reg->chr0fe, 0);
-      }
+      map_mmc2_update_chr();
       return true;
     case 0xD000:
       reg->chr1fd = val & 0x1F;
-      if (reg->latch1 == 0xFD) {
-        map_chr_page_4k(reg->chr1fd, 1);
-      }
+      map_mmc2_update_chr();
       return true;
     case 0xE000:
       reg->chr1fe = val & 0x1F;
-      if (reg->latch1 == 0xFE) {
-        map_chr_page_4k(reg->chr1fe, 1);
-      }
+      map_mmc2_update_chr();
       return true;
     case 0xF000:
-      if (val & 1) {
-        map_ciram_horiz_mirror();
-      } else {
-        map_ciram_vert_mirror();
-      }
+      reg->mirror_mode = val;
+      map_mmc2_update_ciram();
       return true;
   }
   return false;
@@ -468,18 +495,18 @@ static bool map_mmc2_ppu_read(uint addr, uint* val)
   map_mmc2* reg = (map_mmc2*)map_reg();
   if (addr == 0x0FD8) {
     reg->latch0 = 0xFD;
-    map_chr_page_4k(reg->chr0fd, 0);
+    map_mmc2_update_chr();
   } else if (addr == 0x0FE8) {
     reg->latch0 = 0xFE;
-    map_chr_page_4k(reg->chr0fe, 0);
+    map_mmc2_update_chr();
   } else if ((addr & 0xFFF8) == 0x1FD8) {
     reg->latch1 = 0xFD;
-    map_chr_page_4k(reg->chr1fd, 1);
+    map_mmc2_update_chr();
   } else if ((addr & 0xFFF8) == 0x1FE8) {
     reg->latch1 = 0xFE;
-    map_chr_page_4k(reg->chr1fe, 1);
+    map_mmc2_update_chr();
   }
-  return true;
+  return false;
 }
 
 static void map_mmc2_load(bool init)
@@ -495,6 +522,9 @@ static void map_mmc2_load(bool init)
     reg->latch0 = 0xFD;
     reg->latch1 = 0xFD;
   }
+  map_mmc2_update_prg();
+  map_mmc2_update_chr();
+  map_mmc2_update_ciram();
 }
 
 typedef struct
@@ -505,44 +535,71 @@ typedef struct
   u8 chr1fe;
   u8 latch0;
   u8 latch1;
+  u8 prg;
+  u8 mirror_mode;
 } map_mmc4;
 static_assert(sizeof(map_mmc4) <= MAP_REG_SIZE);
+
+static void map_mmc4_update_prg()
+{
+  map_mmc4* reg = (map_mmc4*)map_reg();
+  map_prg_rom_page_16k(reg->prg & 0x0F, 2);
+}
+
+static void map_mmc4_update_chr()
+{
+  map_mmc4* reg = (map_mmc4*)map_reg();
+  if (reg->latch0 == 0xFD) {
+    map_chr_page_4k(reg->chr0fd, 0);
+  }
+  if (reg->latch0 == 0xFE) {
+    map_chr_page_4k(reg->chr0fe, 0);
+  }
+  if (reg->latch1 == 0xFD) {
+    map_chr_page_4k(reg->chr1fd, 1);
+  }
+  if (reg->latch1 == 0xFE) {
+    map_chr_page_4k(reg->chr1fe, 1);
+  }
+}
+
+static void map_mmc4_update_ciram()
+{
+  map_mmc4* reg = (map_mmc4*)map_reg();
+  if (reg->mirror_mode & 1) {
+    map_ciram_horiz_mirror();
+  } else {
+    map_ciram_vert_mirror();
+  }
+}
 
 static bool map_mmc4_cpu_write(uint addr, uint val)
 {
   map_mmc4* reg = (map_mmc4*)map_reg();
   switch (addr & 0xF000) {
-    case 0xA000: map_prg_rom_page_16k(val & 0x0F, 2); return true;
+    case 0xA000:
+      reg->prg = val;
+      map_mmc4_update_prg();
+      return true;
     case 0xB000:
       reg->chr0fd = val & 0x1F;
-      if (reg->latch0 == 0xFD) {
-        map_chr_page_4k(reg->chr0fd, 0);
-      }
+      map_mmc4_update_chr();
       return true;
     case 0xC000:
       reg->chr0fe = val & 0x1F;
-      if (reg->latch0 == 0xFE) {
-        map_chr_page_4k(reg->chr0fe, 0);
-      }
+      map_mmc4_update_chr();
       return true;
     case 0xD000:
       reg->chr1fd = val & 0x1F;
-      if (reg->latch1 == 0xFD) {
-        map_chr_page_4k(reg->chr1fd, 1);
-      }
+      map_mmc4_update_chr();
       return true;
     case 0xE000:
       reg->chr1fe = val & 0x1F;
-      if (reg->latch1 == 0xFE) {
-        map_chr_page_4k(reg->chr1fe, 1);
-      }
+      map_mmc4_update_chr();
       return true;
     case 0xF000:
-      if (val & 1) {
-        map_ciram_horiz_mirror();
-      } else {
-        map_ciram_vert_mirror();
-      }
+      reg->mirror_mode = val;
+      map_mmc4_update_ciram();
       return true;
   }
   return false;
@@ -554,18 +611,18 @@ static bool map_mmc4_ppu_read(uint addr, uint* val)
   map_mmc4* reg = (map_mmc4*)map_reg();
   if ((addr & 0xFFF8) == 0x0FD8) {
     reg->latch0 = 0xFD;
-    map_chr_page_4k(reg->chr0fd, 0);
+    map_mmc4_update_chr();
   } else if ((addr & 0xFFF8) == 0x0FE8) {
     reg->latch0 = 0xFE;
-    map_chr_page_4k(reg->chr0fe, 0);
+    map_mmc4_update_chr();
   } else if ((addr & 0xFFF8) == 0x1FD8) {
     reg->latch1 = 0xFD;
-    map_chr_page_4k(reg->chr1fd, 1);
+    map_mmc4_update_chr();
   } else if ((addr & 0xFFF8) == 0x1FE8) {
     reg->latch1 = 0xFE;
-    map_chr_page_4k(reg->chr1fe, 1);
+    map_mmc4_update_chr();
   }
-  return true;
+  return false;
 }
 
 static void map_mmc4_load(bool init)
@@ -577,6 +634,9 @@ static void map_mmc4_load(bool init)
     reg->latch0 = 0xFD;
     reg->latch1 = 0xFD;
   }
+  map_mmc4_update_prg();
+  map_mmc4_update_chr();
+  map_mmc4_update_ciram();
 }
 
 typedef struct
