@@ -73,14 +73,41 @@ static bool map_action53_cpu_write(uint addr, uint val)
   return false;
 }
 
+static void map_action53_load()
+{
+  map_set_cpu_write_cb(map_action53_cpu_write);
+  map_action53_update();
+}
+
 typedef struct
 {
   uint irq_counter;
   u8 irq_latch;
   u8 irq_enabled;
-  u8 command;
+  u8 prg;
+  u8 chr0;
+  u8 chr1;
+  u8 chr2;
+  u8 chr3;
+  u8 mirror;
 } map_sunsoft3;
 static_assert(sizeof(map_sunsoft3) <= MAP_REG_SIZE);
+
+static void map_sunsoft3_update()
+{
+  map_sunsoft3* reg = (map_sunsoft3*)map_reg();
+  map_prg_rom_page_16k(reg->prg, 2);
+  map_chr_page_2k(reg->chr0, 0);
+  map_chr_page_2k(reg->chr1, 1);
+  map_chr_page_2k(reg->chr2, 2);
+  map_chr_page_2k(reg->chr3, 3);
+  switch (reg->mirror) {
+    case 0: map_ciram_vert_mirror(); break;
+    case 1: map_ciram_horiz_mirror(); break;
+    case 2: map_ciram_single_low(); break;
+    case 3: map_ciram_single_high(); break;
+  }
+}
 
 static bool map_sunsoft3_cpu_write(uint addr, uint val)
 {
@@ -90,10 +117,22 @@ static bool map_sunsoft3_cpu_write(uint addr, uint val)
   map_sunsoft3* reg = (map_sunsoft3*)map_reg();
   bool irq_ack = (addr & 0x8800);
   switch (addr & 0xF800) {
-    case 0x8800: map_chr_page_2k(val & 0x3F, 0); break;
-    case 0x9800: map_chr_page_2k(val & 0x3F, 1); break;
-    case 0xA800: map_chr_page_2k(val & 0x3F, 2); break;
-    case 0xB800: map_chr_page_2k(val & 0x3F, 3); break;
+    case 0x8800:
+      reg->chr0 = val & 0x3F;
+      map_sunsoft3_update();
+      break;
+    case 0x9800:
+      reg->chr1 = val & 0x3F;
+      map_sunsoft3_update();
+      break;
+    case 0xA800:
+      reg->chr2 = val & 0x3F;
+      map_sunsoft3_update();
+      break;
+    case 0xB800:
+      reg->chr3 = val & 0x3F;
+      map_sunsoft3_update();
+      break;
     case 0xC800:
       if (reg->irq_latch) {
         reg->irq_counter = (reg->irq_counter & 0xFF00) | val;
@@ -108,14 +147,13 @@ static bool map_sunsoft3_cpu_write(uint addr, uint val)
       irq_ack = false;
       break;
     case 0xE800:
-      switch (val & 3) {
-        case 0: map_ciram_vert_mirror(); break;
-        case 1: map_ciram_horiz_mirror(); break;
-        case 2: map_ciram_single_low(); break;
-        case 3: map_ciram_single_high(); break;
-      }
+      reg->mirror = (val & 3);
+      map_sunsoft3_update();
       break;
-    case 0xF800: map_prg_rom_page_16k(val & 0x0F, 2); break;
+    case 0xF800:
+      reg->prg = (val & 0x0F);
+      map_sunsoft3_update();
+      break;
   }
   if (irq_ack) {
     map_irq(false);
@@ -142,6 +180,7 @@ static void map_sunsoft3_load()
 {
   map_set_cpu_cyc_cb(map_sunsoft3_cpu_cyc);
   map_set_cpu_write_cb(map_sunsoft3_cpu_write);
+  map_sunsoft3_update();
 }
 
 typedef struct
@@ -151,16 +190,22 @@ typedef struct
   u8 prg_ext;
   u8 wram_enabled;
   u8 ctrl;
-  u8 nt[2];
+  u8 nt0;
+  u8 nt1;
+  u8 chr0;
+  u8 chr1;
+  u8 chr2;
+  u8 chr3;
+  u8 prg;
 } map_sunsoft4;
 static_assert(sizeof(map_sunsoft4) <= MAP_REG_SIZE);
 
-static void map_sunsoft4_nt_update()
+static void map_sunsoft4_update_nt()
 {
   map_sunsoft4* reg = (map_sunsoft4*)map_reg();
   bool use_chr = (reg->ctrl & 0x10);
-  uint sp0 = use_chr ? reg->nt[0] : 0;
-  uint sp1 = use_chr ? reg->nt[1] : 1;
+  uint sp0 = use_chr ? reg->nt0 : 0;
+  uint sp1 = use_chr ? reg->nt1 : 1;
   switch (reg->ctrl & 3) {
     case 0:
       map_nt_page(sp0, 0x8, use_chr);
@@ -189,6 +234,26 @@ static void map_sunsoft4_nt_update()
   }
 }
 
+static void map_sunsoft4_update_chr()
+{
+  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  map_chr_page_2k(reg->chr0, 0);
+  map_chr_page_2k(reg->chr1, 1);
+  map_chr_page_2k(reg->chr2, 2);
+  map_chr_page_2k(reg->chr3, 3);
+}
+
+static void map_sunsoft4_update_prg()
+{
+  map_sunsoft4* reg = (map_sunsoft4*)map_reg();
+  if (reg->wram_enabled) {
+    map_prg_ram_page_8k(0, 3, false);
+  } else {
+    map_prg_clear_page_8k(3);
+  }
+  map_prg_rom_page_16k(reg->prg, 2);
+}
+
 static bool map_sunsoft4_cpu_read(uint addr, uint*, bool)
 {
   if (addr >= 0x8000 && addr <= 0xBFFF) {
@@ -211,37 +276,43 @@ static bool map_sunsoft4_cpu_write(uint addr, uint val)
     return false;
   }
   switch (addr & 0xF000) {
-    case 0x8000: map_chr_page_2k(val, 0); break;
-    case 0x9000: map_chr_page_2k(val, 1); break;
-    case 0xA000: map_chr_page_2k(val, 2); break;
-    case 0xB000: map_chr_page_2k(val, 3); break;
+    case 0x8000:
+      reg->chr0 = val;
+      map_sunsoft4_update_chr();
+      break;
+    case 0x9000:
+      reg->chr1 = val;
+      map_sunsoft4_update_chr();
+      break;
+    case 0xA000:
+      reg->chr2 = val;
+      map_sunsoft4_update_chr();
+      break;
+    case 0xB000:
+      reg->chr3 = val;
+      map_sunsoft4_update_chr();
+      break;
     case 0xC000:
-      reg->nt[0] = (val | 0x80);
-      map_sunsoft4_nt_update();
+      reg->nt0 = (val | 0x80);
+      map_sunsoft4_update_nt();
       break;
     case 0xD000:
-      reg->nt[1] = (val | 0x80);
-      map_sunsoft4_nt_update();
+      reg->nt1 = (val | 0x80);
+      map_sunsoft4_update_nt();
       break;
     case 0xE000:
       reg->ctrl = val;
-      map_sunsoft4_nt_update();
+      map_sunsoft4_update_nt();
       break;
     case 0xF000: {
       reg->wram_enabled = (val & 0x10);
-      if (reg->wram_enabled) {
-        map_prg_ram_page_8k(0, 3, false);
-      } else {
-        map_prg_clear_page_8k(3);
-      }
-      uint prg_page = 0;
       if (reg->has_prg_ext) {
         reg->prg_ext = !(val & 0x08);
-        prg_page = (val & 0x07) | (reg->prg_ext ? 0x08 : 0);
+        reg->prg = (val & 0x07) | (reg->prg_ext ? 0x08 : 0);
       } else {
-        prg_page = (val & 0x0F);
+        reg->prg = (val & 0x0F);
       }
-      map_prg_rom_page_16k(prg_page, 2);
+      map_sunsoft4_update_prg();
       break;
     }
   }
@@ -267,6 +338,9 @@ static void map_sunsoft4_load()
     map_set_cpu_read_cb(map_sunsoft4_cpu_read);
   }
   map_set_cpu_write_cb(map_sunsoft4_cpu_write);
+  map_sunsoft4_update_prg();
+  map_sunsoft4_update_chr();
+  map_sunsoft4_update_nt();
 }
 
 typedef struct
@@ -889,7 +963,10 @@ static bool map_vrc6_cpu_write(uint addr, uint val)
     case 0x8000:
     case 0x8001:
     case 0x8002:
-    case 0x8003: reg->prg0 = (val & 0x0F); break;
+    case 0x8003:
+      reg->prg0 = (val & 0x0F);
+      map_vrc6_update();
+      break;
     case 0x9000:
     case 0x9001:
     case 0x9002:
@@ -903,11 +980,17 @@ static bool map_vrc6_cpu_write(uint addr, uint val)
     case 0xB002:
       // todo: audio
       break;
-    case 0xB003: reg->ctrl = val; break;
+    case 0xB003:
+      reg->ctrl = val;
+      map_vrc6_update();
+      break;
     case 0xC000:
     case 0xC001:
     case 0xC002:
-    case 0xC003: reg->prg1 = (val & 0x1F); break;
+    case 0xC003:
+      reg->prg1 = (val & 0x1F);
+      map_vrc6_update();
+      break;
     case 0xD000:
     case 0xD001:
     case 0xD002:
@@ -915,12 +998,14 @@ static bool map_vrc6_cpu_write(uint addr, uint val)
     case 0xE000:
     case 0xE001:
     case 0xE002:
-    case 0xE003: reg->chr[((addr & 0x2000) >> 11) | (addr & 3)] = val; break;
+    case 0xE003:
+      reg->chr[((addr & 0x2000) >> 11) | (addr & 3)] = val;
+      map_vrc6_update();
+      break;
     case 0xF000: reg->irq.latch = val; break;
     case 0xF001: map_vrc_irq_ctrl(val); break;
     case 0xF002: map_vrc_irq_ack(); break;
   }
-  map_vrc6_update();
   return true;
 }
 
@@ -928,6 +1013,7 @@ static void map_vrc6_load()
 {
   map_set_cpu_cyc_cb(map_vrc_cpu_cyc);
   map_set_cpu_write_cb(map_vrc6_cpu_write);
+  map_vrc6_update();
 }
 
 static void map_vrc6a_load()
@@ -1562,6 +1648,7 @@ typedef struct
   u8 prg2;
   u8 ctrl;
   u8 alt_mirror;
+  u8 mirror_mode;
 } map_tengen_rambo1;
 static_assert(sizeof(map_tengen_rambo1) <= MAP_REG_SIZE);
 
@@ -1637,6 +1724,13 @@ static void map_tengen_rambo1_update()
     map_prg_rom_page_8k(reg->prg2, 6);
     map_prg_rom_page_8k(-1, 7);
   }
+  if (!mn_rom_get()->alt_mirror && !reg->alt_mirror) {
+    if (reg->mirror_mode & 1) {
+      map_ciram_horiz_mirror();
+    } else {
+      map_ciram_vert_mirror();
+    }
+  }
 }
 
 static bool map_tengen_rambo1_cpu_write(uint addr, uint val)
@@ -1667,13 +1761,8 @@ static bool map_tengen_rambo1_cpu_write(uint addr, uint val)
       map_tengen_rambo1_update();
       break;
     case 0xA000:
-      if (!mn_rom_get()->alt_mirror && !reg->alt_mirror) {
-        if (val & 1) {
-          map_ciram_horiz_mirror();
-        } else {
-          map_ciram_vert_mirror();
-        }
-      }
+      reg->mirror_mode = val;
+      map_tengen_rambo1_update();
       break;
     case 0xA001: break;
     case 0xC000: reg->irq_latch = val; break;
@@ -1754,30 +1843,86 @@ static void map_tengen_rambo1_800037_load()
   map_tengen_rambo1_load();
 }
 
+typedef struct
+{
+  u8 prg0;
+  u8 prg1;
+  u8 chr0;
+  u8 chr1;
+  u8 chr4;
+  u8 chr5;
+  u8 chr6;
+  u8 chr7;
+  u8 mirror;
+} map_taito_tc0190;
+static_assert(sizeof(map_taito_tc0190) <= MAP_REG_SIZE);
+
+static void map_taito_tc0190_update()
+{
+  map_taito_tc0190* reg = (map_taito_tc0190*)map_reg();
+  map_prg_rom_page_8k(reg->prg0, 4);
+  map_prg_rom_page_8k(reg->prg1, 5);
+  map_chr_page_2k(reg->chr0, 0);
+  map_chr_page_2k(reg->chr1, 1);
+  map_chr_page_1k(reg->chr4, 4);
+  map_chr_page_1k(reg->chr5, 5);
+  map_chr_page_1k(reg->chr6, 6);
+  map_chr_page_1k(reg->chr7, 7);
+  if (reg->mirror) {
+    map_ciram_horiz_mirror();
+  } else {
+    map_ciram_vert_mirror();
+  }
+}
 
 static bool map_taito_tc0190_cpu_write(uint addr, uint val)
 {
   if (addr < 0x8000) {
     return false;
   }
+  map_taito_tc0190* reg = (map_taito_tc0190*)map_reg();
   switch (addr & 0xA003) {
     case 0x8000:
-      if (val & 0x40) {
-        map_ciram_horiz_mirror();
-      } else {
-        map_ciram_vert_mirror();
-      }
-      map_prg_rom_page_8k(val & 0x3F, 4);
+      reg->mirror = (val & 0x40);
+      reg->prg0 = (val & 0x3F);
+      map_taito_tc0190_update();
       break;
-    case 0x8001: map_prg_rom_page_8k(val & 0x3F, 5); break;
-    case 0x8002: map_chr_page_2k(val, 0); break;
-    case 0x8003: map_chr_page_2k(val, 1); break;
-    case 0xA000: map_chr_page_1k(val, 4); break;
-    case 0xA001: map_chr_page_1k(val, 5); break;
-    case 0xA002: map_chr_page_1k(val, 6); break;
-    case 0xA003: map_chr_page_1k(val, 7); break;
+    case 0x8001:
+      reg->prg1 = (val & 0x3F);
+      map_taito_tc0190_update();
+      break;
+    case 0x8002:
+      reg->chr0 = val;
+      map_taito_tc0190_update();
+      break;
+    case 0x8003:
+      reg->chr1 = val;
+      map_taito_tc0190_update();
+      break;
+    case 0xA000:
+      reg->chr4 = val;
+      map_taito_tc0190_update();
+      break;
+    case 0xA001:
+      reg->chr5 = val;
+      map_taito_tc0190_update();
+      break;
+    case 0xA002:
+      reg->chr6 = val;
+      map_taito_tc0190_update();
+      break;
+    case 0xA003:
+      reg->chr7 = val;
+      map_taito_tc0190_update();
+      break;
   }
   return true;
+}
+
+static void map_taito_tc0190_load()
+{
+  map_set_cpu_write_cb(map_taito_tc0190_cpu_write);
+  map_taito_tc0190_update();
 }
 
 typedef struct
@@ -2073,6 +2218,7 @@ typedef struct
   u8 ctrl;
   u8 prg0;
   u8 prg1;
+  u8 chr[8];
   u8 no_9000;
 } map_irem_g101;
 static_assert(sizeof(map_irem_g101) <= MAP_REG_SIZE);
@@ -2091,6 +2237,19 @@ static void map_irem_g101_update()
     map_prg_rom_page_8k(-2, 6);
     map_prg_rom_page_8k(-1, 7);
   }
+  map_chr_page_1k(reg->chr[0], 0);
+  map_chr_page_1k(reg->chr[1], 1);
+  map_chr_page_1k(reg->chr[2], 2);
+  map_chr_page_1k(reg->chr[3], 3);
+  map_chr_page_1k(reg->chr[4], 4);
+  map_chr_page_1k(reg->chr[5], 5);
+  map_chr_page_1k(reg->chr[6], 6);
+  map_chr_page_1k(reg->chr[7], 7);
+  if (reg->ctrl & 1) {
+    map_ciram_horiz_mirror();
+  } else {
+    map_ciram_vert_mirror();
+  }
 }
 
 static bool map_irem_g101_cpu_write(uint addr, uint val)
@@ -2106,11 +2265,6 @@ static bool map_irem_g101_cpu_write(uint addr, uint val)
       break;
     case 0x9000:
       if (!reg->no_9000) {
-        if (val & 1) {
-          map_ciram_horiz_mirror();
-        } else {
-          map_ciram_vert_mirror();
-        }
         reg->ctrl = val;
         map_irem_g101_update();
       }
@@ -2119,7 +2273,10 @@ static bool map_irem_g101_cpu_write(uint addr, uint val)
       reg->prg1 = (val & 0x1F);
       map_irem_g101_update();
       break;
-    case 0xB000: map_chr_page_1k(val, addr & 7); break;
+    case 0xB000:
+      reg->chr[addr & 7] = val;
+      map_irem_g101_update();
+      break;
   }
   return true;
 }
@@ -2133,6 +2290,7 @@ static void map_irem_g101_load()
     map_ciram_single_low();
   }
   map_set_cpu_write_cb(map_irem_g101_cpu_write);
+  map_irem_g101_update();
 }
 
 typedef struct
@@ -2143,6 +2301,8 @@ typedef struct
   u8 ctrl;
   u8 prg0;
   u8 prg1;
+  u8 chr[8];
+  u8 mirror;
 } map_irem_h3001;
 static_assert(sizeof(map_irem_h3001) <= MAP_REG_SIZE);
 
@@ -2159,6 +2319,20 @@ static void map_irem_h3001_update()
     map_prg_rom_page_8k(reg->prg1, 5);
     map_prg_rom_page_8k(-2, 6);
     map_prg_rom_page_8k(-1, 7);
+  }
+  map_chr_page_1k(reg->chr[0], 0);
+  map_chr_page_1k(reg->chr[1], 1);
+  map_chr_page_1k(reg->chr[2], 2);
+  map_chr_page_1k(reg->chr[3], 3);
+  map_chr_page_1k(reg->chr[4], 4);
+  map_chr_page_1k(reg->chr[5], 5);
+  map_chr_page_1k(reg->chr[6], 6);
+  map_chr_page_1k(reg->chr[7], 7);
+  switch (reg->mirror) {
+    case 0: map_ciram_vert_mirror(); break;
+    case 2: map_ciram_horiz_mirror(); break;
+    case 1:
+    case 3: map_ciram_single_low(); break;
   }
 }
 
@@ -2180,12 +2354,8 @@ static bool map_irem_h3001_cpu_write(uint addr, uint val)
           map_irem_h3001_update();
           break;
         case 1:
-          switch (val >> 6) {
-            case 0: map_ciram_vert_mirror(); break;
-            case 2: map_ciram_horiz_mirror(); break;
-            case 1:
-            case 3: map_ciram_single_low(); break;
-          }
+          reg->mirror = ((val >> 6) & 3);
+          map_irem_h3001_update();
           break;
         case 3:
           reg->irq_enabled = (val >> 7);
@@ -2203,7 +2373,10 @@ static bool map_irem_h3001_cpu_write(uint addr, uint val)
       reg->prg1 = (val & 0x1F);
       map_irem_h3001_update();
       break;
-    case 0xB000: map_chr_page_1k(val, addr & 7); break;
+    case 0xB000:
+      reg->chr[addr & 7] = val;
+      map_irem_h3001_update();
+      break;
   }
   return true;
 }
@@ -2222,15 +2395,7 @@ static void map_irem_h3001_load()
 {
   map_set_cpu_write_cb(map_irem_h3001_cpu_write);
   map_set_cpu_cyc_cb(map_irem_h3001_cpu_cyc);
-}
-
-static bool map_homebrew_nsf_subset_cpu_write(uint addr, uint val)
-{
-  if ((addr & 0xF000) == 0x5000) {
-    map_prg_rom_page_4k(val, 8 + (addr & 7));
-    return true;
-  }
-  return false;
+  map_irem_h3001_update();
 }
 
 bool map_other_load()
@@ -2247,10 +2412,9 @@ bool map_other_load()
     case 27: map_vrc2_vrc4_load(); break;
     case 24: map_vrc6a_load(); break;
     case 26: map_vrc6b_load(); break;
-    case 28: map_set_cpu_write_cb(map_action53_cpu_write); break;
-    case 31: map_set_cpu_write_cb(map_homebrew_nsf_subset_cpu_write); break;
+    case 28: map_action53_load(); break;
     case 32: map_irem_g101_load(); break;
-    case 33: map_set_cpu_write_cb(map_taito_tc0190_cpu_write); break;
+    case 33: map_taito_tc0190_load(); break;
     case 48: map_taito_tc0690_load(); break;
     case 64: map_tengen_rambo1_load(); break;
     case 65: map_irem_h3001_load(); break;

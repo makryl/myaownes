@@ -506,6 +506,34 @@ static void map_irem_tams1_load()
   map_discrete_prg_mir(0x1F, 0, 1, 16, 0x80, MAP_MIRROR_HORIZ_VERT, 0);
 }
 
+static void map_homebrew_nsf_subset_update()
+{
+  map_prg_rom_page_4k(map_reg_read(0), 0x8);
+  map_prg_rom_page_4k(map_reg_read(1), 0x9);
+  map_prg_rom_page_4k(map_reg_read(2), 0xA);
+  map_prg_rom_page_4k(map_reg_read(3), 0xB);
+  map_prg_rom_page_4k(map_reg_read(4), 0xC);
+  map_prg_rom_page_4k(map_reg_read(5), 0xD);
+  map_prg_rom_page_4k(map_reg_read(6), 0xE);
+  map_prg_rom_page_4k(map_reg_read(7), 0xF);
+}
+
+static bool map_homebrew_nsf_subset_cpu_write(uint addr, uint val)
+{
+  if ((addr & 0xF000) != 0x5000) {
+    return false;
+  }
+  map_reg_write(addr & 7, val);
+  map_homebrew_nsf_subset_update();
+  return true;
+}
+
+static void map_homebrew_nsf_subset_load()
+{
+  map_set_cpu_write_cb(map_homebrew_nsf_subset_cpu_write);
+  map_homebrew_nsf_subset_update();
+}
+
 bool map_discrete_load()
 {
   mn_rom rom = mn_rom_get();
@@ -517,6 +545,7 @@ bool map_discrete_load()
     case 11: map_discrete_prg_chr(0x0F, 0, 0, 32, 0xF0, 4, 0, 8, 0); break; // Color Dreams, bus conflict?
     case 13: map_discrete_chr(0x03, 0, 1, 4, 1); break; // CPROM
     case 30: map_unrom512_load(); break; // UNROM-512, no flash impl
+    case 31: map_homebrew_nsf_subset_load(); break;
     case 34: map_bnrom_nina_load(); break; // BxROM, NINA-001-002
     case 38: map_discrete_common_load(0xF000, 0x7000, 0x03, 0, 0, 32, 0x0C, 2, 0, 8, 0, 0, 0); break; // GxROM-like
     case 46: map_046_load(); break;
