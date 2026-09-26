@@ -73,9 +73,15 @@ static bool map_action53_cpu_write(uint addr, uint val)
   return false;
 }
 
-static void map_action53_load()
+static void map_action53_load(bool init)
 {
   map_set_cpu_write_cb(map_action53_cpu_write);
+  if (init) {
+    map_action53* reg = (map_action53*)map_reg();
+    reg->bank_mask = -1;
+    reg->outer_bank = -1;
+    reg->prg_page = -1;
+  }
   map_action53_update();
 }
 
@@ -2398,7 +2404,7 @@ static void map_irem_h3001_load()
   map_irem_h3001_update();
 }
 
-bool map_other_load()
+bool map_other_load(bool init)
 {
   mn_rom rom = mn_rom_get();
   switch (rom->mapper) {
@@ -2412,7 +2418,7 @@ bool map_other_load()
     case 27: map_vrc2_vrc4_load(); break;
     case 24: map_vrc6a_load(); break;
     case 26: map_vrc6b_load(); break;
-    case 28: map_action53_load(); break;
+    case 28: map_action53_load(init); break;
     case 32: map_irem_g101_load(); break;
     case 33: map_taito_tc0190_load(); break;
     case 48: map_taito_tc0690_load(); break;

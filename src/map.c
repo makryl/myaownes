@@ -394,7 +394,7 @@ bool map_rom_load(mn_rom rom, bool init)
     return true;
   }
 
-  if (map_discrete_load()) {
+  if (map_discrete_load(init)) {
     return true;
   }
 
@@ -402,7 +402,7 @@ bool map_rom_load(mn_rom rom, bool init)
     return true;
   }
 
-  if (map_other_load()) {
+  if (map_other_load(init)) {
     return true;
   }
 

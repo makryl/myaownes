@@ -224,12 +224,15 @@ static bool map_bnrom_nina_cpu_write(uint addr, uint val)
   return false;
 }
 
-static void map_bnrom_nina_load()
+static void map_bnrom_nina_load(bool init)
 {
   map_bnrom_nina* reg = (map_bnrom_nina*)map_reg();
   mn_rom rom = mn_rom_get();
   reg->bnrom = (rom->submapper == 2) || (rom->submapper == 0 && (rom->chr_rom_size + rom->chr_ram_size) == 8 * 1024);
   map_set_cpu_write_cb(map_bnrom_nina_cpu_write);
+  if (init) {
+    reg->prg = -1;
+  }
   map_bnrom_nina_update();
 }
 
@@ -528,13 +531,19 @@ static bool map_homebrew_nsf_subset_cpu_write(uint addr, uint val)
   return true;
 }
 
-static void map_homebrew_nsf_subset_load()
+static void map_homebrew_nsf_subset_load(bool init)
 {
   map_set_cpu_write_cb(map_homebrew_nsf_subset_cpu_write);
+  if (init) {
+    map_reg_write(4, -1);
+    map_reg_write(5, -1);
+    map_reg_write(6, -1);
+    map_reg_write(7, -1);
+  }
   map_homebrew_nsf_subset_update();
 }
 
-bool map_discrete_load()
+bool map_discrete_load(bool init)
 {
   mn_rom rom = mn_rom_get();
   switch (rom->mapper) {
@@ -545,8 +554,8 @@ bool map_discrete_load()
     case 11: map_discrete_prg_chr(0x0F, 0, 0, 32, 0xF0, 4, 0, 8, 0); break; // Color Dreams, bus conflict?
     case 13: map_discrete_chr(0x03, 0, 1, 4, 1); break; // CPROM
     case 30: map_unrom512_load(); break; // UNROM-512, no flash impl
-    case 31: map_homebrew_nsf_subset_load(); break;
-    case 34: map_bnrom_nina_load(); break; // BxROM, NINA-001-002
+    case 31: map_homebrew_nsf_subset_load(init); break;
+    case 34: map_bnrom_nina_load(init); break; // BxROM, NINA-001-002
     case 38: map_discrete_common_load(0xF000, 0x7000, 0x03, 0, 0, 32, 0x0C, 2, 0, 8, 0, 0, 0); break; // GxROM-like
     case 46: map_046_load(); break;
     case 66: map_discrete_prg_chr(0xF0, 4, 0, 32, 0x0F, 0, 0, 8, 1); break; // GxROM
