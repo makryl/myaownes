@@ -29,7 +29,7 @@ enum
   PPU_DOT_SWAP_Y_BEGIN = 280,
   PPU_DOT_SWAP_Y_END = 304,
   PPU_DOT_SPRITE_BEGIN = 257,
-  PPU_DOT_SPRITE_END = 320,
+  PPU_DOT_SPRITE_END = 321,
   PPU_DOT_SPRITE_PREPARE = 337,
   PPU_DOT_PREFETCH_BEGIN = 321,
   PPU_DOT_PREFETCH_END = 336,
@@ -148,6 +148,7 @@ MN_CACHE_LINE static struct Ppu
   bool sprite_render_has0: 1;
   bool sprite_flip_horiz: 1;
   bool sprite_fetch_done: 1;
+  bool oam_addr2_overflow: 1;
   bool inc_x: 1;
   bool ntsc: 1;
   bool ale: 1;
@@ -340,6 +341,25 @@ static void ppu_inc_mn()
   }
 }
 
+static bool ppu_inc_oam_addr2()
+{
+  if (!ppu.oam_addr2_overflow) {
+    if (++ppu.oam_addr2 == 0x20) {
+      ppu.oam_addr2 = 0;
+      ppu.oam_addr2_overflow = true;
+    }
+    return true;
+  } else {
+    return false;
+  }
+}
+
+static void ppu_reset_oam_addr2()
+{
+  ppu.oam_addr2 = 0;
+  ppu.oam_addr2_overflow = false;
+}
+
 static uint ppu_reg_bus_set(uint val, uint mask)
 {
   val &= mask;
@@ -526,14 +546,15 @@ static void ppu_fetch_back()
 
 static void ppu_clear_sprites()
 {
-  if (ppu.dot == PPU_DOT_BEGIN) {
-    ppu.oam_addr2 = -1;
-  }
   if (ppu.dot & 1) {
     ppu.oam_data = 0xFF;
-    ++ppu.oam_addr2;
+    if (ppu.dot == PPU_DOT_BEGIN) {
+      ppu_reset_oam_addr2();
+    } else {
+      ppu_inc_oam_addr2();
+    }
   } else {
-    ppu.oam2[ppu.oam_addr2 & 0x1F] = ppu.oam_data;
+    ppu.oam2[ppu.oam_addr2] = ppu.oam_data;
   }
   ppu.sprite_eval_count = 0;
   ppu.sprite_eval_done = false;
@@ -541,7 +562,7 @@ static void ppu_clear_sprites()
 
 static void ppu_evaluate_sprites_reset()
 {
-  ppu.oam_addr2 = 0;
+  ppu_reset_oam_addr2();
   ppu.sprite_copy = 0;
   ppu.sprite_eval_has0 = false;
   ppu.sprite_eval_first = true;
@@ -556,16 +577,14 @@ static void ppu_evaluate_sprites()
 
   uint y = ppu.oam_data;
 
-  if (ppu.oam_addr2 >= 0 && ppu.oam_addr2 < 0x20 && !ppu.sprite_eval_done) {
+  if (!ppu.oam_addr2_overflow && !ppu.sprite_eval_done) {
     ppu.oam2[ppu.oam_addr2] = ppu.oam_data;
   } else {
-    ppu.oam_data = ppu.oam2[ppu.oam_addr2 & 0x1F];
+    ppu.oam_data = ppu.oam2[ppu.oam_addr2];
   }
 
   if (ppu.sprite_copy > 0) {
-    if (ppu.oam_addr2 < 0x20) {
-      ++ppu.oam_addr2;
-    }
+    ppu_inc_oam_addr2();
     ppu_inc_mn();
     if (--ppu.sprite_copy == 0) {
       ppu_reset_m(); // NES bug: sprite-8 resets m on end of copy even when miss-aligned
@@ -581,9 +600,7 @@ static void ppu_evaluate_sprites()
       if (is_sprite0) {
         ppu.sprite_eval_has0 = true;
       }
-      if (ppu.oam_addr2 < 0x20) {
-        ++ppu.oam_addr2;
-      } else {
+      if (!ppu_inc_oam_addr2()) {
         ppu.status |= PPU_STATUS_SPRITE_OVERFLOW;
       }
       ppu_inc_mn();
@@ -602,7 +619,10 @@ static void ppu_fetch_sprites()
 {
   if (ppu.dot == PPU_DOT_SPRITE_BEGIN) {
     ppu.sprite_render_has0 = ppu.sprite_eval_has0;
-    ppu.oam_addr2 = -1;
+  } else if (ppu.dot == PPU_DOT_SPRITE_END) {
+    ppu_inc_oam_addr2();
+    ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+    return;
   }
 
   ppu.oam_addr1 = 0;
@@ -611,7 +631,10 @@ static void ppu_fetch_sprites()
   switch (ppu_pipe_step()) {
     case 0: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
+      if (ppu.dot != PPU_DOT_SPRITE_BEGIN) {
+        ppu_inc_oam_addr2();
+      }
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       uint next_sl = (ppu.sl & 0xFF) + 1; // NES bug: pre-render sl 261 masked
       ppu.sprite_y = next_sl - ppu.oam_data - 1;
       break;
@@ -619,7 +642,8 @@ static void ppu_fetch_sprites()
     case 1: {
       ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // unused NT
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
+      ppu_inc_oam_addr2();
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       ppu.sprite_tile = ppu.oam_data;
       if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {
         ppu.nt = (ppu.sprite_tile & 1) ? 0x1000 : 0x0000;
@@ -630,7 +654,8 @@ static void ppu_fetch_sprites()
     }
     case 2: {
       ppu_addr(ppu_nt_addr());
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
+      ppu_inc_oam_addr2();
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       ppu.sprite_attr[i] = ppu.oam_data;
       ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
       if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
@@ -651,7 +676,8 @@ static void ppu_fetch_sprites()
     case 3: {
       ppu_addr_hi(ppu_nt_addr());
       ppu_read(); // ignored NT
-      ppu.oam_data = ppu.oam2[++ppu.oam_addr2 & 0x1F];
+      ppu_inc_oam_addr2();
+      ppu.oam_data = ppu.oam2[ppu.oam_addr2];
       ppu.sprite_x[i] = ppu.oam_data;
       break;
     }
@@ -692,7 +718,11 @@ static void ppu_fetch_sprites()
   }
 }
 
-static void ppu_fetch_sprites_finish() { memcpy(ppu.sprite_shift_x, ppu.sprite_x, sizeof(ppu.sprite_shift_x)); }
+static void ppu_fetch_sprites_finish()
+{
+  memcpy(ppu.sprite_shift_x, ppu.sprite_x, sizeof(ppu.sprite_shift_x));
+  ppu_reset_oam_addr2();
+}
 
 static void ppu_fetch_unused()
 {
@@ -727,7 +757,7 @@ static void ppu_fetch()
 {
   if (ppu.dot == PPU_DOT_ZERO) {
     ppu_fetch_unused();
-    ppu_oam_corrupt(ppu.oam_addr2 & 0x1F, 0); // NES bug: oam may corrupt if addr-s not zero
+    ppu_oam_corrupt(ppu.oam_addr2, 0); // NES bug: oam may corrupt if addr-s not zero
   }
   if ((ppu.dot >= PPU_DOT_BEGIN && ppu.dot < PPU_DOT_SPRITE_EVAL_BEGIN)) {
     ppu_clear_sprites();
@@ -738,11 +768,12 @@ static void ppu_fetch()
     if (ppu.sl != ppu.sl_pre_render) {
       ppu_evaluate_sprites();
     }
+    if (ppu.dot == PPU_DOT_END) { // todo: reset oam_addr2 on 255 or 256?
+      ppu_reset_oam_addr2();
+    }
   } else if (ppu.dot >= PPU_DOT_SPRITE_BEGIN && ppu.dot <= PPU_DOT_SPRITE_END) {
     ppu_fetch_sprites();
   } else if (ppu.dot > PPU_DOT_SPRITE_END) {
-    ppu.oam_addr2 = 0;
-    ppu.oam_data = ppu.oam2[ppu.oam_addr2];
     if (ppu.dot == PPU_DOT_SPRITE_PREPARE) {
       ppu.sprite_fetch_done = true;
     }

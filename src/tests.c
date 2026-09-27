@@ -355,7 +355,7 @@ static TestParams tests[] = {
     MN_REGION_NTSC,
     0,
     0,
-    { { 0xDF382365, 40, 0, 0 }, { 0x56FC8DFD, 2, MN_INPUT_START, 0 }, { 0x57BEFF15, 4060, 0, 0 } } }, //
+    { { 0x6121DCA1, 40, 0, 0 }, { 0x56FC8DFD, 2, MN_INPUT_START, 0 }, { 0x75AD4E80, 4100, 0, 0 } } }, //
   { "other/ControllerStrobeTest.nes",
     MN_REGION_NTSC,
     0,
