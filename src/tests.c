@@ -7,6 +7,9 @@
 #include <math.h>
 #include <SDL3/SDL.h>
 
+static const char* base_path = "";
+static const char* out_path = "";
+
 typedef struct
 {
   u8 idLength;
@@ -562,54 +565,61 @@ static uint calc_crc(const u8* data, uint size)
 // fclose(f);
 // }
 
-typedef struct
+// typedef struct
+// {
+//   u16 magic;
+//   uint file_size;
+//   uint reserved;
+//   uint offset;
+//   uint info_size;
+//   int width;
+//   int height;
+//   u16 planes;
+//   u16 bpp;
+//   uint compression;
+//   uint image_size;
+//   int ppm_x;
+//   int ppm_y;
+//   uint colors_used;
+//   uint colors_important;
+// } __attribute__((packed)) BMPHeader;
+
+// static void save_bmp(const char* img_path, const void* pixels, uint width, uint height)
+// {
+//   FILE* f = fopen(img_path, "wb");
+//   if (!f) {
+//     return;
+//   }
+
+// uint image_size = width * height * 4;
+
+// BMPHeader header;
+// header.magic = 0x4D42;
+// header.file_size = sizeof(BMPHeader) + image_size;
+// header.reserved = 0;
+// header.offset = sizeof(BMPHeader);
+// header.info_size = 40;
+// header.width = width;
+// header.height = -height;
+// header.planes = 1;
+// header.bpp = 32;
+// header.compression = 0;
+// header.image_size = image_size;
+// header.ppm_x = 2835;
+// header.ppm_y = 2835;
+// header.colors_used = 0;
+// header.colors_important = 0;
+
+// fwrite(&header, 1, sizeof(BMPHeader), f);
+// fwrite(pixels, 4, (size_t)width * height, f);
+// fclose(f);
+// }
+
+static void save_png(const char* img_path, const void* pixels, uint width, uint height)
 {
-  u16 magic;
-  uint file_size;
-  uint reserved;
-  uint offset;
-  uint info_size;
-  int width;
-  int height;
-  u16 planes;
-  u16 bpp;
-  uint compression;
-  uint image_size;
-  int ppm_x;
-  int ppm_y;
-  uint colors_used;
-  uint colors_important;
-} __attribute__((packed)) BMPHeader;
-
-static void save_bmp(const char* img_path, const void* pixels, uint width, uint height)
-{
-  FILE* f = fopen(img_path, "wb");
-  if (!f) {
-    return;
-  }
-
-  uint image_size = width * height * 4;
-
-  BMPHeader header;
-  header.magic = 0x4D42;
-  header.file_size = sizeof(BMPHeader) + image_size;
-  header.reserved = 0;
-  header.offset = sizeof(BMPHeader);
-  header.info_size = 40;
-  header.width = width;
-  header.height = -height;
-  header.planes = 1;
-  header.bpp = 32;
-  header.compression = 0;
-  header.image_size = image_size;
-  header.ppm_x = 2835;
-  header.ppm_y = 2835;
-  header.colors_used = 0;
-  header.colors_important = 0;
-
-  fwrite(&header, 1, sizeof(BMPHeader), f);
-  fwrite(pixels, 4, (size_t)width * height, f);
-  fclose(f);
+  SDL_Surface* surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_XRGB8888, (void*)pixels, width * 4);
+  SDL_SavePNG(surface, img_path);
+  SDL_DestroySurface(surface);
 }
 
 static void make_dirs(char* path)
@@ -733,12 +743,12 @@ static void visualize_audio_frame()
 static void save_test_step_img(const char* rom_path, uint step)
 {
   char img_path[512] = {};
-  sprintf(img_path, "screenshots/%s.%d.bmp", rom_path, step);
+  sprintf(img_path, "%s/screenshots/%s.%d.png", out_path, rom_path, step);
   make_dirs(img_path);
   if (audio_size) {
-    save_bmp(img_path, audio_data, 512, audio_size);
+    save_png(img_path, audio_data, 512, audio_size);
   } else {
-    save_bmp(img_path, mn_video_data(), 256, 240);
+    save_png(img_path, mn_video_data(), 256, 240);
   }
 }
 
@@ -765,10 +775,12 @@ static bool run_test_steps(TestParams params, uint* out_hash)
   memset(mn_video_data(), 0, 256ULL * 240 * 4);
   memset(audio_data, 0, sizeof(audio_data));
   audio_size = 0;
+  char rom_path[512];
+  sprintf(rom_path, "%s/%s", base_path, params.path);
   char sram_path[512];
-  sprintf(sram_path, "saves/%s.sav", params.path);
+  sprintf(sram_path, "%s/saves/%s.sav", out_path, params.path);
   make_dirs(sram_path);
-  mn_rom rom = mn_rom_load(params.path, sram_path);
+  mn_rom rom = mn_rom_load(rom_path, sram_path);
   mn_region_set(params.region);
   mn_rom_set(rom);
   mn_apu_test_mode(params.apu_test_mode);
@@ -831,9 +843,15 @@ static bool run_test(TestParams params)
   return result;
 }
 
-int main(int, char**)
+int main(int argc, char** argv)
 {
-  chdir("../../tmp/nes-test-roms");
+  if (argc < 3) {
+    printf("Usage: %s [test-roms-dir] [output-dir]", argv[0]);
+    return 1;
+  }
+
+  base_path = argv[1];
+  out_path = argv[2];
 
   uint count = sizeof(tests) / sizeof(tests[0]);
   uint errors = 0;

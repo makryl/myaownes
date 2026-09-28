@@ -21,9 +21,6 @@ add_library(myaownes-static
 target_include_directories(myaownes-static PUBLIC include)
 target_link_libraries(myaownes-static PUBLIC SDL3-static)
 
-add_executable(tests EXCLUDE_FROM_ALL src/tests.c)
-target_link_libraries(tests myaownes-static)
-
 add_executable(myaownes src/main.c)
 target_link_libraries(myaownes myaownes-static)
 
@@ -33,3 +30,11 @@ if (EMSCRIPTEN)
 endif()
 
 install(TARGETS myaownes)
+
+add_executable(myaownes-tests EXCLUDE_FROM_ALL src/tests.c)
+target_link_libraries(myaownes-tests myaownes-static)
+
+add_custom_target(myaownes-tests-run
+  COMMAND myaownes-tests "${TESTS_BASE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/" > "${CMAKE_CURRENT_SOURCE_DIR}/tests/log.txt"
+  DEPENDS myaownes-tests
+)
