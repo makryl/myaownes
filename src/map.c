@@ -14,8 +14,13 @@ enum
   MAP_PAGE_MASK = MAP_PAGE_SIZE - 1,
 };
 
-MN_CACHE_LINE static struct
+static struct
 {
+  const u8* cpu_read_page[64];
+  u8* cpu_write_page[64];
+  const u8* ppu_read_page[16];
+  u8* ppu_write_page[16];
+
   map_cpu_cyc_cb cpu_cyc;
   map_cpu_read_cb cpu_read;
   map_cpu_write_cb cpu_write;
@@ -25,19 +30,14 @@ MN_CACHE_LINE static struct
   map_ppu_write_cb ppu_write;
 
   mn_rom rom;
-
-  MN_CACHE_LINE const u8* cpu_read_page[64];
-  MN_CACHE_LINE u8* cpu_write_page[64];
-  MN_CACHE_LINE const u8* ppu_read_page[16];
-  MN_CACHE_LINE u8* ppu_write_page[16];
 } map_dyn;
 
-MN_CACHE_LINE static struct
+static struct
 {
+  u8 ciram[0x1000];
+  u8 reg[MAP_REG_SIZE];
   bool apu_irq: 1;
   bool irq: 1;
-  MN_CACHE_LINE u8 ciram[0x1000];
-  MN_CACHE_LINE u8 reg[MAP_REG_SIZE];
 } map;
 
 void map_set_cpu_cyc_cb(map_cpu_cyc_cb cb) { map_dyn.cpu_cyc = cb; }
@@ -59,14 +59,18 @@ void map_cpu_irq() { cpu_irq(map.apu_irq || map.irq); }
 
 void map_irq(bool enabled)
 {
-  map.irq = enabled;
-  map_cpu_irq();
+  if (map.irq != enabled) {
+    map.irq = enabled;
+    map_cpu_irq();
+  }
 }
 
 void map_apu_irq(bool enabled)
 {
-  map.apu_irq = enabled;
-  map_cpu_irq();
+  if (map.apu_irq != enabled) {
+    map.apu_irq = enabled;
+    map_cpu_irq();
+  }
 }
 
 void map_cpu_cyc()
@@ -218,7 +222,7 @@ static uint map_page_clamp(uint page, uint size, uint shift)
 {
   uint pages = (size >> shift);
   if (pages == 0) {
-    __builtin_debugtrap();
+    // __builtin_debugtrap();
     return 0;
   }
   page &= map_page_mask(pages);
