@@ -227,6 +227,7 @@ void apu_reset_out() { apu.out_size = 0; }
 void mn_apu_test_mode(bool enabled) { apu.test_mode = enabled; }
 static bool apu_is_put_phase() { return (cpu_cyc() & 1); }
 static bool apu_is_get_phase() { return !apu_is_put_phase(); }
+static void apu_irq() { map_apu_irq(apu.frame_irq || apu.dmc_irq); }
 
 #define APU_PI 3.141592653589793238462643383279502884
 static float apu_filter_alpha(uint ff, uint of) { return 1.0 / (1.0 + (2.0 * APU_PI * ff) / of); }
@@ -480,6 +481,7 @@ void apu_reset()
 
   apu.frame_irq = false;
   apu.dmc_irq = false;
+  apu_irq();
 
   apu.sample_dirty = true;
 
@@ -493,6 +495,7 @@ uint apu_bus_read(uint addr, uint val, bool trace)
       uint status = apu_get_status();
       if (!trace) {
         apu.frame_irq = false;
+        apu_irq();
       }
       val = (val & APU_STATUS_OPENBUS) | status;
       break;
@@ -591,6 +594,7 @@ void apu_bus_write(uint addr, uint val)
       apu.dmc_irq_enabled = (val & 0x80);
       if (!apu.dmc_irq_enabled) {
         apu.dmc_irq = false;
+        apu_irq();
       }
       break;
     case 0x11:
@@ -623,6 +627,7 @@ void apu_bus_write(uint addr, uint val)
         apu.dmc_load = apu_is_put_phase() ? 2 : 3;
       }
       apu.dmc_irq = false;
+      apu_irq();
       break;
     }
     case 0x17: {
@@ -630,6 +635,7 @@ void apu_bus_write(uint addr, uint val)
       apu.frame_irq_disabled = (val & 0x40);
       if (apu.frame_irq_disabled) {
         apu.frame_irq = false;
+        apu_irq();
       }
       apu.cyc_reset = apu_is_put_phase() ? 3 : 4;
       break;
@@ -707,6 +713,7 @@ void apu_dmc_dma(uint val)
       } else {
         if (apu.dmc_irq_enabled) {
           apu.dmc_irq = true;
+          apu_irq();
         }
         apu.dmc_stop = 3; // NES bug: implicit stop
       }
@@ -1025,6 +1032,7 @@ void apu_tick()
     if (!apu.mode5) {
       if (!apu.frame_irq_disabled) {
         apu.frame_irq = true;
+        apu_irq();
       }
       apu_trace("frame irq");
     }
@@ -1036,8 +1044,6 @@ void apu_tick()
   if (apu_is_get_phase()) { // NES bug: IRQ flags change immediately, but status change becomes visible on GET phase
     apu.frame_irq_status = apu.frame_irq || (apu.cyc >= last_step && !apu.mode5); // NES bug: irq status on last step
   }
-
-  map_apu_irq(apu.frame_irq || apu.dmc_irq);
 
   ++apu.cyc;
 }
