@@ -41,8 +41,10 @@ enum
   CPU_ADDR_ZPY,
 };
 
-MN_CACHE_LINE static struct Cpu
+static struct Cpu
 {
+  u8 ram[0x0800];
+
   uint cyc;
   uint dmc_dma_delay;
   uint dmc_dma_addr;
@@ -71,8 +73,6 @@ MN_CACHE_LINE static struct Cpu
   bool write: 1;
   bool suppress_poll: 1;
   bool pal: 1;
-
-  MN_CACHE_LINE u8 ram[0x0800];
 } cpu;
 
 #define cpu_trace(fmt, ...)                                                                                            \
