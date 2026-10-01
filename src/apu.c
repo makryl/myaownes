@@ -56,10 +56,10 @@ static const uint apu_dmc_period_pal[16] = { 398, 354, 316, 298, 266, 236, 210, 
                                              176, 148, 132, 118, 98,  78,  66,  50 };
 
 static const uint apu_duty_table[4] = {
-  0b00000001,
-  0b00000011,
-  0b00001111,
-  0b11111100,
+  0b10000000,
+  0b11000000,
+  0b11110000,
+  0b00111111,
 };
 
 static const uint apu_triangle_table[32] = { 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,  4,  3,  2,  1,  0,
@@ -179,6 +179,7 @@ static struct Apu
   bool step_env: 1;
   bool step_len: 1;
   bool sample_dirty: 1;
+  bool irq_dirty: 1;
 
   bool dmc_enabled: 1;
   bool dmc_irq_enabled: 1;
@@ -227,7 +228,6 @@ void apu_reset_out() { apu.out_size = 0; }
 void mn_apu_test_mode(bool enabled) { apu.test_mode = enabled; }
 static bool apu_is_put_phase() { return (cpu_cyc() & 1); }
 static bool apu_is_get_phase() { return !apu_is_put_phase(); }
-static void apu_irq() { map_apu_irq(apu.frame_irq || apu.dmc_irq); }
 
 #define APU_PI 3.141592653589793238462643383279502884
 static float apu_filter_alpha(uint ff, uint of) { return 1.0 / (1.0 + (2.0 * APU_PI * ff) / of); }
@@ -481,7 +481,7 @@ void apu_reset()
 
   apu.frame_irq = false;
   apu.dmc_irq = false;
-  apu_irq();
+  apu.irq_dirty = true;
 
   apu.sample_dirty = true;
 
@@ -495,7 +495,7 @@ uint apu_bus_read(uint addr, uint val, bool trace)
       uint status = apu_get_status();
       if (!trace) {
         apu.frame_irq = false;
-        apu_irq();
+        apu.irq_dirty = true;
       }
       val = (val & APU_STATUS_OPENBUS) | status;
       break;
@@ -594,7 +594,7 @@ void apu_bus_write(uint addr, uint val)
       apu.dmc_irq_enabled = (val & 0x80);
       if (!apu.dmc_irq_enabled) {
         apu.dmc_irq = false;
-        apu_irq();
+        apu.irq_dirty = true;
       }
       break;
     case 0x11:
@@ -627,7 +627,7 @@ void apu_bus_write(uint addr, uint val)
         apu.dmc_load = apu_is_put_phase() ? 2 : 3;
       }
       apu.dmc_irq = false;
-      apu_irq();
+      apu.irq_dirty = true;
       break;
     }
     case 0x17: {
@@ -635,7 +635,7 @@ void apu_bus_write(uint addr, uint val)
       apu.frame_irq_disabled = (val & 0x40);
       if (apu.frame_irq_disabled) {
         apu.frame_irq = false;
-        apu_irq();
+        apu.irq_dirty = true;
       }
       apu.cyc_reset = apu_is_put_phase() ? 3 : 4;
       break;
@@ -713,7 +713,7 @@ void apu_dmc_dma(uint val)
       } else {
         if (apu.dmc_irq_enabled) {
           apu.dmc_irq = true;
-          apu_irq();
+          apu.irq_dirty = true;
         }
         apu.dmc_stop = 3; // NES bug: implicit stop
       }
@@ -1032,7 +1032,7 @@ void apu_tick()
     if (!apu.mode5) {
       if (!apu.frame_irq_disabled) {
         apu.frame_irq = true;
-        apu_irq();
+        apu.irq_dirty = true;
       }
       apu_trace("frame irq");
     }
@@ -1043,6 +1043,11 @@ void apu_tick()
 
   if (apu_is_get_phase()) { // NES bug: IRQ flags change immediately, but status change becomes visible on GET phase
     apu.frame_irq_status = apu.frame_irq || (apu.cyc >= last_step && !apu.mode5); // NES bug: irq status on last step
+  }
+
+  if (apu.irq_dirty) {
+    map_apu_irq(apu.frame_irq || apu.dmc_irq);
+    apu.irq_dirty = false;
   }
 
   ++apu.cyc;
