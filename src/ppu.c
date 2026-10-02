@@ -3,22 +3,6 @@
 #include "map.h"
 #include "common.h"
 
-// Smooth (FBX)
-MN_CACHE_LINE static uint ppu_palette[64] = {
-  0xFF6A6D6A, 0xFF001380, 0xFF1E008A, 0xFF39007A, 0xFF550056, 0xFF5A0018, 0xFF4F1000, 0xFF3D1C00,
-  0xFF253200, 0xFF003D00, 0xFF004000, 0xFF003924, 0xFF002E55, 0xFF000000, 0xFF000000, 0xFF000000,
-  0xFFB9BCB9, 0xFF1850C7, 0xFF4B30E3, 0xFF7322D6, 0xFF951FA9, 0xFF9D285C, 0xFF983700, 0xFF7F4C00,
-  0xFF5E6400, 0xFF227700, 0xFF027E02, 0xFF007645, 0xFF006E8A, 0xFF000000, 0xFF000000, 0xFF000000,
-  0xFFFFFFFF, 0xFF68A6FF, 0xFF8C9CFF, 0xFFB586FF, 0xFFD975FD, 0xFFE377B9, 0xFFE58D68, 0xFFD49D29,
-  0xFFB3AF0C, 0xFF7BC211, 0xFF55CA47, 0xFF46CB81, 0xFF47C1C5, 0xFF4A4D4A, 0xFF000000, 0xFF000000,
-  0xFFFFFFFF, 0xFFCCEAFF, 0xFFDDDEFF, 0xFFECDAFF, 0xFFF8D7FE, 0xFFFCD6F5, 0xFFFDDBCF, 0xFFF9E7B5,
-  0xFFF1F0AA, 0xFFDAFAA9, 0xFFC9FFBC, 0xFFC3FBD7, 0xFFC4F6F6, 0xFFBEC1BE, 0xFF000000, 0xFF000000,
-};
-
-static const float ppu_tint_accent = 0.816328f;
-static const uint ppu_rw_delay = 5;
-static const uint ppu_mask_delay = 2;
-
 enum
 {
   PPU_DOT_ZERO = 0,
@@ -90,80 +74,101 @@ enum
 
 MN_CACHE_LINE static uint ppu_out[256 * 240];
 
+// Smooth (FBX)
+MN_CACHE_LINE static uint ppu_palette[64] = {
+  0xFF6A6D6A, 0xFF001380, 0xFF1E008A, 0xFF39007A, 0xFF550056, 0xFF5A0018, 0xFF4F1000, 0xFF3D1C00,
+  0xFF253200, 0xFF003D00, 0xFF004000, 0xFF003924, 0xFF002E55, 0xFF000000, 0xFF000000, 0xFF000000,
+  0xFFB9BCB9, 0xFF1850C7, 0xFF4B30E3, 0xFF7322D6, 0xFF951FA9, 0xFF9D285C, 0xFF983700, 0xFF7F4C00,
+  0xFF5E6400, 0xFF227700, 0xFF027E02, 0xFF007645, 0xFF006E8A, 0xFF000000, 0xFF000000, 0xFF000000,
+  0xFFFFFFFF, 0xFF68A6FF, 0xFF8C9CFF, 0xFFB586FF, 0xFFD975FD, 0xFFE377B9, 0xFFE58D68, 0xFFD49D29,
+  0xFFB3AF0C, 0xFF7BC211, 0xFF55CA47, 0xFF46CB81, 0xFF47C1C5, 0xFF4A4D4A, 0xFF000000, 0xFF000000,
+  0xFFFFFFFF, 0xFFCCEAFF, 0xFFDDDEFF, 0xFFECDAFF, 0xFFF8D7FE, 0xFFFCD6F5, 0xFFFDDBCF, 0xFFF9E7B5,
+  0xFFF1F0AA, 0xFFDAFAA9, 0xFFC9FFBC, 0xFFC3FBD7, 0xFFC4F6F6, 0xFFBEC1BE, 0xFF000000, 0xFF000000,
+};
+
+static const float ppu_tint_accent = 0.816328f;
+static const uint ppu_rw_delay = 5;
+static const uint ppu_mask_delay = 2;
+
+typedef struct
+{
+  u8 shift_x;
+  u8 shift_lo;
+  u8 shift_hi;
+  u8 attr;
+} ppu_sprite;
+
 MN_CACHE_LINE static struct Ppu
 {
-  uint cyc;
-  uint dot;
-  uint sl;
-  uint sprite_eval_count;
-  uint sprite_copy;
-  uint sprite_y;
-  uint read_delay;
-  uint write_delay;
-  uint mask_delay;
-  uint swap_v_delay;
-  uint sl_end;
-  uint sl_vblank;
-  uint sl_pre_render;
-  uint fetch_unused_step;
+  u8 oam1[0x100];
+  u8 oam2[0x20];
+  u8 pam[0x20];
+  ppu_sprite sprite[8];
+  u8 sprite_x[8];
+  u8 reg_bus_decay[8];
 
-  uint addr;
-  uint t;
-  uint v;
-  uint nt;
   uint shift_tile_lo;
   uint shift_tile_hi;
   uint shift_attr_lo;
   uint shift_attr_hi;
 
-  uint ctrl;
-  uint mask;
-  uint status;
+  uint sprite_eval_count;
+  uint sprite_render_count;
+  uint sprite_copy;
+  uint sprite_y;
+  uint sprite_tile;
+  uint sprite_shift_x;
 
+  uint cyc;
+  uint dot;
+  uint sl;
+  uint sl_end;
+  uint sl_vblank;
+  uint sl_pre_render;
+  uint fetch_unused_step;
+  uint pam_mask;
+  uint pixel;
+  uint color;
+
+  uint t;
+  uint v;
   uint x;
+  uint nt;
   uint at;
   uint lo;
   uint hi;
 
-  uint sprite_tile;
-
+  uint ctrl;
+  uint mask;
+  uint status;
+  uint addr;
   uint oam_addr1;
   uint oam_addr2;
   uint oam_data;
   uint open_bus;
   uint reg_bus;
   uint read_buf;
+  uint read_delay;
+  uint write_delay;
+  uint mask_delay;
+  uint swap_v_delay;
 
-  uint pixel;
-  uint color;
-
-  bool render_enabled: 1;
+  bool ntsc: 1;
+  bool ale: 1;
+  bool read: 1;
   bool write_latch: 1;
+  bool render_enabled: 1;
   bool odd_frame: 1;
   bool suppress_vblank: 1;
   bool check_nmi: 1;
+  bool inc_x: 1;
+  bool oam_addr2_overflow: 1;
   bool sprite_eval_first: 1;
   bool sprite_eval_done: 1;
   bool sprite_eval_has0: 1;
   bool sprite_render_has0: 1;
   bool sprite_flip_horiz: 1;
   bool sprite_fetch_done: 1;
-  bool oam_addr2_overflow: 1;
-  bool inc_x: 1;
-  bool ntsc: 1;
-  bool ale: 1;
-  bool read: 1;
-
-  MN_CACHE_LINE uint sprite_x[8];
-  MN_CACHE_LINE uint sprite_shift_x[8];
-  MN_CACHE_LINE uint sprite_shift_lo[8];
-  MN_CACHE_LINE uint sprite_shift_hi[8];
-  MN_CACHE_LINE uint sprite_attr[8];
-  MN_CACHE_LINE uint reg_bus_decay[8];
-
-  MN_CACHE_LINE u8 oam1[0x100];
-  MN_CACHE_LINE u8 oam2[0x20];
-  MN_CACHE_LINE u8 pam[0x20];
 } ppu;
 
 #if MN_TRACE_PPU
@@ -216,6 +221,7 @@ void ppu_reset()
   ppu.read_buf = 0;
   ppu.write_latch = false;
   ppu.odd_frame = false;
+  ppu.pam_mask = 0x3F;
 }
 
 uint ppu_cyc() { return ppu.cyc; }
@@ -226,7 +232,7 @@ static bool ppu_render_active() { return ppu.render_enabled && (ppu.sl <= ppu.sl
 
 static uint ppu_pam_addr(uint addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
 static uint ppu_pam_read(uint addr) { return ppu.pam[ppu_pam_addr(addr)]; }
-static uint ppu_pam_clamp(uint val) { return val & ((ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F); }
+static uint ppu_pam_clamp(uint val) { return val & ppu.pam_mask; }
 static void ppu_pam_write(uint addr, uint val) { ppu.pam[ppu_pam_addr(addr)] = val; }
 
 static void ppu_oam_corrupt(uint dst, uint src)
@@ -237,7 +243,7 @@ static void ppu_oam_corrupt(uint dst, uint src)
   }
 }
 
-static void ppu_addr_hi(uint addr)
+MN_INLINE static void ppu_addr_hi(uint addr)
 {
   if (ppu.ale && !ppu.read) {
     ppu.addr = (addr & 0x3FFF);
@@ -247,7 +253,7 @@ static void ppu_addr_hi(uint addr)
   map_ppu_addr(ppu.addr);
 }
 
-static void ppu_addr(uint addr)
+MN_INLINE static void ppu_addr(uint addr)
 {
   ppu.ale = true;
   ppu.addr = (addr & 0x3FFF);
@@ -440,6 +446,7 @@ void ppu_bus_write(uint addr, uint val)
     case PPU_REG_MASK:
       ppu.mask = val;
       ppu.mask_delay = ppu_mask_delay;
+      ppu.pam_mask = (ppu.mask & PPU_MASK_GRAY) ? 0x30 : 0x3F;
       break;
     case PPU_REG_OAMADDR:
       ppu.oam_addr1 = val;
@@ -619,6 +626,7 @@ static void ppu_fetch_sprites()
 {
   if (ppu.dot == PPU_DOT_SPRITE_BEGIN) {
     ppu.sprite_render_has0 = ppu.sprite_eval_has0;
+    // ppu.sprite_render_count = 0;
   } else if (ppu.dot == PPU_DOT_SPRITE_END) {
     ppu_inc_oam_addr2();
     ppu.oam_data = ppu.oam2[ppu.oam_addr2];
@@ -656,7 +664,7 @@ static void ppu_fetch_sprites()
       ppu_addr(ppu_nt_addr());
       ppu_inc_oam_addr2();
       ppu.oam_data = ppu.oam2[ppu.oam_addr2];
-      ppu.sprite_attr[i] = ppu.oam_data;
+      ppu.sprite[i].attr = ppu.oam_data;
       ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
       if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
         uint height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
@@ -707,11 +715,11 @@ static void ppu_fetch_sprites()
           ppu.hi = ((ppu.hi & 0xCC) >> 2) | ((ppu.hi & 0x33) << 2);
           ppu.hi = ((ppu.hi & 0xAA) >> 1) | ((ppu.hi & 0x55) << 1);
         }
-        ppu.sprite_shift_lo[i] = ppu.lo;
-        ppu.sprite_shift_hi[i] = ppu.hi;
+        ppu.sprite[i].shift_lo = ppu.lo;
+        ppu.sprite[i].shift_hi = ppu.hi;
       } else {
-        ppu.sprite_shift_lo[i] = 0;
-        ppu.sprite_shift_hi[i] = 0;
+        ppu.sprite[i].shift_lo = 0;
+        ppu.sprite[i].shift_hi = 0;
       }
       break;
     }
@@ -720,7 +728,16 @@ static void ppu_fetch_sprites()
 
 static void ppu_fetch_sprites_finish()
 {
-  memcpy(ppu.sprite_shift_x, ppu.sprite_x, sizeof(ppu.sprite_shift_x));
+  // ppu.sprite_render_count = ppu.sprite_eval_count > 8 ? 8 : ppu.sprite_eval_count;
+  ppu.sprite_shift_x = 0xFF;
+  for (uint i = 0; i < 8; ++i) {
+    if (ppu.sprite_x[i] < ppu.sprite_shift_x) {
+      ppu.sprite_shift_x = ppu.sprite_x[i];
+    }
+  }
+  for (uint i = 0; i < 8; ++i) {
+    ppu.sprite[i].shift_x = ppu.sprite_x[i] - ppu.sprite_shift_x;
+  }
   ppu_reset_oam_addr2();
 }
 
@@ -808,22 +825,26 @@ static void ppu_render_pixel(uint x)
   uint pixel_sprite = 0;
   bool sprite_priority = false;
   bool sprite0_hit = false;
-  for (uint i = 0; i < 8; ++i) {
-    if ((ppu.mask & PPU_MASK_SPRITE)) {
-      if (ppu.sprite_shift_x[i] == 0) {
-        uint p0 = (ppu.sprite_shift_lo[i] & 0x80);
-        uint p1 = (ppu.sprite_shift_hi[i] & 0x80);
-        ppu.sprite_shift_lo[i] <<= 1;
-        ppu.sprite_shift_hi[i] <<= 1;
-        if (!pixel_sprite && (p0 | p1) && (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE))) {
-          pixel_sprite = (p0 > 0) | ((p1 > 0) << 1) | 0x10 | ((ppu.sprite_attr[i] & 0x03) << 2);
-          sprite_priority = (ppu.sprite_attr[i] & PPU_SPRITE_PRIORITY) == 0;
+  bool sprite_enabled = (ppu.mask & PPU_MASK_SPRITE);
+  bool sprite_allowed = (x >= 8 || (ppu.mask & PPU_MASK_SHOW_LEFT_SPRITE));
+  if (ppu.sprite_shift_x > 0) {
+    --ppu.sprite_shift_x;
+  } else {
+    for (uint i = 0; i < 8; ++i) {
+      if (sprite_enabled && ppu.sprite[i].shift_x == 0) {
+        uint p0 = (ppu.sprite[i].shift_lo & 0x80);
+        uint p1 = (ppu.sprite[i].shift_hi & 0x80);
+        if (!pixel_sprite && (p0 | p1) && sprite_allowed) {
+          pixel_sprite = (p0 > 0) | ((p1 > 0) << 1) | 0x10 | ((ppu.sprite[i].attr & 0x03) << 2);
+          sprite_priority = (ppu.sprite[i].attr & PPU_SPRITE_PRIORITY) == 0;
           sprite0_hit = (i == 0 && ppu.sprite_render_has0);
         }
+        ppu.sprite[i].shift_lo <<= 1;
+        ppu.sprite[i].shift_hi <<= 1;
       }
-    }
-    if (ppu.sprite_shift_x[i] > 0) {
-      --ppu.sprite_shift_x[i];
+      if (ppu.sprite[i].shift_x > 0) {
+        --ppu.sprite[i].shift_x;
+      }
     }
   }
 
@@ -991,12 +1012,6 @@ void ppu_tick()
     ppu_addr(ppu.v);
   }
 
-  ppu.inc_x = false;
-  ppu.suppress_vblank = false;
-  ppu.check_nmi = false;
-  ppu.ale = false;
-  ppu.read = false;
-
   if (ppu.mask_delay > 0) {
     if (--ppu.mask_delay == 0) {
       bool was_enabled = ppu.render_enabled;
@@ -1007,7 +1022,7 @@ void ppu_tick()
     }
   }
 
-  if (ppu.ntsc && ppu.odd_frame && ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_LAST - 1 && ppu.render_enabled) {
+  if (ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_LAST - 1 && ppu.odd_frame && ppu.render_enabled && ppu.ntsc) {
     ++ppu.dot;
   }
 
@@ -1018,5 +1033,12 @@ void ppu_tick()
       ppu.odd_frame = !ppu.odd_frame;
     }
   }
+
+  ppu.inc_x = false;
+  ppu.suppress_vblank = false;
+  ppu.check_nmi = false;
+  ppu.ale = false;
+  ppu.read = false;
+
   ++ppu.cyc;
 }

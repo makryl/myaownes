@@ -28,3 +28,4 @@
 #endif
 
 #define MN_CACHE_LINE alignas(64)
+#define MN_INLINE __attribute__((always_inline)) inline
