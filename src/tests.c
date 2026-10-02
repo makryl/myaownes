@@ -862,5 +862,5 @@ int main(int argc, char** argv)
   }
   printf("%4s | %-3d/%4d | TOTAL ERRORS\n", errors ? "FAIL" : "OK", errors, count);
 
-  return 0;
+  return errors;
 }
