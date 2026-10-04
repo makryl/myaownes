@@ -129,7 +129,7 @@ static bool imp_init()
   // test = "no-intro-2025/2A03 Puritans (World) (Aftermarket) (Unl).nes"; // NSF Subset
 
   if (test) {
-    chdir("../../tmp");
+    chdir("../../external");
     imp_rom_load(test);
   }
 

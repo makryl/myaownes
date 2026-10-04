@@ -846,7 +846,7 @@ static bool run_test(TestParams params)
 int main(int argc, char** argv)
 {
   if (argc < 3) {
-    printf("Usage: %s [test-roms-dir] [output-dir]", argv[0]);
+    printf("Usage: %s [test-roms-dir] [output-dir]\n", argv[0]);
     return 1;
   }
 

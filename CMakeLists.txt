@@ -6,7 +6,7 @@ set(SDL_STATIC ON)
 set(SDL_SHARED OFF)
 set(SDL_TEST_LIBRARY OFF)
 set(SDL_TESTS OFF)
-add_subdirectory(external/SDL-release-3.4.16 EXCLUDE_FROM_ALL)
+add_subdirectory(${SDL_DIR} EXCLUDE_FROM_ALL)
 
 set(CMAKE_C_STANDARD 23)
 add_compile_options(-Wall -Wextra)
@@ -29,12 +29,26 @@ if (EMSCRIPTEN)
   em_add_link_deps(${PROJECT_NAME} --shell-file src/index.html)
 endif()
 
-install(TARGETS ${PROJECT_NAME})
+install(TARGETS ${PROJECT_NAME} DESTINATION "./")
+
+if (EMSCRIPTEN)
+  set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_NAME index SUFFIX .html)
+  install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/index.js
+    ${CMAKE_CURRENT_BINARY_DIR}/index.wasm
+    ${CMAKE_CURRENT_BINARY_DIR}/index.wasm.map
+    DESTINATION "./"
+    OPTIONAL
+  )
+endif()
 
 add_executable(${PROJECT_NAME}-tests EXCLUDE_FROM_ALL src/tests.c)
 target_link_libraries(${PROJECT_NAME}-tests ${PROJECT_NAME}-static)
 
 add_custom_target(${PROJECT_NAME}-tests-run
-  COMMAND ${PROJECT_NAME}-tests "${TESTS_BASE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/" > "${CMAKE_CURRENT_SOURCE_DIR}/tests/log.txt"
+  COMMAND ${PROJECT_NAME}-tests "${TEST_ROMS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/" > "${CMAKE_CURRENT_SOURCE_DIR}/tests/log.txt"
   DEPENDS ${PROJECT_NAME}-tests
 )
+
+add_executable(${PROJECT_NAME}-pgo EXCLUDE_FROM_ALL src/pgo.c)
+target_link_libraries(${PROJECT_NAME}-pgo ${PROJECT_NAME}-static)
