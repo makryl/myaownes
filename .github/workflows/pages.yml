@@ -1,0 +1,37 @@
+name: Pages
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: "makryl/nes-test-roms"
+          ref: "add-more-tests"
+          path: "external/nes-test-roms"
+
+      - uses: emscripten-core/setup-emsdk@v15
+
+      - name: Build
+        run: |
+          cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-generate=pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=pgo -sNODERAWFS=1"
+          cmake --build build/Emscripten-Release --clean-first --target myaownes-pgo-run
+          $EMSDK/upstream/bin/llvm-profdata merge -output=build/Emscripten-Release/pgo.profdata build/Emscripten-Release/pgo
+          cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
+          cmake --build build/Emscripten-Release --clean-first --target install
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./dist/Emscripten-Release"
+
+      - uses: actions/deploy-pages@v4
