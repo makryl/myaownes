@@ -1062,8 +1062,7 @@ static void imp_draw_menu()
   imp_draw_menu_prepare(rom_loaded ? 9 : 4);
   uint line = 2;
   uint menu = 0;
-  imp_draw_line(line++, "                MyaowNES v" MN_VERSION " ");
-  line += 5;
+  line += 4;
   if (rom_loaded) {
     if (imp_draw_menu_line("Continue", line++, menu++) || imp_menu_pressed(MN_INPUT_B)) {
       imp_menu_state(IMP_MENU_OFF);
@@ -1106,6 +1105,8 @@ static void imp_draw_menu()
   imp_draw_line(line++, "     Press F1 to show keymap    ");
   ++line;
   imp_draw_line(line++, "     Touch to show controls     ");
+
+  imp_draw_line(28, "                MyaowNES v" MN_VERSION " ");
 }
 
 static void imp_draw_options()
