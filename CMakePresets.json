@@ -51,6 +51,7 @@
       "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-D__EMSCRIPTEN__",
+        "CMAKE_EXE_LINKER_FLAGS": "-sALLOW_MEMORY_GROWTH=1",
         "SDL_EMSCRIPTEN_PERSISTENT_PATH": "/storage"
       }
     },

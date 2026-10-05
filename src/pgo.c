@@ -12,10 +12,10 @@ static void run_test(const char* rel_path, uint frames)
   char rom_path[512];
   sprintf(rom_path, "%s/%s", base_path, rel_path);
 
-  printf("run %s", rom_path);
+  printf("run %s\n", rom_path);
   mn_rom rom = mn_rom_load(rom_path, nullptr);
   if (!rom) {
-    printf(" fail\n");
+    printf("fail\n");
     return;
   }
   mn_rom_set(rom);
@@ -23,7 +23,7 @@ static void run_test(const char* rel_path, uint frames)
     mn_frame(0, 0);
   }
   mn_rom_release(rom);
-  printf(" done\n");
+  printf("done\n");
 }
 
 int main(int argc, char** argv)
