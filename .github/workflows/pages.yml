@@ -31,6 +31,8 @@ jobs:
           path: "external/nes-test-roms"
 
       - uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: "5.0.7"
 
       - name: Build
         run: |
