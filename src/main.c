@@ -664,11 +664,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   mn_region_set(imp.region);
 
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-#ifdef __EMSCRIPTEN__
-  SDL_SetHint(SDL_HINT_RENDER_VSYNC, "0");
-#else
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
-#endif
 
   if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
     SDL_Log("%s", SDL_GetError());
@@ -752,15 +748,20 @@ static void imp_toggle_pause()
   }
 }
 
+static void imp_copy_tmp_file(const char* src, char* dst)
+{
+#ifdef __EMSCRIPTEN__
+  SDL_snprintf(dst, IMP_PATH_SIZE, "%s%s/%s", imp.save_dir, "Roms", imp_rom_name(src));
+  SDL_CopyFile(src, dst);
+#else
+  SDL_strlcpy(dst, src, IMP_PATH_SIZE);
+#endif
+}
+
 static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
 {
   if (files && files[0]) {
-#ifdef __EMSCRIPTEN__
-    SDL_snprintf(imp.load_rom_path, IMP_PATH_SIZE, "%s%s/%s", imp.save_dir, "Roms", imp_rom_name(files[0]));
-    SDL_CopyFile(files[0], imp.load_rom_path);
-#else
-    SDL_strlcpy(imp.load_rom_path, files[0], IMP_PATH_SIZE);
-#endif
+    imp_copy_tmp_file(files[0], imp.load_rom_path);
   } else {
     imp.load_rom_path[0] = 0;
   }
@@ -933,9 +934,11 @@ static void imp_toggle_fps()
 
 static void imp_toggle_fps_test()
 {
+#ifndef __EMSCRIPTEN__
   imp.fps_test = !imp.fps_test;
   SDL_SetRenderVSync(imp.renderer, !imp.fps_test);
   imp_popup(imp_fps_test_labels[imp.fps_test], 2);
+#endif
 }
 
 static void imp_slot(uint slot)
@@ -997,7 +1000,8 @@ static void imp_joy2_b_turbo_up() { imp.joy2 &= ~MN_INPUT_TURBO_B; }
 static void imp_drop_file(const char* path)
 {
   if (path) {
-    imp_rom_load(path);
+    imp_copy_tmp_file(path, imp.load_rom_path);
+    imp_rom_load(imp.load_rom_path);
     imp_rom_update();
   }
 }

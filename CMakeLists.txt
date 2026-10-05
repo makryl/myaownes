@@ -24,15 +24,23 @@ target_link_libraries(${PROJECT_NAME}-static PUBLIC SDL3-static)
 add_executable(${PROJECT_NAME} src/main.c)
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-static)
 
-if (EMSCRIPTEN)
-  em_add_link_deps(${PROJECT_NAME} --pre-js src/index.js)
-  em_add_link_deps(${PROJECT_NAME} --shell-file src/index.html)
-endif()
+add_executable(${PROJECT_NAME}-tests EXCLUDE_FROM_ALL src/tests.c)
+target_link_libraries(${PROJECT_NAME}-tests ${PROJECT_NAME}-static)
+add_custom_target(${PROJECT_NAME}-tests-run COMMAND ${PROJECT_NAME}-tests "${TEST_ROMS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/" > "${CMAKE_CURRENT_SOURCE_DIR}/tests/log.txt")
+
+add_executable(${PROJECT_NAME}-pgo EXCLUDE_FROM_ALL src/pgo.c)
+target_link_libraries(${PROJECT_NAME}-pgo ${PROJECT_NAME}-static)
+add_custom_target(${PROJECT_NAME}-pgo-run COMMAND ${PROJECT_NAME}-pgo "${TEST_ROMS_DIR}")
 
 install(TARGETS ${PROJECT_NAME} DESTINATION "./")
 
 if (EMSCRIPTEN)
-  set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_NAME index SUFFIX .html)
+  em_add_link_deps(${PROJECT_NAME} --pre-js src/index.js)
+  em_add_link_deps(${PROJECT_NAME} --shell-file src/index.html)
+  set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_NAME index
+    SUFFIX .html
+  )
   install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/index.js
     ${CMAKE_CURRENT_BINARY_DIR}/index.wasm
@@ -41,14 +49,3 @@ if (EMSCRIPTEN)
     OPTIONAL
   )
 endif()
-
-add_executable(${PROJECT_NAME}-tests EXCLUDE_FROM_ALL src/tests.c)
-target_link_libraries(${PROJECT_NAME}-tests ${PROJECT_NAME}-static)
-
-add_custom_target(${PROJECT_NAME}-tests-run
-  COMMAND ${PROJECT_NAME}-tests "${TEST_ROMS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/" > "${CMAKE_CURRENT_SOURCE_DIR}/tests/log.txt"
-  DEPENDS ${PROJECT_NAME}-tests
-)
-
-add_executable(${PROJECT_NAME}-pgo EXCLUDE_FROM_ALL src/pgo.c)
-target_link_libraries(${PROJECT_NAME}-pgo ${PROJECT_NAME}-static)
