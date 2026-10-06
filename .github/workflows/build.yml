@@ -35,10 +35,10 @@ jobs:
         with:
           version: "5.0.7"
 
-      - name: SDL3 deps
+      - name: deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential git make \
+          sudo apt-get install -y --no-install-recommends mingw-w64 wine64 build-essential git make \
           pkg-config cmake ninja-build libasound2-dev libpulse-dev \
           libaudio-dev libfribidi-dev libjack-dev libsndio-dev libx11-dev libxext-dev \
           libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
