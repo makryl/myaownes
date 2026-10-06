@@ -1,15 +1,16 @@
-name: Pages
+name: build
 on:
   push:
     branches: ["main"]
   workflow_dispatch:
 
 permissions:
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: "build"
   cancel-in-progress: true
 
 jobs:
@@ -34,16 +35,21 @@ jobs:
         with:
           version: "5.0.7"
 
-      - name: Build
-        run: |
-          cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-generate=pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=pgo -sNODERAWFS=1"
-          cmake --build build/Emscripten-Release --clean-first --target myaownes-pgo-run
-          $EMSDK/upstream/bin/llvm-profdata merge -output=build/Emscripten-Release/pgo.profdata build/Emscripten-Release/pgo
-          cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
-          cmake --build build/Emscripten-Release --clean-first --target install
+      - name: build
+        run: ./release.sh
 
       - uses: actions/upload-pages-artifact@v3
         with:
           path: "./dist/Emscripten-Release"
 
       - uses: actions/deploy-pages@v4
+
+      - name: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create latest --prerelease --clobber --title "MyaowNES Latest" \
+            --notes "Auto build from main branch. Update time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')." \
+            myaownes_latest_linux_x64.zip \
+            myaownes_latest_windows_x64.zip \
+            myaownes_latest_wasm32.zip

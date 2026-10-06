@@ -2,6 +2,10 @@
 
 NES emulator written in C, aimed at cycle-accuracy and passing tests.
 
+- [MyaowNES online](https://makryl.github.io/myaownes/)
+- [Download release](https://github.com/makryl/myaownes/releases)
+- [Zlib license](LICENSE.txt)
+
 This project was started for educational purposes, to learn bytecode and assembly,
 but at some point I just couldn't stop trying to pass every test rom I could find.
 
@@ -55,6 +59,6 @@ Some ideas and reminders for future:
 
 ## License
 
-This software distributed under Zlib licenze: [LICENSE.txt](LICENSE.txt).
+This software distributed under Zlib license: [LICENSE.txt](LICENSE.txt).
 
 Copyright (C) 2026-2026 Maksim Krylosov <aequiternus@gmail.com>
