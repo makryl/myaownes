@@ -175,6 +175,7 @@ static struct
   SDL_Texture* tex_font;
   SDL_Gamepad* gamepad1;
   SDL_Gamepad* gamepad2;
+  SDL_AudioDeviceID audioDeviceId;
   SDL_AudioStream* stream;
   SDL_JoystickID gamepad_id1;
   SDL_JoystickID gamepad_id2;
@@ -698,11 +699,12 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
   SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
 
+  imp.audioDeviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
   SDL_AudioSpec spec;
   int samples;
-  SDL_GetAudioDeviceFormat(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, &samples);
+  SDL_GetAudioDeviceFormat(imp.audioDeviceId, &spec, &samples);
   SDL_AudioSpec stream_spec = { SDL_AUDIO_S16, 1, spec.freq };
-  imp.stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &stream_spec, nullptr, nullptr);
+  imp.stream = SDL_OpenAudioDeviceStream(imp.audioDeviceId, &stream_spec, nullptr, nullptr);
   SDL_ResumeAudioStreamDevice(imp.stream);
   SDL_Log("Audio: %s %d %s%d%s %dch %d", SDL_GetCurrentAudioDriver(), spec.freq,
           SDL_AUDIO_ISFLOAT(spec.format)      ? "F"
@@ -1736,6 +1738,7 @@ void SDL_AppQuit(void*, SDL_AppResult)
     SDL_CloseGamepad(imp.gamepad2);
   }
   SDL_DestroyAudioStream(imp.stream);
+  SDL_CloseAudioDevice(imp.audioDeviceId);
   SDL_DestroyTexture(imp.tex_out);
   SDL_DestroyTexture(imp.tex_font);
   SDL_DestroyRenderer(imp.renderer);
