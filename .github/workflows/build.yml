@@ -56,11 +56,13 @@ jobs:
       - uses: actions/deploy-pages@v4
 
       - name: release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create latest --prerelease --clobber --title "MyaowNES Latest" \
-            --notes "Auto build from main branch. Update time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')." \
-            myaownes_latest_linux_x64.zip \
-            myaownes_latest_windows_x64.zip \
+        uses: softprops/action-gh-release@v3
+        with:
+          prerelease: true
+          tag_name: "latest"
+          name: "MyaowNES latest development build"
+          body: "Automatic build from the main branch"
+          files: |
+            myaownes_latest_linux_x64.zip
+            myaownes_latest_windows_x64.zip
             myaownes_latest_wasm32.zip
