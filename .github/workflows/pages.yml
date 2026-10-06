@@ -20,8 +20,8 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: "libsdl-org/SDL"
-          ref: "release-3.4.16"
+          repository: "makryl/SDL"
+          ref: "emscripten-openfile-dialog"
           path: "external/SDL-release-3.4.16"
 
       - uses: actions/checkout@v4
