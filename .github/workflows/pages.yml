@@ -16,15 +16,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: "makryl/SDL"
           ref: "emscripten-openfile-dialog"
           path: "external/SDL-release-3.4.16"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: "makryl/nes-test-roms"
           ref: "add-more-tests"
