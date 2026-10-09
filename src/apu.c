@@ -277,9 +277,9 @@ static uint apu_get_status()
 #define apu_trace(fmt, ...)                                                                                          \
   tracef("APU phase=%s status=%02X apu_half_cyc=%-10d cpu_cyc=%-10d  " fmt "\n", apu_is_put_phase() ? "PUT" : "GET", \
          apu_get_status(), apu.cyc, cpu_cyc() __VA_OPT__(, ) __VA_ARGS__)
-#define apu_trace_dmc(fmt, ...)                                                                                       \
-  apu_trace(fmt " dmc_len=%d dmc_has_buf=%d dmc_out_bit=%d" __VA_OPT__(, ) __VA_ARGS__, apu.dmc_len, apu.dmc_has_buf, \
-            apu.dmc_out_bit)
+#define apu_trace_dmc(fmt, ...)                                                                                   \
+  apu_trace(fmt " dmc_len=%d dmc_has_buf=%d dmc_out_bit=%d dmc_timer=%d" __VA_OPT__(, ) __VA_ARGS__, apu.dmc_len, \
+            apu.dmc_has_buf, apu.dmc_out_bit, apu.dmc_timer)
 #else
 #define apu_trace(fmt, ...) (void)0
 #define apu_trace_dmc(fmt, ...) (void)0
@@ -455,6 +455,7 @@ void apu_power()
   apu.noise_shift = 1;
   apu.dither = 0xDEAD;
   apu.mix_hp_x = apu_sample() << 5;
+  apu.dmc_timer = apu_dyn.dmc_period_table[apu.dmc_period];
 }
 
 void apu_reset()
@@ -731,8 +732,7 @@ static void apu_dmc_swap()
 
 static void apu_dmc_tick()
 {
-  if (apu.dmc_timer == 0) {
-    apu.dmc_timer = apu_dyn.dmc_period_table[apu.dmc_period];
+  if (apu.dmc_timer == 4) { // todo: need to explain "4" or refactor delays dmc_reload/dmc_stop/dmc_wait_buf
     if (apu.dmc_has_out) {
       if (apu.dmc_out & 1) {
         if (apu.dmc_val <= 125) {
@@ -761,7 +761,9 @@ static void apu_dmc_tick()
     }
     --apu.dmc_out_bit;
   }
-  --apu.dmc_timer;
+  if (--apu.dmc_timer == 0) {
+    apu.dmc_timer = apu_dyn.dmc_period_table[apu.dmc_period];
+  }
 
   if (apu.dmc_wait_buf > 0) {
     --apu.dmc_wait_buf;

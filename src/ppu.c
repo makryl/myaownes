@@ -118,6 +118,7 @@ MN_CACHE_LINE static struct Ppu
   uint sprite_y;
   uint sprite_tile;
   uint sprite_shift_x;
+  uint sprite_height;
 
   uint cyc;
   uint dot;
@@ -222,6 +223,7 @@ void ppu_reset()
   ppu.write_latch = false;
   ppu.odd_frame = false;
   ppu.pam_mask = 0x3F;
+  ppu.sprite_height = 8;
 }
 
 uint ppu_cyc() { return ppu.cyc; }
@@ -442,6 +444,7 @@ void ppu_bus_write(uint addr, uint val)
       ppu.check_nmi = (ppu.ctrl & PPU_CTRL_NMI) != (val & PPU_CTRL_NMI);
       ppu.ctrl = val;
       ppu.t = (ppu.t & 0xF3FF) | ((val & 0x03) << 10);
+      ppu.sprite_height = (val & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
       break;
     case PPU_REG_MASK:
       ppu.mask = val;
@@ -583,6 +586,7 @@ static void ppu_evaluate_sprites()
   }
 
   uint y = ppu.oam_data;
+  bool hit = ppu.sl >= y && ppu.sl < (y + ppu.sprite_height);
 
   if (!ppu.oam_addr2_overflow && !ppu.sprite_eval_done) {
     ppu.oam2[ppu.oam_addr2] = ppu.oam_data;
@@ -593,17 +597,16 @@ static void ppu_evaluate_sprites()
   if (ppu.sprite_copy > 0) {
     ppu_inc_oam_addr2();
     ppu_inc_mn();
-    if (--ppu.sprite_copy == 0) {
-      ppu_reset_m(); // NES bug: sprite-8 resets m on end of copy even when miss-aligned
+    if (--ppu.sprite_copy == 0 && !hit) { // NES bug: resets m on end of copy when X is not in range of Y
+      ppu_reset_m();
     }
     return;
   }
 
   if (!ppu.sprite_eval_done && ppu.sprite_eval_count <= 8) { // NES bug: sprite-8 going to copy and fail
-    uint height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
     bool is_sprite0 = ppu.sprite_eval_first; // NES bug: sprite-0 is first sprite pointed by oam_addr1, may be not 0
     ppu.sprite_eval_first = false;
-    if (ppu.sl >= y && ppu.sl < (y + height)) {
+    if (hit) {
       if (is_sprite0) {
         ppu.sprite_eval_has0 = true;
       }
@@ -616,10 +619,13 @@ static void ppu_evaluate_sprites()
       return;
     } else if (ppu.sprite_eval_count == 8) {
       ppu_inc_m(); // NES bug: increment both m and n before sprite-8 found
+      ppu_inc_n();
+      return;
     }
   }
 
   ppu_inc_n();
+  ppu_reset_m();
 }
 
 static void ppu_fetch_sprites()
@@ -667,8 +673,7 @@ static void ppu_fetch_sprites()
       ppu.sprite[i].attr = ppu.oam_data;
       ppu.sprite_flip_horiz = (ppu.oam_data & PPU_SPRITE_FLIP_HORIZ);
       if (ppu.oam_data & PPU_SPRITE_FLIP_VERT) {
-        uint height = (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) ? 16 : 8;
-        ppu.sprite_y = (height - 1) - ppu.sprite_y;
+        ppu.sprite_y = (ppu.sprite_height - 1) - ppu.sprite_y;
       }
       if (i < ppu.sprite_eval_count) {
         if (ppu.ctrl & PPU_CTRL_SPRITE_SIZE) {

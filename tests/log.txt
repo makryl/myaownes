@@ -224,7 +224,7 @@
   OK | 0x0BA45811 | other/2nd2006_next_level.nes
   OK | 0xF96B60A2 | other/4015_open_bus_test.nes
   OK | 0xB4977AD9 | other/8bitpeoples_-_deadline_console_invitro.nes
-  OK | 0x75AD4E80 | other/AccuracyCoin.nes
+  OK | 0xD8C4B0C4 | other/AccuracyCoin.nes
   OK | 0xFA310F74 | other/ControllerStrobeTest.nes
   OK | 0x80BE54D6 | other/midscanline.nes
   OK | 0x14A7B673 | other/mmc3irqtest.nes
@@ -272,15 +272,15 @@
   OK | 0xA590A81C | ppu_vbl_nmi/rom_singles/09-even_odd_frames.nes
   OK | 0xB3F44119 | ppu_vbl_nmi/rom_singles/10-even_odd_timing.nes
   OK | 0xDDE50B5E | ppu_vbl_nmi/ppu_vbl_nmi.nes
-  OK | 0x13348355 | read_joy3/count_errors_fast.nes
-  OK | 0xD278CD2F | read_joy3/count_errors.nes
+  OK | 0x86C178F5 | read_joy3/count_errors_fast.nes
+  OK | 0xDCC8122C | read_joy3/count_errors.nes
   OK | 0x9C94D0D4 | read_joy3/test_buttons.nes
   OK | 0x6ECF1F4B | read_joy3/thorough_test.nes
   OK | 0x629D1349 | scanline/scanline.nes
   OK | 0x629D1349 | scanline-a1/scanline.nes
   OK | 0xF0427789 | scrolltest/scroll.nes
   OK | 0x6C5F9EDD | serom/serom.nes
-  OK | 0xF12EEF31 | shxdma/shxdma.nes
+  OK | 0xDED20D8F | shxdma/shxdma.nes
   OK | 0xA07B475E | shxing1/shxing1.nes
   OK | 0xA07B475E | shxing2/shxing2.nes
   OK | 0xF4998922 | sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes
@@ -319,7 +319,7 @@
   OK | 0xD2EB556B | test_apu_m/test_11.nes
   OK | 0xFF012A10 | test_apu_sweep/sweep_cutoff.nes
   OK | 0x7DAFD50A | test_apu_sweep/sweep_sub.nes
-  OK | 0xCA637C4D | test_apu_timers/dmc_pitch.nes
+  OK | 0x43A348B5 | test_apu_timers/dmc_pitch.nes
   OK | 0x7EA89665 | test_apu_timers/noise_pitch.nes
   OK | 0xC0D5F366 | test_apu_timers/square_pitch.nes
   OK | 0x505A1FFC | test_apu_timers/triangle_pitch.nes
