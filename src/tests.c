@@ -354,6 +354,7 @@ static TestParams tests[] = {
       { 0x0BA45811, 1, 0, 0 } } }, //
   { "other/4015_open_bus_test.nes", MN_REGION_NTSC, 0, 0, { { 0xF96B60A2, 5, 0x00, 0 } } }, //
   { "other/8bitpeoples_-_deadline_console_invitro.nes", MN_REGION_NTSC, 1, 0, { { 0xB4977AD9, 900, 0x00, 0 } } }, //
+  { "other/2003-test.nes", MN_REGION_NTSC, 0, 0, { { 0x49BDA4AF, 15, 0x00, 0 } } }, //
   { "other/AccuracyCoin.nes",
     MN_REGION_NTSC,
     0,

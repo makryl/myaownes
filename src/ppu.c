@@ -635,7 +635,7 @@ static void ppu_fetch_sprites()
     // ppu.sprite_render_count = 0;
   } else if (ppu.dot == PPU_DOT_SPRITE_END) {
     ppu_inc_oam_addr2();
-    ppu.oam_data = ppu.oam2[ppu.oam_addr2];
+    ppu.oam_data = ppu.sl == ppu.sl_end ? ppu.oam1[ppu.oam_addr1] : ppu.oam2[ppu.oam_addr2];
     return;
   }
 

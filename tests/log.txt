@@ -224,6 +224,7 @@
   OK | 0x0BA45811 | other/2nd2006_next_level.nes
   OK | 0xF96B60A2 | other/4015_open_bus_test.nes
   OK | 0xB4977AD9 | other/8bitpeoples_-_deadline_console_invitro.nes
+  OK | 0x49BDA4AF | other/2003-test.nes
   OK | 0xD8C4B0C4 | other/AccuracyCoin.nes
   OK | 0xFA310F74 | other/ControllerStrobeTest.nes
   OK | 0x80BE54D6 | other/midscanline.nes
@@ -348,4 +349,4 @@
   OK | 0x7B2EA541 | vrctest/vrctest25s1.nes
   OK | 0x081F36C0 | vrctest/vrctest25s2.nes
   OK | 0x78CE440A | vrctest/vrctest25s3.nes
-  OK | 0  / 350 | TOTAL ERRORS
+  OK | 0  / 351 | TOTAL ERRORS
