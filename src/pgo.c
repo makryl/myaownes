@@ -34,10 +34,10 @@ int main(int argc, char** argv)
   }
   base_path = argv[1];
 
-  run_test("blargg_nes_cpu_test5/cpu.nes", 981);
-  run_test("apu_test/apu_test.nes", 300);
-  run_test("ppu_sprite_hit/ppu_sprite_hit.nes", 584);
-  run_test("stomper/smwstomp.nes", 2000);
+  run_test("CPU/blargg_nes_cpu_test5/cpu.nes", 981);
+  run_test("APU/apu_test/apu_test.nes", 300);
+  run_test("PPU/ppu_sprite_hit/ppu_sprite_hit.nes", 584);
+  run_test("Demos/stomper/smwstomp.nes", 2000);
 
 #ifdef __EMSCRIPTEN__
   __llvm_profile_write_file();

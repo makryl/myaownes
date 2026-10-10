@@ -28,7 +28,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: "makryl/nes-test-roms"
-          ref: "add-more-tests"
           path: "external/nes-test-roms"
 
       - uses: emscripten-core/setup-emsdk@v15

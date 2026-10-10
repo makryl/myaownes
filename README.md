@@ -20,7 +20,7 @@ Almost all information I got from next sites, source code of tests and other emu
 
 - [nesdev.org](https://www.nesdev.org/)
 - [dendy.migera.ru](http://dendy.migera.ru/)
-- [nes-test-roms](https://github.com/christopherpow/nes-test-roms), my [fork](https://github.com/makryl/nes-test-roms/tree/add-more-tests) with more tests from forums
+- [nes-test-roms](https://github.com/christopherpow/nes-test-roms), my [fork](https://github.com/makryl/nes-test-roms) with more tests from forums
 - [MesenTests](https://github.com/nesdev-org/MesenTests)
 - [AccuracyCoin](https://github.com/100thCoin/AccuracyCoin)
 - [nes-audio-tests](https://github.com/bbbradsmith/nes-audio-tests)
