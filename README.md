@@ -13,8 +13,12 @@ Emulator has SDL3 frontend, and the core library can be built independently.
 I tried to keep code straightforward and compact,
 but while the core library code was written carefully, frontend (main.c) is a bit of a mess.
 
-It passing more than 300 test roms, but still lacks manual testing and may contain simple bugs.
+It passing more than 300 test roms ([log.txt](tests/log.txt), [screenshots](tests/screenshots/)), but still lacks manual testing and may contain simple bugs.
 Many mappers tested simply by launching some game, some mappers were not tested at all.
+
+![AccuracyCoin results](tests/screenshots/Interactive/AccuracyCoin.nes.2.png)
+
+## References
 
 Almost all information I got from next sites, source code of tests and other emulators:
 
