@@ -2,8 +2,8 @@
 
 NES emulator written in C, aimed at cycle-accuracy and passing tests.
 
-- [MyaowNES online](https://makryl.github.io/myaownes/)
-- [Download release](https://github.com/makryl/myaownes/releases)
+- [Play MyaowNES online](https://makryl.github.io/myaownes/)
+- [Download release](https://github.com/makryl/myaownes/releases) (Linux x64, Windows x64, WebAssembly)
 - [Zlib license](LICENSE.txt)
 
 This project was started for educational purposes, to learn bytecode and assembly,
@@ -14,7 +14,7 @@ I tried to keep code straightforward and compact,
 but while the core library code was written carefully, frontend (main.c) is a bit of a mess.
 
 It passing more than 300 test roms ([log.txt](tests/log.txt), [screenshots](tests/screenshots/)), but still lacks manual testing and may contain simple bugs.
-Many mappers tested simply by launching some game, some mappers were not tested at all.
+Supports far from all, but many mappers: 44 discrete, MMC1-4 and partially MMC5, 36 others. While they passes all tests i found, many of mappers were tested simply by launching some game, and some discrete mappers were not tested at all.
 
 ![AccuracyCoin results](tests/screenshots/Interactive/AccuracyCoin.nes.2.png)
 
