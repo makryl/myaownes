@@ -32,6 +32,9 @@ add_executable(${PROJECT_NAME}-pgo EXCLUDE_FROM_ALL src/pgo.c)
 target_link_libraries(${PROJECT_NAME}-pgo ${PROJECT_NAME}-static)
 add_custom_target(${PROJECT_NAME}-pgo-run COMMAND ${PROJECT_NAME}-pgo "${TEST_ROMS_DIR}")
 
+add_executable(${PROJECT_NAME}-mdfourier EXCLUDE_FROM_ALL src/mdfourier.c)
+target_link_libraries(${PROJECT_NAME}-mdfourier ${PROJECT_NAME}-static)
+
 install(TARGETS ${PROJECT_NAME} DESTINATION "./")
 
 if (EMSCRIPTEN)
