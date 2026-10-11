@@ -16,7 +16,8 @@ but while the core library code was written carefully, frontend (main.c) is a bi
 It passing more than 300 test roms ([log.txt](tests/log.txt), [screenshots](tests/screenshots/)), but still lacks manual testing and may contain simple bugs.
 Supports far from all, but many mappers: 44 discrete, MMC1-4 and partially MMC5, 36 others. While they passes all tests i found, many of mappers were tested simply by launching some game, and some discrete mappers were not tested at all.
 
-<img alt="AccuracyCoin results" height="240" src="tests/screenshots/Interactive/AccuracyCoin.nes.2.png"><img alt="MDFourier results" height="240" src="tests/DA__ALL_AVG_US-NES-FL-N34169630_vs_myaownes_mdfourier_0000.png">
+[<img alt="AccuracyCoin results" height="240" src="tests/screenshots/Interactive/AccuracyCoin.nes.2.png">](tests/screenshots/Interactive/AccuracyCoin.nes.2.png)
+[<img alt="MDFourier results" height="240" src="tests/DA__ALL_AVG_US-NES-FL-N34169630_vs_myaownes_mdfourier_0000.png">](tests/DA__ALL_AVG_US-NES-FL-N34169630_vs_myaownes_mdfourier_0000.png)
 
 ## References
 
