@@ -759,6 +759,7 @@ static bool run_test(TestParams params)
     result = run_test_steps(params, &hash);
     printf("%4s | 0x%08X | %s\n", result ? "OK" : "FAIL", hash, params.path);
   }
+  fflush(stdout);
   return result;
 }
 

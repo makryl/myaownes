@@ -14,7 +14,7 @@ cmake --build build/Windows-Release --clean-first --target myaownes-pgo-run
 cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
 cmake --build build/Windows-Release --clean-first --target install
 
-cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-generate=pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=pgo -sNODERAWFS=1"
+cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo -sNODERAWFS=1"
 cmake --build build/Emscripten-Release --clean-first --target myaownes-pgo-run
 
 $EMSDK/upstream/bin/llvm-profdata merge -output=build/Emscripten-Release/pgo.profdata build/Emscripten-Release/pgo
