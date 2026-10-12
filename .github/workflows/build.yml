@@ -18,17 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/checkout@v7
         with:
-          repository: "makryl/SDL"
-          ref: "emscripten-openfile-dialog"
-          path: "external/SDL-release-3.4.16"
-
-      - uses: actions/checkout@v7
-        with:
-          repository: "makryl/nes-test-roms"
-          path: "external/nes-test-roms"
+          submodules: true
 
       - uses: emscripten-core/setup-emsdk@v15
         with:
@@ -45,8 +36,12 @@ jobs:
           libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libthai-dev libusb-1.0-0-dev \
           libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev
 
-      - name: build
-        run: ./release.sh
+      - name: tests
+        run: |
+          cmake --preset Linux-Release
+          cmake --build build/Linux-Release --target myaownes-tests-run
+
+      - run: ./release.sh
 
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -54,8 +49,7 @@ jobs:
 
       - uses: actions/deploy-pages@v4
 
-      - name: release
-        uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@v3
         with:
           prerelease: true
           tag_name: "latest"

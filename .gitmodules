@@ -1,0 +1,9 @@
+[submodule "external/SDL"]
+	path = external/SDL
+	url = git@github.com:makryl/SDL.git
+[submodule "external/nes-test-roms"]
+	path = external/nes-test-roms
+	url = git@github.com:makryl/nes-test-roms.git
+[submodule "external/AccuracyCoin"]
+	path = external/AccuracyCoin
+	url = git@github.com:100thCoin/AccuracyCoin.git

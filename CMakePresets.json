@@ -8,9 +8,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "installDir": "${sourceDir}/dist/${presetName}",
       "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-        "SDL_DIR": "${sourceDir}/external/SDL-release-3.4.16",
-        "TEST_ROMS_DIR": "${sourceDir}/external/nes-test-roms"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true
       }
     },
     {

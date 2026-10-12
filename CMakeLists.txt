@@ -6,7 +6,7 @@ set(SDL_STATIC ON)
 set(SDL_SHARED OFF)
 set(SDL_TEST_LIBRARY OFF)
 set(SDL_TESTS OFF)
-add_subdirectory(${SDL_DIR} EXCLUDE_FROM_ALL)
+add_subdirectory(external/SDL EXCLUDE_FROM_ALL)
 
 set(CMAKE_C_STANDARD 23)
 add_compile_options(-Wall -Wextra)
@@ -26,11 +26,17 @@ target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-static)
 
 add_executable(${PROJECT_NAME}-tests EXCLUDE_FROM_ALL src/tests.c)
 target_link_libraries(${PROJECT_NAME}-tests ${PROJECT_NAME}-static)
-add_custom_target(${PROJECT_NAME}-tests-run COMMAND ${PROJECT_NAME}-tests "${TEST_ROMS_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/" > "${CMAKE_CURRENT_SOURCE_DIR}/tests/log.txt")
+add_custom_target(${PROJECT_NAME}-tests-run
+  COMMAND ${PROJECT_NAME}-tests > tests/log.txt
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
 add_executable(${PROJECT_NAME}-pgo EXCLUDE_FROM_ALL src/pgo.c)
 target_link_libraries(${PROJECT_NAME}-pgo ${PROJECT_NAME}-static)
-add_custom_target(${PROJECT_NAME}-pgo-run COMMAND ${PROJECT_NAME}-pgo "${TEST_ROMS_DIR}")
+add_custom_target(${PROJECT_NAME}-pgo-run
+  COMMAND ${PROJECT_NAME}-pgo
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
 add_executable(${PROJECT_NAME}-mdfourier EXCLUDE_FROM_ALL src/mdfourier.c)
 target_link_libraries(${PROJECT_NAME}-mdfourier ${PROJECT_NAME}-static)
