@@ -39,7 +39,8 @@ jobs:
       - name: tests
         run: |
           cmake --preset Linux-Release
-          cmake --build build/Linux-Release --target myaownes-tests-run
+          cmake --build build/Linux-Release --target myaownes-tests
+          build/Linux-Release/myaownes-tests
 
       - run: ./release.sh
 
