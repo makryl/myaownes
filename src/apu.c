@@ -8,7 +8,7 @@
 
 enum
 {
-  APU_FILTER_HP = 50,
+  APU_FILTER_HP = 52,
   APU_FILTER_LP = 17000,
   APU_FILTER_DITHER = 1,
   APU_FILTER_DMC = 0, // todo: make optional, nice pop filter, but fails apu_mixer tests

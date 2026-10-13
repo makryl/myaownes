@@ -23,7 +23,7 @@ typedef struct
 int main(int, char**)
 {
   const uint region = MN_REGION_NTSC;
-  const char* rom_path = "../../tmp/240p-nes-others/mdfourier4k.nes";
+  const char* rom_path = "../../external/nes-test-roms/Interactive/240pee/mdfourier4k.nes";
   const char* out_path = region == MN_REGION_PAL ? "../../tmp/myaownes_mdfourier_pal.wav"
                                                  : "../../tmp/myaownes_mdfourier.wav";
   uint seconds = region == MN_REGION_PAL ? 134 : 112;
