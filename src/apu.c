@@ -86,8 +86,8 @@ static struct
   uint noise_period_table[16];
   uint duty_table[4];
   u64 time_target;
-  int mix_hp_alpha;
-  int mix_lp_alpha;
+  i64 mix_hp_alpha;
+  i64 mix_lp_alpha;
 } apu_dyn;
 
 static struct Apu
@@ -232,10 +232,10 @@ static bool apu_is_get_phase() { return !apu_is_put_phase(); }
 
 #define APU_PI 3.141592653589793238462643383279502884
 
-static int apu_filter_alpha(float ff, float of)
+static i64 apu_filter_alpha(double ff, double of)
 {
-  float a = expf(-2.0f * APU_PI * ff / of);
-  return (int)(a * 65536.0f + 0.5f);
+  double a = exp(-2.0 * APU_PI * ff / of);
+  return (i64)(a * 65536.0 + 0.5);
 }
 
 static int apu_mix_high_pass(int sample)
@@ -247,7 +247,7 @@ static int apu_mix_high_pass(int sample)
 
 static int apu_mix_low_pass(int sample)
 {
-  apu.mix_lp_y = (((65536 - apu_dyn.mix_lp_alpha) * (i64)sample) + (apu_dyn.mix_lp_alpha * (i64)apu.mix_lp_y)) >> 16;
+  apu.mix_lp_y = (((65536LL - apu_dyn.mix_lp_alpha) * (i64)sample) + (apu_dyn.mix_lp_alpha * (i64)apu.mix_lp_y)) >> 16;
   return apu.mix_lp_y;
 }
 
