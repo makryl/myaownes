@@ -53,7 +53,7 @@ static const uint apu_channel_len[32] = { 10, 254, 20, 2,  40, 4,  80, 6,  160, 
 
 static const uint apu_dmc_period_ntsc[16] = { 428, 380, 340, 320, 286, 254, 226, 214, //
                                               190, 160, 142, 128, 106, 84,  72,  54 };
-static const uint apu_dmc_period_pal[16] = { 398, 354, 316, 298, 266, 236, 210, 198, //
+static const uint apu_dmc_period_pal[16] = { 398, 354, 316, 298, 276, 236, 210, 198, //
                                              176, 148, 132, 118, 98,  78,  66,  50 };
 
 static const uint apu_duty_table[4] = {

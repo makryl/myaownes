@@ -27,7 +27,7 @@ int main(int, char**)
   const char* out_path = region == MN_REGION_PAL ? "../../tmp/myaownes_mdfourier_pal.wav"
                                                  : "../../tmp/myaownes_mdfourier.wav";
   uint seconds = region == MN_REGION_PAL ? 134 : 112;
-  uint rate = 96000;
+  uint rate = region == MN_REGION_PAL ? 48000 : 96000;
   uint channels = 1;
   uint sample_size = sizeof(i16);
 
