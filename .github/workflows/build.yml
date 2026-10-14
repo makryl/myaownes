@@ -57,6 +57,8 @@ jobs:
 
       - uses: actions/deploy-pages@v4
 
+      - run: git tag -f latest && git push -f origin latest
+
       - uses: softprops/action-gh-release@v3
         with:
           prerelease: true
