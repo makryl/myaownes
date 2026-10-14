@@ -1,8 +1,8 @@
   OK | 0xD8C4B0C4 | AccuracyCoin/AccuracyCoin.nes
-  OK | 0x140DEE38 | nes-test-roms/APU/apu_mixer/dmc.nes
-  OK | 0x131F0D88 | nes-test-roms/APU/apu_mixer/noise.nes
-  OK | 0xA4BB9EFC | nes-test-roms/APU/apu_mixer/square.nes
-  OK | 0xAE080ECA | nes-test-roms/APU/apu_mixer/triangle.nes
+  OK | 0x736D7002 | nes-test-roms/APU/apu_mixer/dmc.nes
+  OK | 0xF14AEE68 | nes-test-roms/APU/apu_mixer/noise.nes
+  OK | 0xC3224F57 | nes-test-roms/APU/apu_mixer/square.nes
+  OK | 0xFCDEA597 | nes-test-roms/APU/apu_mixer/triangle.nes
   OK | 0x60667C09 | nes-test-roms/APU/apu_phase_reset/apu_phase_reset.nes
   OK | 0xC1210397 | nes-test-roms/APU/apu_register_activation_test_wip1/apu_register_activation_test.nes
   OK | 0x68020FC4 | nes-test-roms/APU/apu_reset/4015_cleared.nes
@@ -65,13 +65,13 @@
   OK | 0xD2EB556B | nes-test-roms/APU/test_apu_m/test_10.nes
   OK | 0xD2EB556B | nes-test-roms/APU/test_apu_m/test_11.nes
   OK | 0x97C9C462 | nes-test-roms/APU/test_apu_sweep/sweep_cutoff.nes
-  OK | 0x422CAC64 | nes-test-roms/APU/test_apu_sweep/sweep_sub.nes
+  OK | 0x8C10B8E3 | nes-test-roms/APU/test_apu_sweep/sweep_sub.nes
   OK | 0x88AD4F0C | nes-test-roms/APU/test_apu_timers/dmc_pitch.nes
   OK | 0xEF687E93 | nes-test-roms/APU/test_apu_timers/noise_pitch.nes
   OK | 0xBA603690 | nes-test-roms/APU/test_apu_timers/square_pitch.nes
   OK | 0x5F7563CF | nes-test-roms/APU/test_apu_timers/triangle_pitch.nes
   OK | 0xC992FA2C | nes-test-roms/APU/test_tri_lin_ctr/lin_ctr.nes
-  OK | 0xBA8145DE | nes-test-roms/APU/volume_tests/volumes.nes
+  OK | 0x1B0DEA5B | nes-test-roms/APU/volume_tests/volumes.nes
   OK | 0xF96B60A2 | nes-test-roms/APU/4015_open_bus_test.nes
   OK | 0x80ED81E0 | nes-test-roms/CPU/blargg_nes_cpu_test5/cpu.nes
   OK | 0x80ED81E0 | nes-test-roms/CPU/blargg_nes_cpu_test5/official.nes
@@ -157,7 +157,7 @@
   OK | 0xF4998922 | nes-test-roms/CPU/sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes
   OK | 0x42149129 | nes-test-roms/CPU/sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes
   OK | 0x7C518553 | nes-test-roms/CPU/out_timing_test.nes
-  OK | 0x2B603697 | nes-test-roms/Demos/8bitpeoples_-_deadline_console_invitro.nes
+  OK | 0xD3B664DE | nes-test-roms/Demos/8bitpeoples_-_deadline_console_invitro.nes
   OK | 0x80BE54D6 | nes-test-roms/Demos/midscanline.nes
   OK | 0xF0427789 | nes-test-roms/Demos/scrolltest/scroll.nes
   OK | 0x3E04F985 | nes-test-roms/Demos/stomper/smwstomp.nes

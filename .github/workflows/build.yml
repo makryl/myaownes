@@ -17,13 +17,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/cache@v4
         with:
-          submodules: true
-
-      - uses: emscripten-core/setup-emsdk@v15
-        with:
-          version: "5.0.7"
+          path: /var/cache/apt/archives
+          key: apt-cache-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: apt-cache-
 
       - name: deps
         run: |
@@ -35,6 +33,15 @@ jobs:
           libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
           libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libthai-dev libusb-1.0-0-dev \
           libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev
+
+      - uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: "5.0.7"
+          actions-cache-folder: "emsdk-cache"
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
 
       - name: tests
         run: |
