@@ -23,10 +23,11 @@ typedef struct
 int main(int, char**)
 {
   const uint region = MN_REGION_NTSC;
-  const char* rom_path = "../../external/nes-test-roms/Interactive/240pee/mdfourier4k.nes";
+  const char* rom_path = "../../tmp/mdfourier4k_persune.nes";
+  // const char* rom_path = "../../tmp/mdfourier4k-autostart.nes";
   const char* out_path = region == MN_REGION_PAL ? "../../tmp/myaownes_mdfourier_pal.wav"
                                                  : "../../tmp/myaownes_mdfourier.wav";
-  uint seconds = region == MN_REGION_PAL ? 134 : 112;
+  uint seconds = region == MN_REGION_PAL ? 134 : 120;
   uint rate = region == MN_REGION_PAL ? 48000 : 96000;
   uint channels = 1;
   uint sample_size = sizeof(i16);
@@ -65,27 +66,8 @@ int main(int, char**)
   }
   mn_rom_set(rom);
   uint total_size = 0;
-  uint press_button_frame = 120;
-  for (uint i = 0;; ++i) {
-    uint joy1 = 0;
-    if (i == press_button_frame) {
-      joy1 = MN_INPUT_A;
-    }
-
-    mn_frame(joy1, 0);
-
-    if (i < press_button_frame) {
-      continue;
-    }
-
-    {
-      i16* data = (i16*)mn_audio_data();
-      uint count = mn_audio_size() / sizeof(i16);
-
-      for (uint s = 0; s < count; s++) {
-        data[s] = -data[s];
-      }
-    }
+  while (true) {
+    mn_frame(0, 0);
 
     uint write_size = mn_audio_size();
     if (total_size + write_size > data_size) {

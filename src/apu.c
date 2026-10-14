@@ -85,14 +85,15 @@ static struct
   uint dmc_period_table[16];
   uint noise_period_table[16];
   uint duty_table[4];
-  u64 time_target;
   i64 mix_hp_alpha;
   i64 mix_lp_alpha;
+  i64 mix_lp_beta;
+  uint time_target;
 } apu_dyn;
 
 static struct Apu
 {
-  u64 time_current;
+  uint time_current;
 
   uint cyc;
   uint cyc_reset;
@@ -230,24 +231,26 @@ void mn_apu_test_mode(bool enabled) { apu.test_mode = enabled; }
 static bool apu_is_put_phase() { return (cpu_cyc() & 1); }
 static bool apu_is_get_phase() { return !apu_is_put_phase(); }
 
-#define APU_PI 3.141592653589793238462643383279502884
+#define APU_FILTER_BITS 30
 
 static i64 apu_filter_alpha(double ff, double of)
 {
-  double a = exp(-2.0 * APU_PI * ff / of);
-  return (i64)(a * 65536.0 + 0.5);
+  double a = exp(-2.0 * M_PI * ff / of);
+  return (i64)(a * (1LL << APU_FILTER_BITS) + 0.5);
 }
 
 static int apu_mix_high_pass(int sample)
 {
-  apu.mix_hp_y = (apu_dyn.mix_hp_alpha * ((i64)apu.mix_hp_y + (i64)sample - (i64)apu.mix_hp_x)) >> 16;
+  i64 acc = apu_dyn.mix_hp_alpha * ((i64)apu.mix_hp_y + (i64)sample - (i64)apu.mix_hp_x);
+  apu.mix_hp_y = (int)(acc >> APU_FILTER_BITS);
   apu.mix_hp_x = sample;
   return apu.mix_hp_y;
 }
 
 static int apu_mix_low_pass(int sample)
 {
-  apu.mix_lp_y = (((65536LL - apu_dyn.mix_lp_alpha) * (i64)sample) + (apu_dyn.mix_lp_alpha * (i64)apu.mix_lp_y)) >> 16;
+  i64 acc = (apu_dyn.mix_lp_beta * (i64)sample) + (apu_dyn.mix_lp_alpha * (i64)apu.mix_lp_y);
+  apu.mix_lp_y = (int)(acc >> APU_FILTER_BITS);
   return apu.mix_lp_y;
 }
 
@@ -256,10 +259,11 @@ void mn_audio_freq(uint freq)
   apu_freq = freq;
   apu_dyn.mix_hp_alpha = apu_filter_alpha(APU_FILTER_HP, freq);
   apu_dyn.mix_lp_alpha = apu_filter_alpha(APU_FILTER_LP, freq);
+  apu_dyn.mix_lp_beta = (1LL << APU_FILTER_BITS) - apu_dyn.mix_lp_alpha;
   switch (mn_region_get()) {
-    case MN_REGION_NTSC: apu_dyn.time_target = ((u64)APU_FREQ_NTSC << 32) / freq; break;
-    case MN_REGION_PAL: apu_dyn.time_target = ((u64)APU_FREQ_PAL << 32) / freq; break;
-    case MN_REGION_DENDY: apu_dyn.time_target = ((u64)APU_FREQ_DENDY << 32) / freq; break;
+    case MN_REGION_NTSC: apu_dyn.time_target = APU_FREQ_NTSC; break;
+    case MN_REGION_PAL: apu_dyn.time_target = APU_FREQ_PAL; break;
+    case MN_REGION_DENDY: apu_dyn.time_target = APU_FREQ_DENDY; break;
   }
 }
 
@@ -521,7 +525,7 @@ uint apu_bus_read(uint addr, uint val, bool trace)
   }
   if (apu.test_mode) {
     switch (addr & 0x1F) {
-      case 0x18: val = apu.pulse1_val + apu.pulse2_val; break;
+      case 0x18: val = apu.pulse1_val | (apu.pulse2_val << 4); break;
       case 0x19: val = apu.triangle_val | (apu.noise_val << 4); break;
       case 0x1A: val = apu.dmc_val; break;
     }
@@ -977,7 +981,7 @@ static void apu_mix()
   apu.mix_accum += apu_sample();
   ++apu.mix_sample_count;
 
-  apu.time_current += (1ULL << 32);
+  apu.time_current += apu_freq;
   if (apu.time_current >= apu_dyn.time_target) {
     if (apu.out_size <= sizeof(apu_dyn.out_data) / sizeof(i16)) {
       // mix_accum already has << 10 in table values, upsample to 15, reserve 1 bit for filters
@@ -985,7 +989,7 @@ static void apu_mix()
       sample = apu_mix_high_pass(sample);
       sample = apu_mix_low_pass(sample);
       sample = apu_mix_dither(sample, 0x7FFF);
-      sample = apu_mix_clip(sample >> 15);
+      sample = apu_mix_clip((sample + (1 << 14)) >> 15);
       apu_dyn.out_data[apu.out_size++] = sample;
     }
     apu.mix_accum = 0;

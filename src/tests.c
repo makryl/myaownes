@@ -7,6 +7,8 @@
 #include <math.h>
 #include <SDL3/SDL.h>
 
+#define WRITE_WAV 0
+
 typedef struct
 {
   uint hash;
@@ -552,8 +554,52 @@ static void make_dirs(char* path)
   }
 }
 
+typedef struct
+{
+  u8 magic[4];
+  uint size;
+  u8 format[4];
+
+  u8 chunk1_id[4];
+  uint chunk1_size;
+  u16 audio_format;
+  u16 channels;
+  uint rate;
+  uint brate;
+  u16 align;
+  u16 bps;
+
+  u8 chunk2_id[4];
+  uint chunk2_size;
+} __attribute__((packed)) WavHeader;
+
+static void write_wav_header(FILE* wav_file, uint data_size)
+{
+  uint channels = 1;
+  uint freq = 48000;
+  uint sample_size = sizeof(i16);
+  WavHeader header = { .magic = { 'R', 'I', 'F', 'F' },
+                       .size = 36 + data_size,
+                       .format = { 'W', 'A', 'V', 'E' },
+
+                       .chunk1_id = { 'f', 'm', 't', ' ' },
+                       .chunk1_size = 16,
+                       .audio_format = 1,
+                       .channels = channels,
+                       .rate = freq,
+                       .brate = freq * channels * sample_size,
+                       .align = channels * sample_size,
+                       .bps = 8 * channels * sample_size,
+
+                       .chunk2_id = { 'd', 'a', 't', 'a' },
+                       .chunk2_size = data_size };
+  fseek(wav_file, 0, SEEK_SET);
+  fwrite(&header, sizeof(WavHeader), 1, wav_file);
+}
+
 static uint audio_data[512 * 4096];
 static uint audio_size;
+static uint wav_size;
 
 static uint db_to_uint(double db, double min_db)
 {
@@ -669,7 +715,7 @@ static void save_test_step_img(const char* rom_path, uint step)
   }
 }
 
-static uint run_test_step(TestStep step, bool audio)
+static uint run_test_step(TestStep step, bool audio, FILE* wav_file)
 {
   if (step.reset) {
     mn_reset();
@@ -678,6 +724,10 @@ static uint run_test_step(TestStep step, bool audio)
     mn_frame(step.joy1, 0);
     if (audio) {
       visualize_audio_frame();
+#if WRITE_WAV
+      fwrite(mn_audio_data(), 1, mn_audio_size(), wav_file);
+      wav_size += mn_audio_size();
+#endif
     }
   }
   if (audio_size) {
@@ -702,12 +752,24 @@ static bool run_test_steps(TestParams params, uint* out_hash)
   mn_rom_set(rom);
   mn_apu_test_mode(params.apu_test_mode);
 
+  FILE* wav_file = nullptr;
+#if WRITE_WAV
+  if (params.audio) {
+    char wav_path[512] = {};
+    sprintf(wav_path, "tests/audio/%s.wav", rom_path);
+    make_dirs(wav_path);
+    wav_file = fopen(wav_path, "wb");
+    fseek(wav_file, sizeof(WavHeader), SEEK_SET);
+    wav_size = 0;
+  }
+#endif
+
   bool result = true;
   for (uint i = 0; i < 32; ++i) {
     if (i > 0 && params.steps[i].frames == 0) {
       break;
     }
-    uint hash = run_test_step(params.steps[i], params.audio);
+    uint hash = run_test_step(params.steps[i], params.audio, wav_file);
     if (out_hash) {
       *out_hash = hash;
     }
@@ -719,6 +781,13 @@ static bool run_test_steps(TestParams params, uint* out_hash)
       }
     }
   }
+
+#if WRITE_WAV
+  if (params.audio) {
+    write_wav_header(wav_file, wav_size);
+    fclose(wav_file);
+  }
+#endif
 
   mn_rom_save(sram_path);
   mn_rom_release(rom);
