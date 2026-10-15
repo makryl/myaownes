@@ -297,7 +297,7 @@ static void imp_save_history()
   }
   if (idx == -1) {
     idx = IMP_RECENT_COUNT - 1;
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
     if (imp.recent_files[idx][0]) {
       SDL_RemovePath(imp.recent_files[idx]);
     }
@@ -550,7 +550,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   imp_ensure_dir("Saves");
   imp_ensure_dir("Screenshots");
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
   imp_ensure_dir("Roms");
 #endif
 
@@ -653,7 +653,7 @@ static void imp_toggle_pause()
 
 static void imp_copy_tmp_file(const char* src, char* dst)
 {
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
   SDL_snprintf(dst, IMP_PATH_SIZE, "%s%s/%s", imp.save_dir, "Roms", imp_rom_name(src));
   SDL_CopyFile(src, dst);
 #else
