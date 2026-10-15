@@ -12,11 +12,11 @@ set(CMAKE_C_STANDARD 23)
 add_compile_options(-Wall -Wextra)
 
 add_library(${PROJECT_NAME}-static
-  src/apu.c
-  src/cpu.c
-  src/dev.c
-  src/map.c
-  src/ppu.c
+  src/core/apu.c
+  src/core/cpu.c
+  src/core/dev.c
+  src/core/map.c
+  src/core/ppu.c
 )
 target_include_directories(${PROJECT_NAME}-static PUBLIC include)
 target_link_libraries(${PROJECT_NAME}-static PUBLIC SDL3-static)

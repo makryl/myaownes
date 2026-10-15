@@ -22,6 +22,8 @@ $EMSDK/upstream/bin/llvm-profdata merge -output=build/Emscripten-Release/pgo.pro
 cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
 cmake --build build/Emscripten-Release --clean-first --target install
 
+android/build.sh
+
 zip -j dist/myaownes_latest_linux_x64.zip dist/Linux-Release/*
 zip -j dist/myaownes_latest_windows_x64.zip dist/Windows-Release/*
 zip -j dist/myaownes_latest_wasm32.zip dist/Emscripten-Release/*
