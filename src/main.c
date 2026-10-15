@@ -1,5 +1,5 @@
 #include "myaownes.h"
-#include "common.h"
+#include <stdio.h>
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL.h>

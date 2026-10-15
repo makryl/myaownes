@@ -1,5 +1,7 @@
 #pragma once
 
+#define MN_VERSION "0.0.0"
+
 typedef unsigned int uint;
 typedef unsigned long long u64;
 typedef unsigned short u16;
