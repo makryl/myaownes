@@ -73,10 +73,12 @@ jobs:
 
       - name: build
         run: |
-          cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
+          cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/MacOS-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/MacOS-Release/pgo"
           cmake --build build/MacOS-Release --clean-first --target myaownes-pgo-run
 
-          cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
+          llvm-profdata merge -output=build/MacOS-Release/pgo.profdata build/MacOS-Release/pgo
+
+          cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
           cmake --build build/MacOS-Release --clean-first --target install
 
           zip -j dist/myaownes_latest_macos_universal.zip dist/MacOS-Release/*
