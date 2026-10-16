@@ -109,6 +109,10 @@
     {
       "name": "Windows-Release",
       "inherits": ["MinGW", "Release"]
+    },
+    {
+      "name": "MacOS-Release",
+      "inherits": ["Release"]
     }
   ]
 }

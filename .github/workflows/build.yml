@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-cross:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/cache@v4
@@ -57,13 +57,50 @@ jobs:
 
       - run: ./release.sh
 
+      - run: git tag -f latest && git push -f origin latest
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-cross
+          path: dist
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: build
+        run: |
+          cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
+          cmake --build build/MacOS-Release --clean-first --target myaownes-pgo-run
+
+          cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
+          cmake --build build/MacOS-Release --clean-first --target install
+
+          zip -j dist/myaownes_latest_macos_universal.zip dist/MacOS-Release/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-macos
+          path: dist
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build-cross, build-macos]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: dist-*
+          merge-multiple: true
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: "./dist/Emscripten-Release"
 
       - uses: actions/deploy-pages@v4
-
-      - run: git tag -f latest && git push -f origin latest
 
       - uses: softprops/action-gh-release@v3
         with:
@@ -72,7 +109,8 @@ jobs:
           name: "Development build"
           body: "Automatic build from the main branch"
           files: |
-            dist/myaownes_latest_linux_x64.zip
-            dist/myaownes_latest_windows_x64.zip
-            dist/myaownes_latest_wasm32.zip
             dist/myaownes_latest_android_arm64-v8a.apk
+            dist/myaownes_latest_linux_x64.zip
+            dist/myaownes_latest_macos_universal.zip
+            dist/myaownes_latest_wasm32.zip
+            dist/myaownes_latest_windows_x64.zip
