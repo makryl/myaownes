@@ -76,7 +76,7 @@ jobs:
           cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/MacOS-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/MacOS-Release/pgo"
           cmake --build build/MacOS-Release --clean-first --target myaownes-pgo-run
 
-          llvm-profdata merge -output=build/MacOS-Release/pgo.profdata build/MacOS-Release/pgo
+          xcrun llvm-profdata merge -output=build/MacOS-Release/pgo.profdata build/MacOS-Release/pgo
 
           cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
           cmake --build build/MacOS-Release --clean-first --target install
