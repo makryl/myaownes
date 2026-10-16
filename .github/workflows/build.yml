@@ -81,7 +81,7 @@ jobs:
           cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
           cmake --build build/MacOS-Release --clean-first --target install
 
-          zip -j dist/myaownes_latest_macos_universal.zip dist/MacOS-Release/*
+          (cd dist/MacOS-Release && zip -r ../myaownes_latest_macos_universal.zip *)
 
       - uses: actions/upload-artifact@v7
         with:
