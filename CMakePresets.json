@@ -63,6 +63,13 @@
       }
     },
     {
+      "name": "MacOS",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "x86_64;arm64"
+      }
+    },
+    {
       "name": "Clang-Debug",
       "inherits": ["Clang", "Debug"]
     },
@@ -112,7 +119,7 @@
     },
     {
       "name": "MacOS-Release",
-      "inherits": ["Release"]
+      "inherits": ["MacOS", "Release"]
     }
   ]
 }
