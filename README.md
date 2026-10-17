@@ -38,7 +38,6 @@ Almost all information I got from next sites, source code of tests and other emu
 
 Some ideas and reminders for future:
 
-- Fix mappers save state
 - Review performance
 - Extra audio in mappers
 - More homebrew mappers
@@ -52,6 +51,7 @@ Some ideas and reminders for future:
 - Slowdown
 - Rewind
 - CRT shader
+- App icons
 - More tests:
   - https://www.nesdev.org/wiki/Emulator_tests
     - mmc5test_v2, mmc5ramsize
