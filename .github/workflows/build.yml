@@ -14,36 +14,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-cross:
+  build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/cache@v4
         with:
           path: /var/cache/apt/archives
-          key: apt-cache-${{ hashFiles('.github/workflows/build.yml') }}
-          restore-keys: apt-cache-
+          key: apt-cache-linux-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: apt-cache-linux-
 
       - name: deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mingw-w64 wine imagemagick build-essential git make \
+          sudo apt-get install -y --no-install-recommends build-essential git make \
           pkg-config cmake ninja-build libasound2-dev libpulse-dev \
           libaudio-dev libfribidi-dev libjack-dev libsndio-dev libx11-dev libxext-dev \
           libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
           libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
           libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libthai-dev libusb-1.0-0-dev \
           libpipewire-0.3-dev libwayland-dev libdecor-0-dev liburing-dev
-
-      - uses: emscripten-core/setup-emsdk@v15
-        with:
-          version: "5.0.7"
-
-      - uses: actions/setup-java@v6
-        with:
-          distribution: "temurin"
-          java-version: "17"
-
-      - uses: gradle/actions/setup-gradle@v6
 
       - uses: actions/checkout@v7
         with:
@@ -55,13 +44,54 @@ jobs:
           cmake --build build/Linux-Release --target myaownes-tests
           build/Linux-Release/myaownes-tests
 
-      - run: ./release.sh
+      - name: build
+        run: |
+          cmake --preset Linux-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
+          cmake --build build/Linux-Release --clean-first --target myaownes-pgo-run
 
-      - run: git tag -f latest && git push -f origin latest
+          cmake --preset Linux-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
+          cmake --build build/Linux-Release --clean-first --target install
+
+          zip -j dist/myaownes_latest_linux_x64.zip dist/Linux-Release/*
+
+          git tag -f latest && git push -f origin latest
 
       - uses: actions/upload-artifact@v7
         with:
-          name: dist-cross
+          name: dist-linux
+          path: dist
+
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives
+          key: apt-cache-windows-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: apt-cache-windows-
+
+      - name: deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 wine
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: build
+        run: |
+          cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
+          cmake --build build/Windows-Release --clean-first --target myaownes-pgo-run
+
+          cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
+          cmake --build build/Windows-Release --clean-first --target install
+
+          zip -j dist/myaownes_latest_windows_x64.zip dist/Windows-Release/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-windows
           path: dist
 
   build-macos:
@@ -88,21 +118,81 @@ jobs:
           name: dist-macos
           path: dist
 
-  publish:
+  build-android:
     runs-on: ubuntu-latest
-    needs: [build-cross, build-macos]
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/cache@v4
         with:
+          path: /var/cache/apt/archives
+          key: apt-cache-android-${{ hashFiles('.github/workflows/build.yml') }}
+          restore-keys: apt-cache-android-
+
+      - name: deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends imagemagick
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - run: ./platforms/android/build.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-android
           path: dist
-          pattern: dist-*
-          merge-multiple: true
+
+  build-emscripten:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: emscripten-core/setup-emsdk@v15
+        with:
+          version: "5.0.7"
+
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: build
+        run: |
+          cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo -sNODERAWFS=1"
+          cmake --build build/Emscripten-Release --clean-first --target myaownes-pgo-run
+
+          $EMSDK/upstream/bin/llvm-profdata merge -output=build/Emscripten-Release/pgo.profdata build/Emscripten-Release/pgo
+
+          cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
+          cmake --build build/Emscripten-Release --clean-first --target install
+
+          zip -j dist/myaownes_latest_wasm32.zip dist/Emscripten-Release/*
 
       - uses: actions/upload-pages-artifact@v3
         with:
           path: "./dist/Emscripten-Release"
 
       - uses: actions/deploy-pages@v4
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-emscripten
+          path: dist
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-windows, build-macos, build-android, build-emscripten]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          pattern: dist-*
+          merge-multiple: true
 
       - uses: softprops/action-gh-release@v3
         with:
