@@ -61,4 +61,6 @@ convert $ICON_FG -gravity center -background none -resize 288x288 -extent 432x43
 
 # Run build
 (cd $PROJ_DIR && ./gradlew assembleRelease -PBUILD_WITH_CMAKE)
+
+mkdir -p $ROOT_DIR/dist
 cp $PROJ_DIR/app/build/outputs/apk/release/app-release.apk $ROOT_DIR/dist/myaownes_latest_android_arm64-v8a.apk
