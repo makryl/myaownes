@@ -8,7 +8,7 @@
 
 enum
 {
-  APU_FILTER_HP = 52,
+  APU_FILTER_HP = 52, // US-NES-FL-N34169630.flac
   APU_FILTER_LP = 17000,
   APU_FILTER_DITHER = 1,
   APU_FILTER_DMC = 0, // todo: make optional, nice pop filter, but fails apu_mixer tests
@@ -41,13 +41,6 @@ enum
   APU_STEP5_PAL = 20782 * 2,
 };
 
-enum
-{
-  APU_FREQ_NTSC = 1789773,
-  APU_FREQ_PAL = 1662607,
-  APU_FREQ_DENDY = 1773448,
-};
-
 static const uint apu_channel_len[32] = { 10, 254, 20, 2,  40, 4,  80, 6,  160, 8,  60, 10, 14, 12, 26, 14,
                                           12, 16,  24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
 
@@ -72,6 +65,7 @@ static const uint apu_noise_period_pal[16] = { 4,   8,   14,  30,  60,  88,  118
                                                188, 236, 354, 472, 708, 944, 1890, 3778 };
 
 static uint apu_freq = 48000;
+static double apu_video_freq = 0.0;
 
 static struct
 {
@@ -254,17 +248,51 @@ static int apu_mix_low_pass(int sample)
   return apu.mix_lp_y;
 }
 
+static double apu_update_time_target()
+{
+  double cpu_freq = 0.0;
+  double cpu_cyc_per_frame = 0.0;
+  switch (mn_region_get()) {
+    default:
+    case MN_REGION_NTSC:
+      cpu_freq = (315000000.0 * 6.0) / (88.0 * 12.0);
+      cpu_cyc_per_frame = (341.0 * 261.0 + 340.5) / 3.0;
+      break;
+    case MN_REGION_PAL:
+      cpu_freq = 26601712.5 / 16.0;
+      cpu_cyc_per_frame = (341.0 * 312.0) / 3.2;
+      break;
+    case MN_REGION_DENDY:
+      cpu_freq = 26601712.5 / 15.0;
+      cpu_cyc_per_frame = (341.0 * 312.0) / 3.0;
+      break;
+  }
+  double target_video_freq = cpu_freq / cpu_cyc_per_frame;
+  double interval = round(apu_video_freq / target_video_freq);
+  double reference_freq = interval * target_video_freq;
+  if (fabs(round(apu_video_freq - reference_freq)) > 1.0) {
+    interval = 0.0;
+  }
+  if (interval > 0.5) {
+    target_video_freq = apu_video_freq / interval;
+  }
+  apu_dyn.time_target = round(target_video_freq * cpu_cyc_per_frame);
+  return target_video_freq;
+}
+
+double mn_video_freq(double freq)
+{
+  apu_video_freq = freq;
+  return apu_update_time_target();
+}
+
 void mn_audio_freq(uint freq)
 {
   apu_freq = freq;
   apu_dyn.mix_hp_alpha = apu_filter_alpha(APU_FILTER_HP, freq);
   apu_dyn.mix_lp_alpha = apu_filter_alpha(APU_FILTER_LP, freq);
   apu_dyn.mix_lp_beta = (1LL << APU_FILTER_BITS) - apu_dyn.mix_lp_alpha;
-  switch (mn_region_get()) {
-    case MN_REGION_NTSC: apu_dyn.time_target = APU_FREQ_NTSC; break;
-    case MN_REGION_PAL: apu_dyn.time_target = APU_FREQ_PAL; break;
-    case MN_REGION_DENDY: apu_dyn.time_target = APU_FREQ_DENDY; break;
-  }
+  apu_update_time_target();
 }
 
 static uint apu_get_status()

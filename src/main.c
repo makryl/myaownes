@@ -188,10 +188,18 @@ static void imp_popup(const char* text, float time)
 
 static void imp_update_frame_time()
 {
-  imp.target_frame_time = imp.perf_freq / ((mn_region_get() == MN_REGION_NTSC) ? 60 : 50);
+  double freq = 0.0;
+  SDL_DisplayID display = SDL_GetDisplayForWindow(imp.window);
+  if (display) {
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+    if (mode) {
+      freq = mode->refresh_rate;
+    }
+  }
+  imp.target_frame_time = imp.perf_freq / mn_video_freq(freq);
 }
 
-static void imp_onresize()
+static void imp_ondisplaychange()
 {
   SDL_GetWindowSizeInPixels(imp.window, &imp.width, &imp.height);
   mn_video_fit(imp.auto_aspect, imp.overscan, imp.width, imp.height, &imp.rect.x, &imp.rect.y, &imp.rect.w,
@@ -221,6 +229,8 @@ static void imp_onresize()
   imp.touch_dpad_threshold = ph;
   imp.touch_dpad_x = 4 * ph;
   imp.touch_dpad_y = imp.height - 4 * ph;
+
+  imp_update_frame_time();
 }
 
 static void imp_try_resize()
@@ -231,7 +241,7 @@ static void imp_try_resize()
   mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
   SDL_SetWindowSize(imp.window, width, height);
 #endif
-  imp_onresize();
+  imp_ondisplaychange();
 }
 
 static void imp_volume_update() { SDL_SetAudioStreamGain(imp.stream, (float)imp.volume / 10.0f); }
@@ -362,7 +372,6 @@ static void imp_rom_update()
     SDL_Log("     %s", imp.rom_info[i]);
   }
 
-  imp_update_frame_time();
   imp_try_resize();
   imp_save_history();
 }
@@ -586,8 +595,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
     return SDL_APP_FAILURE;
   }
 
-  SDL_DisableScreenSaver();
-
   int vsync;
   SDL_GetRenderVSync(imp.renderer, &vsync);
   SDL_Log("Video: %s %s %s", SDL_GetRendererName(imp.renderer), vsync ? "vsync:on" : "vsync:off",
@@ -712,7 +719,7 @@ static void imp_toggle_overscan()
 static void imp_set_fullscreen(bool enabled)
 {
   SDL_SetWindowFullscreen(imp.window, enabled);
-  imp_onresize();
+  imp_ondisplaychange();
   imp_popup(imp_fullscreen_labels[enabled], 2);
 }
 
@@ -1215,7 +1222,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
   switch (event->type) {
     case SDL_EVENT_QUIT: return SDL_APP_SUCCESS;
     case SDL_EVENT_WINDOW_RESIZED:
-    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: imp_onresize(); break;
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+    case SDL_EVENT_WINDOW_DISPLAY_CHANGED: imp_ondisplaychange(); break;
     case SDL_EVENT_DROP_FILE: imp_drop_file(event->drop.data); break;
     // case SDL_EVENT_DISPLAY_ORIENTATION:
     //   imp_set_fullscreen(event->display.data1 == SDL_ORIENTATION_LANDSCAPE
