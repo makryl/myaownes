@@ -10,4 +10,12 @@ Module = {
   printErr: function (text) {
     console.log(text);
   },
+  preRun: [
+    function () {
+      const embed = "%%EMBEDNES%%";
+      if (embed.length > 12) {
+        FS.writeFile("/embed.nes", Uint8Array.fromBase64(embed));
+      }
+    },
+  ],
 };

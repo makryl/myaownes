@@ -55,6 +55,7 @@ if (EMSCRIPTEN)
     ${CMAKE_CURRENT_BINARY_DIR}/index.js
     ${CMAKE_CURRENT_BINARY_DIR}/index.wasm
     ${CMAKE_CURRENT_BINARY_DIR}/index.wasm.map
+    ${CMAKE_CURRENT_SOURCE_DIR}/platforms/web/embed.js
     DESTINATION "./"
     OPTIONAL
   )

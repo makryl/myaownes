@@ -138,6 +138,7 @@ static struct
   bool dirty_config;
   bool touch_active;
   bool load_rom_dialog_wait;
+  bool embed_enabled;
   mn_rom rom;
   char rom_info[6][15];
   char load_rom_path[IMP_PATH_SIZE];
@@ -209,13 +210,14 @@ static void imp_ondisplaychange()
   imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
   imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
 
-  uint ph = (imp.height < imp.width ? imp.height : imp.width) / 17;
+  float ph = (imp.height < imp.width ? imp.height : imp.width) / 16.0f;
+  uint ab_off = (float)imp.width / imp.height > 16.0 / 15.0 ? 1 : 0;
 
   imp.touch_button_radius = ph;
   imp.touch_button_ab_radius = 2 * ph;
-  imp.touch_a_x = imp.width - 3 * ph;
+  imp.touch_a_x = imp.width - (2 + ab_off) * ph;
   imp.touch_a_y = imp.height - 4 * ph;
-  imp.touch_b_x = imp.width - 7 * ph;
+  imp.touch_b_x = imp.width - (6 + ab_off) * ph;
   imp.touch_b_y = imp.height - 4 * ph;
   imp.touch_start_x = imp.width - 3 * ph;
   imp.touch_start_y = 5 * ph;
@@ -342,11 +344,12 @@ static void imp_rom_update()
     return;
   }
 
-  char title[256] = {};
-  SDL_strlcat(title, imp_rom_name(imp.rom_path), IMP_PATH_SIZE);
-  SDL_strlcat(title, " - MyaowNES", IMP_PATH_SIZE);
-
-  SDL_SetWindowTitle(imp.window, title);
+  if (!imp.embed_enabled) {
+    char title[256] = {};
+    SDL_strlcat(title, imp_rom_name(imp.rom_path), IMP_PATH_SIZE);
+    SDL_strlcat(title, " - MyaowNES", IMP_PATH_SIZE);
+    SDL_SetWindowTitle(imp.window, title);
+  }
 
   SDL_memset(imp.rom_info, 0, sizeof(imp.rom_info));
   SDL_snprintf(imp.rom_info[0], sizeof(imp.rom_info[0]), "%-5s %1s%03d-%03d",
@@ -530,25 +533,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   SDL_Log("MyaowNES v%s", MN_VERSION);
   SDL_memset(&imp, 0, sizeof(imp));
 
-  for (int i = 0; i < argc; ++i) {
-    if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
-      SDL_Log("MyaowNES v" MN_VERSION);
-      SDL_Log("Usage: myaownes [options] [file]");
-      SDL_Log("Options:");
-      SDL_Log("-h, --help         Display help");
-      SDL_Log("-p, --path <path>  Save path");
-      return SDL_APP_SUCCESS;
-    } else if (SDL_strcmp(argv[i], "-p") == 0 || SDL_strcmp(argv[i], "--path") == 0) {
-      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
-      uint len = SDL_strlen(imp.save_dir);
-      if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
-        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
-      }
-    } else if (i > 0) {
-      imp_rom_load(argv[i]);
-    }
-  }
-
   if (SDL_strlen(imp.save_dir) == 0) {
     char* pref_path = SDL_GetPrefPath(nullptr, "MyaowNES");
     SDL_strlcpy(imp.save_dir, pref_path, IMP_PATH_SIZE);
@@ -574,6 +558,35 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   imp_volume_update();
   mn_region_set(imp.region);
 
+  for (int i = 0; i < argc; ++i) {
+    if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
+      SDL_Log("MyaowNES v" MN_VERSION);
+      SDL_Log("Usage: myaownes [options] [file]");
+      SDL_Log("Options:");
+      SDL_Log("-h, --help         Display help");
+      SDL_Log("-p, --path <path>  Save path");
+      return SDL_APP_SUCCESS;
+    } else if (SDL_strcmp(argv[i], "-p") == 0 || SDL_strcmp(argv[i], "--path") == 0) {
+      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
+      uint len = SDL_strlen(imp.save_dir);
+      if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
+        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
+      }
+    } else if (i > 0) {
+      imp_rom_load(argv[i]);
+    }
+  }
+
+#ifdef __EMSCRIPTEN__
+  const char* embed_path = "embed.nes";
+  SDL_PathInfo info;
+  SDL_GetPathInfo(embed_path, &info);
+  if (info.type == SDL_PATHTYPE_FILE) {
+    imp.embed_enabled = true;
+    imp_rom_load(embed_path);
+  }
+#endif
+
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
   SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
   SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
@@ -590,7 +603,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   uint height;
   mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
 
-  if (!SDL_CreateWindowAndRenderer("MyaowNES", width, height, SDL_WINDOW_RESIZABLE, &imp.window, &imp.renderer)) {
+  const char* title = imp.embed_enabled ? nullptr : "MyaowNES";
+  if (!SDL_CreateWindowAndRenderer(title, width, height, SDL_WINDOW_RESIZABLE, &imp.window, &imp.renderer)) {
     SDL_Log("%s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
@@ -680,7 +694,7 @@ static void SDLCALL imp_file_dialog_cb(void*, const char* const* files, int)
 
 static void imp_open_file()
 {
-  if (imp.load_rom_dialog_wait) {
+  if (imp.load_rom_dialog_wait || imp.embed_enabled) {
     return;
   }
   imp.load_rom_dialog_wait = true;
@@ -738,14 +752,14 @@ static void imp_screenshot()
     uint num = 0;
     SDL_PathInfo info;
     while (true) {
-      SDL_snprintf(ext, sizeof(ext), ".%d.bmp", num);
+      SDL_snprintf(ext, sizeof(ext), ".%d.png", num);
       imp_save_path(path, "Screenshots", ext);
       if (!SDL_GetPathInfo(path, &info)) {
         break;
       }
       ++num;
     }
-    SDL_SaveBMP(screenshot, path);
+    SDL_SavePNG(screenshot, path);
     SDL_DestroySurface(screenshot);
   }
 }
@@ -909,7 +923,7 @@ static void imp_joy2_b_turbo_up() { imp.joy2 &= ~MN_INPUT_TURBO_B; }
 
 static void imp_drop_file(const char* path)
 {
-  if (path) {
+  if (path && !imp.embed_enabled) {
     imp_copy_tmp_file(path, imp.load_rom_path);
     imp_rom_load(imp.load_rom_path);
     imp_rom_update();
@@ -960,7 +974,7 @@ static void imp_draw_menu_prepare(int menu_size)
   }
 
   SDL_FRect fill = { imp.ui_offset.x, imp.ui_offset.y, 256, 240 };
-  SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xC0);
+  SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xE0);
   SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
   SDL_RenderFillRect(imp.renderer, &fill);
   SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
@@ -990,18 +1004,20 @@ static void imp_draw_menu()
         imp_menu_state(IMP_MENU_OFF);
       }
     }
-    if (imp_draw_menu_line("ROM info", line++, menu++)) {
+    if (!imp.embed_enabled && imp_draw_menu_line("ROM info", line++, menu++)) {
       imp_menu_state(IMP_MENU_INFO);
     }
     ++line;
   }
-  if (imp_draw_menu_line("Open ROM", line++, menu++)) {
-    imp_open_file();
+  if (!imp.embed_enabled) {
+    if (imp_draw_menu_line("Open ROM", line++, menu++)) {
+      imp_open_file();
+    }
+    if (imp_draw_menu_line("Recent ROMs", line++, menu++)) {
+      imp_menu_state(IMP_MENU_RECENT);
+    }
+    ++line;
   }
-  if (imp_draw_menu_line("Recent ROMs", line++, menu++)) {
-    imp_menu_state(IMP_MENU_RECENT);
-  }
-  ++line;
   if (imp_draw_menu_line("Options", line++, menu++)) {
     imp_menu_state(IMP_MENU_OPTIONS);
   }
@@ -1010,13 +1026,17 @@ static void imp_draw_menu()
   }
   ++line;
   ++line;
-  imp_draw_line(line++, " Drag-n-drop *.nes file to play ");
-  ++line;
+  if (!imp.embed_enabled) {
+    imp_draw_line(line++, " Drag-n-drop *.nes file to play ");
+    ++line;
+  }
   imp_draw_line(line++, "     Press F1 to show keymap    ");
   ++line;
   imp_draw_line(line++, "     Touch to show controls     ");
 
-  imp_draw_line(28, "                MyaowNES v" MN_VERSION " ");
+  if (!imp.embed_enabled) {
+    imp_draw_line(28, "                MyaowNES v" MN_VERSION " ");
+  }
 }
 
 static void imp_draw_options()
@@ -1113,17 +1133,21 @@ static void imp_draw_help()
   imp_draw_line(line++, " Start        H           Enter ");
   imp_draw_line(line++, " Select       F           Space ");
   imp_draw_line(line++, "                                ");
-  imp_draw_line(line++, " Help        F1  Save slot  0-9 ");
-  imp_draw_line(line++, " Open        F2  Menu       Esc ");
+  imp_draw_line(line++, " Help        F1  Menu       Esc ");
+  if (!imp.embed_enabled) {
+    imp_draw_line(line++, " Open        F2   ");
+  }
   imp_draw_line(line++, " Region      F3  F-forward  Tab ");
-  imp_draw_line(line++, " Reset       F4  Pause    Pause ");
+  imp_draw_line(line++, " Reset       F4  Volume     -/+ ");
   imp_draw_line(line++, " Quick save  F5  Scale      [/] ");
-  imp_draw_line(line++, " Aspect      F6  Volume     -/+ ");
-  imp_draw_line(line++, " Overscan    F7  Show FPS     ` ");
-  imp_draw_line(line++, " Quick load  F8  Test FPS     Z ");
+  imp_draw_line(line++, " Aspect      F6  Save slot  0-9 ");
+  imp_draw_line(line++, " Overscan    F7  Pause    Pause ");
+  imp_draw_line(line++, " Quick load  F8  Show FPS     ` ");
+#ifndef __EMSCRIPTEN__
   imp_draw_line(line++, " Quit       F10                 ");
+#endif
   imp_draw_line(line++, " Fullscreen F11                 ");
-  imp_draw_line(line++, " Screenshot F12                 ");
+  imp_draw_line(line++, " Screenshot F12  Test FPS     Z ");
 }
 
 static void imp_draw_recent()
@@ -1240,7 +1264,9 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_F6: imp_toggle_aspect(); break;
         case SDLK_F7: imp_toggle_overscan(); break;
         case SDLK_F8: imp_load(); break;
+#ifndef __EMSCRIPTEN__
         case SDLK_F10: return SDL_APP_SUCCESS;
+#endif
         case SDLK_F11: imp_toggle_fullscreen(); break;
         case SDLK_F12: imp_screenshot(); break;
         case SDLK_MINUS: imp_volume_down(); break;
@@ -1284,6 +1310,8 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_KP_2: imp_joy2_a_down(); break;
         case SDLK_KP_4: imp_joy2_b_turbo_down(); break;
         case SDLK_KP_5: imp_joy2_a_turbo_down(); break;
+
+        default: imp_popup("Press F1 to show keymap", 2); break;
       }
       break;
     case SDL_EVENT_KEY_UP:

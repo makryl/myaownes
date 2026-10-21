@@ -19,6 +19,40 @@ Supports far from all, but many mappers: 44 discrete, MMC1-4 and partially MMC5,
 [<img alt="AccuracyCoin results" height="240" src="tests/screenshots/AccuracyCoin/AccuracyCoin.nes.2.png">](tests/screenshots/AccuracyCoin/AccuracyCoin.nes.2.png)
 [<img alt="MDFourier results" height="240" src="tests/DA__ALL_AVG_US-NES-FL-N34169630_vs_myaownes_mdfourier_0000.png">](tests/DA__ALL_AVG_US-NES-FL-N34169630_vs_myaownes_mdfourier_0000.png)
 
+## Embed ROM in WebAssembly build
+
+You can embed your game in emulator's web build, so game will run immediately after page loads. In this mode emulator hides some UI, so users can't change rom file.
+
+Download WebAssembly build from [releases](https://github.com/makryl/myaownes/releases), and use `embed.js` script included in archive.
+You will need [Node.js](https://github.com/nodejs/node) to run this script.
+Actually it is possible to do it without script by simply replacing `%%EMBEDNES%%` with your ROM file in Base64 string format.
+
+```
+node embed.js --nes <path/to/game.nes> --out <path/to/dir> [--title <title>] [--desc <desc>]
+```
+
+It will generate same 3 files (html, js, wasm), with your game embedded.
+
+## Build
+
+For some platforms [SDL3 dependencies](https://github.com/libsdl-org/SDL/tree/main/docs) required.
+For WebAssembly you need to install [Emscripten SDK](https://github.com/emscripten-core/emsdk).
+For better performance PGO should be used.
+Project uses Github Actions, so you can view examples of how to install dependencies and build code with PGO for different platforms in [build.yml](.github/workflows/build.yml).
+
+Clone project with submodules using `git`.
+
+```
+git clone --recurse-submodules https://github.com/makryl/myaownes.git
+```
+
+Use `cmake` to configure and build project, it has several presets for different platforms.
+
+```
+cmake --preset Linux-Release
+cmake --build build/Linux-Release --target install
+```
+
 ## References
 
 Almost all information I got from next sites, source code of tests and other emulators:
