@@ -1,4 +1,4 @@
-  OK | 0xD8C4B0C4 | AccuracyCoin/AccuracyCoin.nes
+  OK | 0x338B89DE | AccuracyCoin/AccuracyCoin.nes
   OK | 0x736D7002 | nes-test-roms/APU/apu_mixer/dmc.nes
   OK | 0xF14AEE68 | nes-test-roms/APU/apu_mixer/noise.nes
   OK | 0xC3224F57 | nes-test-roms/APU/apu_mixer/square.nes

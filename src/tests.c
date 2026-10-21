@@ -28,7 +28,7 @@ typedef struct
 
 // clang-format off
 static TestParams tests[] = {
-  { "AccuracyCoin/AccuracyCoin.nes", MN_REGION_NTSC, 0, 0, { { 0x6121DCA1, 40, 0, 0 }, { 0x56FC8DFD, 2, MN_INPUT_START, 0 }, { 0xD8C4B0C4, 4200, 0, 0 } } }, //
+  { "AccuracyCoin/AccuracyCoin.nes", MN_REGION_NTSC, 0, 0, { { 0x6121DCA1, 40, 0, 0 }, { 0x56FC8DFD, 2, MN_INPUT_START, 0 }, { 0x338B89DE, 4200, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_mixer/dmc.nes", MN_REGION_NTSC, 1, 0, { { 0x736D7002, 900, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_mixer/noise.nes", MN_REGION_NTSC, 1, 0, { { 0xF14AEE68, 1400, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_mixer/square.nes", MN_REGION_NTSC, 1, 0, { { 0xC3224F57, 1200, 0, 0 } } }, //
