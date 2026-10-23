@@ -28,7 +28,7 @@ You will need [Node.js](https://github.com/nodejs/node) to run this script.
 Actually it is possible to do it without script by simply replacing `%%EMBEDNES%%` with your ROM file in Base64 string format.
 
 ```
-node embed.js --nes <path/to/game.nes> --out <path/to/dir> [--title <title>] [--desc <desc>]
+node embed.js --nes <path/to/game.nes> [--out <path/to/game.html>] [--template <index.html>] [--title <title>] [--desc <desc>]
 ```
 
 It will generate same 3 files (html, js, wasm), with your game embedded.

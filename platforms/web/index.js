@@ -12,9 +12,9 @@ Module = {
   },
   preRun: [
     function () {
-      const embed = "%%EMBEDNES%%";
-      if (embed.length > 12) {
-        FS.writeFile("/embed.nes", Uint8Array.fromBase64(embed));
+      window.EMBEDNES = "%%EMBEDNES%%";
+      if (window.EMBEDNES.length > 12) {
+        FS.writeFile("/embed.nes", Uint8Array.fromBase64(window.EMBEDNES));
       }
     },
   ],

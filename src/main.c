@@ -1311,7 +1311,11 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_KP_4: imp_joy2_b_turbo_down(); break;
         case SDLK_KP_5: imp_joy2_a_turbo_down(); break;
 
-        default: imp_popup("Press F1 to show keymap", 2); break;
+        default:
+          if (event->key.key >= SDLK_A && event->key.key <= SDLK_Z) {
+            imp_popup("Press F1 to show keymap", 2);
+          }
+          break;
       }
       break;
     case SDL_EVENT_KEY_UP:

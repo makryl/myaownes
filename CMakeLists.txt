@@ -46,17 +46,6 @@ install(TARGETS ${PROJECT_NAME} DESTINATION "./")
 if (EMSCRIPTEN)
   em_add_link_deps(${PROJECT_NAME} --pre-js platforms/web/index.js)
   em_add_link_deps(${PROJECT_NAME} --shell-file platforms/web/index.html)
-  target_link_options(${PROJECT_NAME}-static PUBLIC -sALLOW_MEMORY_GROWTH=1)
-  set_target_properties(${PROJECT_NAME} PROPERTIES
-    RUNTIME_OUTPUT_NAME index
-    SUFFIX .html
-  )
-  install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/index.js
-    ${CMAKE_CURRENT_BINARY_DIR}/index.wasm
-    ${CMAKE_CURRENT_BINARY_DIR}/index.wasm.map
-    ${CMAKE_CURRENT_SOURCE_DIR}/platforms/web/embed.js
-    DESTINATION "./"
-    OPTIONAL
-  )
+  target_link_options(${PROJECT_NAME}-static PUBLIC -sALLOW_MEMORY_GROWTH=1 -sSINGLE_FILE=1)
+  set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_NAME index SUFFIX .html)
 endif()

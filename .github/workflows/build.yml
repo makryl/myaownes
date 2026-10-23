@@ -77,7 +77,7 @@ jobs:
           cmake --preset Linux-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
           cmake --build build/Linux-Release --clean-first --target install
 
-          zip -j dist/myaownes_latest_linux_x64.zip dist/Linux-Release/*
+          zip -j dist/myaownes_latest_linux_x64.zip LICENSE.txt README.md dist/Linux-Release/*
 
           git tag -f latest && git push -f origin latest
 
@@ -113,7 +113,7 @@ jobs:
           cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
           cmake --build build/Windows-Release --clean-first --target install
 
-          zip -j dist/myaownes_latest_windows_x64.zip dist/Windows-Release/*
+          zip -j dist/myaownes_latest_windows_x64.zip LICENSE.txt README.md dist/Windows-Release/*
 
       - uses: actions/upload-artifact@v7
         with:
@@ -138,6 +138,9 @@ jobs:
           cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
           cmake --build build/MacOS-Release --clean-first --target install
 
+          mkdir -p dist/MacOS-Release/myaownes.app/Contents/Resources
+          cp LICENSE.txt dist/MacOS-Release/myaownes.app/Contents/Resources/
+          cp README.md dist/MacOS-Release/myaownes.app/Contents/Resources/
           (cd dist/MacOS-Release && zip -r ../myaownes_latest_macos_universal.zip *)
 
       - uses: actions/upload-artifact@v7
@@ -200,7 +203,7 @@ jobs:
           cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
           cmake --build build/Emscripten-Release --clean-first --target install
 
-          zip -j dist/myaownes_latest_wasm32.zip dist/Emscripten-Release/*
+          zip -j dist/myaownes_latest_wasm32.zip LICENSE.txt README.md platforms/web/embed.js dist/Emscripten-Release/*
 
       - uses: actions/upload-pages-artifact@v3
         with:

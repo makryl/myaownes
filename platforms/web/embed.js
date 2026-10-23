@@ -7,25 +7,28 @@ function getArg(flag) {
 }
 
 const nesPath = getArg("--nes");
-const outPath = getArg("--out");
-const title = getArg("--title");
+const outPath = getArg("--out") || nesPath.replace(/\.nes$/, "") + ".html";
+const templatePath = getArg("--template") || path.join(__dirname, "index.html");
+const title = getArg("--title") || path.basename(nesPath, ".nes");
 const desc = getArg("--desc");
 
-if (!nesPath || !outPath) {
-  console.log(`Usage: node embed.js --nes <path/to/game.nes> --out <path/to/dir> [--title <title>] [--desc <desc>]`);
+if (!nesPath) {
+  console.log(
+    "Usage: node embed.js " +
+      "--nes <path/to/game.nes> " +
+      "[--out <path/to/game.html>] " +
+      "[--template <index.html>] " +
+      "[--title <title>] " +
+      "[--desc <desc>]",
+  );
   process.exit(1);
 }
 
-fs.mkdirSync(outPath, { recursive: true });
-
 const nes = fs.readFileSync(nesPath).toString("base64");
-const js = fs.readFileSync(path.join(__dirname, "index.js"), "utf8").replace("%%EMBEDNES%%", nes);
-fs.writeFileSync(path.join(outPath, "index.js"), js);
 
 const html = fs
-  .readFileSync(path.join(__dirname, "index.html"), "utf8")
+  .readFileSync(templatePath, "utf8")
   .replace(/<title>(.*)<\/title>/, `<title>${title}</title>`)
-  .replace(/<meta content="(.*)"name=description>/, `<meta content="${desc}"name=description>`);
-fs.writeFileSync(path.join(outPath, "index.html"), html);
-
-fs.copyFileSync(path.join(__dirname, "index.wasm"), path.join(outPath, "index.wasm"));
+  .replace(/<meta content="(.*)"name=description>/, `<meta content="${desc}"name=description>`)
+  .replace("%%EMBEDNES%%", nes);
+fs.writeFileSync(outPath, html);

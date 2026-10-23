@@ -59,6 +59,11 @@ convert $ICON_FG -gravity center -background none -resize 144x144 -extent 216x21
 convert $ICON_FG -gravity center -background none -resize 216x216 -extent 324x324 $RES_DIR/mipmap-xxhdpi/ic_launcher_foreground.png
 convert $ICON_FG -gravity center -background none -resize 288x288 -extent 432x432 $RES_DIR/mipmap-xxxhdpi/ic_launcher_foreground.png
 
+# Copy texts
+mkdir -p $PROJ_DIR/app/src/main/assets
+cp $ROOT_DIR/LICENSE.txt $PROJ_DIR/app/src/main/assets/
+cp $ROOT_DIR/README.md $PROJ_DIR/app/src/main/assets/
+
 # Run build
 (cd $PROJ_DIR && ./gradlew assembleRelease -PBUILD_WITH_CMAKE)
 
