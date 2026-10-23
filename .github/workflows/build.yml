@@ -87,33 +87,24 @@ jobs:
           path: dist
 
   build-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: [tests]
     steps:
-      - uses: actions/cache@v4
-        with:
-          path: /var/cache/apt/archives
-          key: apt-cache-windows-${{ hashFiles('.github/workflows/build.yml') }}
-          restore-keys: apt-cache-windows-
-
-      - name: deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends mingw-w64 wine
-
       - uses: actions/checkout@v7
         with:
           submodules: true
 
       - name: build
         run: |
-          cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
+          cmake --preset Windows-Release -DCMAKE_EXE_LINKER_FLAGS="/LTCG:PGINSTRUMENT"
           cmake --build build/Windows-Release --clean-first --target myaownes-pgo-run
 
-          cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
+          cmake --preset Windows-Release -DCMAKE_EXE_LINKER_FLAGS="/LTCG:PGOPTIMIZE"
           cmake --build build/Windows-Release --clean-first --target install
 
-          zip -j dist/myaownes_latest_windows_x64.zip LICENSE.txt README.md dist/Windows-Release/*
+          Copy-Item LICENSE.txt -Destination dist\Windows-Release
+          Copy-Item README.md -Destination dist\Windows-Release
+          Compress-Archive -Path dist\Windows-Release\* -DestinationPath dist\myaownes_latest_windows_x64.zip
 
       - uses: actions/upload-artifact@v7
         with:

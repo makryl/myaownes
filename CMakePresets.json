@@ -108,16 +108,8 @@
       "inherits": ["Emscripten", "Release"]
     },
     {
-      "name": "Windows-Debug",
-      "inherits": ["MinGW", "Debug"]
-    },
-    {
-      "name": "Windows-RelWithDebInfo",
-      "inherits": ["MinGW", "RelWithDebInfo"]
-    },
-    {
       "name": "Windows-Release",
-      "inherits": ["MinGW", "Release"]
+      "inherits": ["Release"]
     },
     {
       "name": "MacOS-Release",
