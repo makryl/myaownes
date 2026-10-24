@@ -23,6 +23,9 @@ Supports far from all, but many mappers: 44 discrete, MMC1-4 and partially MMC5,
 
 You can embed your game in emulator's web build, so game will run immediately after page loads. In this mode emulator hides some UI, so users can't change rom file.
 
+Use [online tool](https://makryl.github.io/myaownes/embed.html) or script for offline usage.
+
+Next instructions for offline script.
 Download WebAssembly build from [releases](https://github.com/makryl/myaownes/releases), and use `embed.js` script included in archive.
 You will need [Node.js](https://github.com/nodejs/node) to run this script.
 Actually it is possible to do it without script by simply replacing `%%EMBEDNES%%` with your ROM file in Base64 string format.
@@ -31,7 +34,7 @@ Actually it is possible to do it without script by simply replacing `%%EMBEDNES%
 node embed.js --nes <path/to/game.nes> [--out <path/to/game.html>] [--template <index.html>] [--title <title>] [--desc <desc>]
 ```
 
-It will generate same 3 files (html, js, wasm), with your game embedded.
+It will generate HTML with your game embedded.
 
 ## Build
 

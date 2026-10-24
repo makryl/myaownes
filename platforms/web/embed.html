@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>MyaowNES Embed Tool</title>
+    <meta name="viewport" content="width=device-width, minimum-scale=1, maximum-scale=1">
+    <meta name="description" content="Online tool for embedding your NES game into single html file with MyaowNES emulator.">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        outline: 0;
+      }
+      body {
+        background: #000;
+        color: #ccc;
+        font: 1em/1.5 sans-serif;
+        margin: 1.5em auto;
+        padding: 0 .5em;
+        max-width: 200mm;
+      }
+      p, form, label {
+        margin: .5em 0 1.5em;
+      }
+      label {
+        display: block;
+      }
+      input {
+        display: block;
+        padding: .5em;
+        margin: 0;
+        background: #444;
+        color: #ccc;
+        border-radius: .5em;
+      }
+      input:focus {
+        outline: 1px solid #ccc;
+      }
+      input[type=submit]:active {
+        outline: 1px solid #fff;
+        position: relative;
+        top: 1px;
+      }
+      a {
+        color: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <p>This is online tool for embedding your NES game into single HTML file with <a href="https://makryl.github.io/myaownes/">MyaowNES</a> emulator. More info at <a href="https://github.com/makryl/myaownes">github</a>.</p>
+
+    <form id="form">
+      <label id="label-nes">
+        Select NES file:
+        <input type="file" id="input-nes" accept=".nes">
+      </label>
+      <label id="label-title">
+        Title (optional):
+        <input type="text" id="input-title">
+      </label>
+      <label id="label-desc">
+        Description (optional):
+        <input type="text" id="input-desc">
+      </label>
+      <input type="submit" value="Embed and download">
+    </form>
+    <script>
+      const form = document.getElementById("form");
+      const inputNes = document.getElementById("input-nes");
+      const inputTitle = document.getElementById("input-title");
+      const inputDesc = document.getElementById("input-desc");
+
+      const bytes = Uint8Array.fromBase64("%%HTML%%");
+      const decoder = new TextDecoder("utf-8");
+      const template = decoder.decode(bytes);
+
+      form.onsubmit = async function(event)
+      {
+        event.preventDefault();
+        const file = inputNes.files[0];
+        if (file) {
+          const bytes = await file.bytes();
+          const base64 = bytes.toBase64();
+          const title = inputTitle.value || file.name.replace(/.nes$/, "");
+          const desc = inputDesc.value;
+          const html = template
+            .replace(/<title>(.*)<\/title>/, `<title>${title}</title>`)
+            .replace(/<meta content="(.*)"name=description>/, `<meta content="${desc}"name=description>`)
+            .replace("%%EMBEDNES%%", base64);
+          const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.style.display = "none";
+          link.href = blobUrl;
+          link.download = title + ".html";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }
+      };
+    </script>
+  </body>
+</html>

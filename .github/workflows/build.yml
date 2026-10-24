@@ -202,6 +202,7 @@ jobs:
           cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
           cmake --build build/Emscripten-Release --clean-first --target install
 
+          base64 -w 0 dist/Emscripten-Release/index.html | awk 'NR==FNR {b64=$0; next} {gsub(/%%HTML%%/, b64); print}' - platforms/web/embed.html > dist/Emscripten-Release/embed.html
           zip -j dist/myaownes_latest_wasm32.zip LICENSE.txt README.md platforms/web/embed.js dist/Emscripten-Release/*
 
       - uses: actions/upload-pages-artifact@v3
