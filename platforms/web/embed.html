@@ -93,7 +93,7 @@
         if (file) {
           const bytes = await file.bytes();
           const base64 = bytes.toBase64();
-          title = inputTitle.value || file.name.replace(/.nes$/, "");
+          title = inputTitle.value || file.name.replace(/\.nes$/, "");
           const desc = inputDesc.value;
           const html = template
             .replace(/<title>(.*)<\/title>/, `<title>${title}</title>`)
@@ -137,14 +137,14 @@
         const fhv = new DataView(fh.buffer);
         fhv.setUint32(0, 0x04034b50, true);
         fhv.setUint16(4, 10, true);
+        fhv.setUint16(6, 0x0800, true);
         fhv.setUint16(8, 0, true);
-        fhv.setUint16(10, 0, true);
-        fhv.setUint16(12, zipTime, true);
-        fhv.setUint16(14, zipDate, true);
-        fhv.setUint32(16, crc32(fileBytes), true);
-        fhv.setUint32(20, fileBytes.length, true);
-        fhv.setUint32(24, fileBytes.length, true);
-        fhv.setUint16(28, nameBytes.length, true);
+        fhv.setUint16(10, zipTime, true);
+        fhv.setUint16(12, zipDate, true);
+        fhv.setUint32(14, crc32(fileBytes), true);
+        fhv.setUint32(18, fileBytes.length, true);
+        fhv.setUint32(22, fileBytes.length, true);
+        fhv.setUint16(26, nameBytes.length, true);
         fh.set(nameBytes, 30);
 
         const dh = new Uint8Array(46 + nameBytes.length);
@@ -152,6 +152,7 @@
         dhv.setUint32(0, 0x02014b50, true);
         dhv.setUint16(4, 20, true);
         dhv.setUint16(6, 10, true);
+        dhv.setUint16(8, 0x0800, true);
         dhv.setUint16(10, 0, true);
         dhv.setUint16(12, zipTime, true);
         dhv.setUint16(14, zipDate, true);
