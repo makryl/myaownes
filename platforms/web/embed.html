@@ -37,10 +37,10 @@
       input:focus {
         outline: 1px solid #ccc;
       }
-      input[type=button] {
+      input[type="button"] {
         display: inline-block;
       }
-      input[type=button]:active {
+      input[type="button"]:active {
         outline: 1px solid #fff;
         position: relative;
         top: 1px;
@@ -51,7 +51,11 @@
     </style>
   </head>
   <body>
-    <p>This is online tool for embedding your NES game into single HTML file with <a href="https://makryl.github.io/myaownes/">MyaowNES</a> emulator. More info at <a href="https://github.com/makryl/myaownes">GitHub</a>.</p>
+    <p>
+      This is online tool for embedding your NES game into single HTML file
+      with <a href="https://makryl.github.io/myaownes/">MyaowNES</a> emulator.
+      More info at <a href="https://github.com/makryl/myaownes">GitHub</a>.
+    </p>
 
     <form id="form">
       <label id="label-nes">
@@ -100,7 +104,8 @@
         return "";
       }
 
-      function crc32(bytes) {
+      function crc32(bytes)
+      {
         if (!crc32.table) {
           crc32.table = new Int32Array(256);
           for (let i = 0; i < 256; i++) {
@@ -165,22 +170,22 @@
         endv.setUint32(12, dh.length, true);
         endv.setUint32(16, fh.length + fileBytes.length, true);
 
-        return new Blob([fh, fileBytes, dh, end], { type: 'application/zip' });
+        return new Blob([fh, fileBytes, dh, end], { type: "application/zip" });
       }
 
       function downloadBlob(name, blob) {
-          const blobUrl = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.style.display = "none";
-          link.href = blobUrl;
-          link.download = name;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.style.display = "none";
+        link.href = blobUrl;
+        link.download = name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
       }
 
-      buttonHtml.onclick = async function(event)
+      buttonHtml.onclick = async function (event)
       {
         event.preventDefault();
         const html = await embedHtml();
@@ -189,13 +194,14 @@
         }
       };
 
-      buttonZip.onclick = async function(event) {
+      buttonZip.onclick = async function (event)
+      {
         event.preventDefault();
         const html = await embedHtml();
         if (html) {
           downloadBlob(title + ".zip", zipFile("index.html", html));
         }
-      }
+      };
     </script>
   </body>
 </html>
