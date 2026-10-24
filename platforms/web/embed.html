@@ -37,7 +37,10 @@
       input:focus {
         outline: 1px solid #ccc;
       }
-      input[type=submit]:active {
+      input[type=button] {
+        display: inline-block;
+      }
+      input[type=button]:active {
         outline: 1px solid #fff;
         position: relative;
         top: 1px;
@@ -63,43 +66,136 @@
         Description (optional):
         <input type="text" id="input-desc">
       </label>
-      <input type="submit" value="Embed and download">
+      <input type="button" id="button-html" value="Download HTML">
+      <input type="button" id="button-zip" value="Download ZIP">
     </form>
     <script>
       const form = document.getElementById("form");
       const inputNes = document.getElementById("input-nes");
       const inputTitle = document.getElementById("input-title");
       const inputDesc = document.getElementById("input-desc");
+      const buttonHtml = document.getElementById("button-html");
+      const buttonZip = document.getElementById("button-zip");
 
       const bytes = Uint8Array.fromBase64("%%HTML%%");
       const decoder = new TextDecoder("utf-8");
       const template = decoder.decode(bytes);
 
-      form.onsubmit = async function(event)
+      let title = "";
+
+      async function embedHtml()
       {
-        event.preventDefault();
         const file = inputNes.files[0];
         if (file) {
           const bytes = await file.bytes();
           const base64 = bytes.toBase64();
-          const title = inputTitle.value || file.name.replace(/.nes$/, "");
+          title = inputTitle.value || file.name.replace(/.nes$/, "");
           const desc = inputDesc.value;
           const html = template
             .replace(/<title>(.*)<\/title>/, `<title>${title}</title>`)
             .replace(/<meta content="(.*)"name=description>/, `<meta content="${desc}"name=description>`)
             .replace("%%EMBEDNES%%", base64);
-          const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+          return html;
+        }
+        return "";
+      }
+
+      function crc32(bytes) {
+        if (!crc32.table) {
+          crc32.table = new Int32Array(256);
+          for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let j = 0; j < 8; j++) {
+              c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            }
+            crc32.table[i] = c;
+          }
+        }
+        let crc = -1;
+        for (let i = 0; i < bytes.length; i++) {
+          crc = (crc >>> 8) ^ crc32.table[(crc ^ bytes[i]) & 0xFF];
+        }
+        return (crc ^ -1) >>> 0;
+      }
+
+      function zipFile(name, contents)
+      {
+        const encoder = new TextEncoder();
+        const nameBytes = encoder.encode(name);
+        const fileBytes = encoder.encode(contents);
+
+        const date = new Date();
+        const zipTime = (date.getHours() << 11) | (date.getMinutes() << 5) | (Math.floor(date.getSeconds() / 2));
+        const zipDate = ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+
+        const fh = new Uint8Array(30 + nameBytes.length);
+        const fhv = new DataView(fh.buffer);
+        fhv.setUint32(0, 0x04034b50, true);
+        fhv.setUint16(4, 10, true);
+        fhv.setUint16(8, 0, true);
+        fhv.setUint16(10, 0, true);
+        fhv.setUint16(12, zipTime, true);
+        fhv.setUint16(14, zipDate, true);
+        fhv.setUint32(16, crc32(fileBytes), true);
+        fhv.setUint32(20, fileBytes.length, true);
+        fhv.setUint32(24, fileBytes.length, true);
+        fhv.setUint16(28, nameBytes.length, true);
+        fh.set(nameBytes, 30);
+
+        const dh = new Uint8Array(46 + nameBytes.length);
+        const dhv = new DataView(dh.buffer);
+        dhv.setUint32(0, 0x02014b50, true);
+        dhv.setUint16(4, 20, true);
+        dhv.setUint16(6, 10, true);
+        dhv.setUint16(10, 0, true);
+        dhv.setUint16(12, zipTime, true);
+        dhv.setUint16(14, zipDate, true);
+        dhv.setUint32(16, crc32(fileBytes), true);
+        dhv.setUint32(20, fileBytes.length, true);
+        dhv.setUint32(24, fileBytes.length, true);
+        dhv.setUint16(28, nameBytes.length, true);
+        dhv.setUint32(42, 0, true);
+        dh.set(nameBytes, 46);
+
+        const end = new Uint8Array(22);
+        const endv = new DataView(end.buffer);
+        endv.setUint32(0, 0x06054b50, true);
+        endv.setUint16(8, 1, true);
+        endv.setUint16(10, 1, true);
+        endv.setUint32(12, dh.length, true);
+        endv.setUint32(16, fh.length + fileBytes.length, true);
+
+        return new Blob([fh, fileBytes, dh, end], { type: 'application/zip' });
+      }
+
+      function downloadBlob(name, blob) {
           const blobUrl = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.style.display = "none";
           link.href = blobUrl;
-          link.download = title + ".html";
+          link.download = name;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(blobUrl);
+      }
+
+      buttonHtml.onclick = async function(event)
+      {
+        event.preventDefault();
+        const html = await embedHtml();
+        if (html) {
+          downloadBlob(title + ".html", new Blob([html], { type: "text/html;charset=utf-8" }));
         }
       };
+
+      buttonZip.onclick = async function(event) {
+        event.preventDefault();
+        const html = await embedHtml();
+        if (html) {
+          downloadBlob(title + ".zip", zipFile("index.html", html));
+        }
+      }
     </script>
   </body>
 </html>
