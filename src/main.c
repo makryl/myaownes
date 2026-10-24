@@ -936,7 +936,7 @@ static void imp_drop_file(const char* path)
 
 static bool imp_menu_pressed(uint mask) { return (imp.menu_input & mask) && !(imp.menu_input_prev & mask); }
 
-static uint imp_draw_menu_line(const char* label, uint line, int selection_id)
+static bool imp_draw_menu_line_raw(const char* label, uint line, int selection_id)
 {
   bool selected = imp.menu_selection == selection_id;
   if (selected) {
@@ -944,11 +944,26 @@ static uint imp_draw_menu_line(const char* label, uint line, int selection_id)
   }
   imp_draw_line(line, "          %s %s", selected ? "*" : " ", label);
   SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-  if (selected) {
+  return selected;
+}
+
+static bool imp_draw_menu_line(const char* label, uint line, int selection_id)
+{
+  if (imp_draw_menu_line_raw(label, line, selection_id)) {
+    if (imp_menu_pressed(MN_INPUT_A)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static uint imp_draw_menu_line_arrows(const char* label, uint line, int selection_id)
+{
+  if (imp_draw_menu_line_raw(label, line, selection_id)) {
     if (imp_menu_pressed(MN_INPUT_LEFT)) {
       return MN_INPUT_LEFT;
     }
-    if (imp_menu_pressed(MN_INPUT_RIGHT | MN_INPUT_A | MN_INPUT_START)) {
+    if (imp_menu_pressed(MN_INPUT_RIGHT)) {
       return MN_INPUT_RIGHT;
     }
   }
@@ -992,7 +1007,7 @@ static void imp_draw_menu()
       imp_menu_state(IMP_MENU_OFF);
     }
     ++line;
-    switch (imp_draw_menu_line(imp_save_slot_labels[imp.slot], line++, menu++)) {
+    switch (imp_draw_menu_line_arrows(imp_save_slot_labels[imp.slot], line++, menu++)) {
       case MN_INPUT_RIGHT: imp_slot_next(); break;
       case MN_INPUT_LEFT: imp_slot_prev(); break;
     }
@@ -1053,11 +1068,11 @@ static void imp_draw_options()
   if (imp_draw_menu_line(imp_fullscreen_labels[is_fullscreen], line++, menu++)) {
     imp_toggle_fullscreen();
   }
-  switch (imp_draw_menu_line(imp_volume_labels[imp.volume], line++, menu++)) {
+  switch (imp_draw_menu_line_arrows(imp_volume_labels[imp.volume], line++, menu++)) {
     case MN_INPUT_LEFT: imp_volume_down(); break;
     case MN_INPUT_RIGHT: imp_volume_up(); break;
   }
-  switch (imp_draw_menu_line(imp_scale_labels[imp.scale - 1], line++, menu++)) {
+  switch (imp_draw_menu_line_arrows(imp_scale_labels[imp.scale - 1], line++, menu++)) {
     case MN_INPUT_LEFT: imp_downscale(); break;
     case MN_INPUT_RIGHT: imp_upscale(); break;
   }
@@ -1076,7 +1091,7 @@ static void imp_draw_options()
   if (imp_draw_menu_line(imp_region_labels[imp.region], line++, menu++)) {
     imp_toggle_region();
   }
-  switch (imp_draw_menu_line(imp_fast_forward_labels[imp.fast_forward_scale - 2], line++, menu++)) {
+  switch (imp_draw_menu_line_arrows(imp_fast_forward_labels[imp.fast_forward_scale - 2], line++, menu++)) {
     case MN_INPUT_LEFT: imp_fast_forward_down(); break;
     case MN_INPUT_RIGHT: imp_fast_forward_up(); break;
   }
@@ -1084,7 +1099,7 @@ static void imp_draw_options()
   if (imp.auto_save_period > 300) {
     imp.auto_save_period = 300;
   }
-  switch (imp_draw_menu_line(imp_auto_save_period_labels[imp.auto_save_period / 30], line++, menu++)) {
+  switch (imp_draw_menu_line_arrows(imp_auto_save_period_labels[imp.auto_save_period / 30], line++, menu++)) {
     case MN_INPUT_LEFT: imp_auto_save_period_down(); break;
     case MN_INPUT_RIGHT: imp_auto_save_period_up(); break;
   }
@@ -1368,10 +1383,10 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
       imp.touch_active = false;
       switch (event->gbutton.button) {
-        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_toggle_menu(); break;
-        case SDL_GAMEPAD_BUTTON_RIGHT_STICK: imp_fast_forward_on(); break;
-        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: imp_save(); break;
-        case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: imp_load(); break;
+        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: imp_fast_forward_on(); break;
+        case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: imp_toggle_menu(); break;
+        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_save(); break;
+        case SDL_GAMEPAD_BUTTON_RIGHT_STICK: imp_load(); break;
       }
       if (event->gbutton.which == imp.gamepad_id1) {
         switch (event->gbutton.button) {
@@ -1403,7 +1418,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       break;
     case SDL_EVENT_GAMEPAD_BUTTON_UP:
       switch (event->gbutton.button) {
-        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_fast_forward_off(); break;
+        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: imp_fast_forward_off(); break;
       }
       if (event->gbutton.which == imp.gamepad_id1) {
         switch (event->gbutton.button) {
