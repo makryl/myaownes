@@ -1133,7 +1133,7 @@ static void imp_draw_info()
 static void imp_draw_help()
 {
   imp_draw_menu_prepare(1);
-  uint line = 4;
+  uint line = 2;
   uint menu = 0;
   if (imp_draw_menu_line("Back", line++, menu++) || imp_menu_pressed(-1)) {
     imp_toggle_help();
@@ -1163,6 +1163,10 @@ static void imp_draw_help()
 #endif
   imp_draw_line(line++, " Fullscreen F11                 ");
   imp_draw_line(line++, " Screenshot F12  Test FPS     Z ");
+  ++line;
+  imp_draw_line(line++, "     Controller");
+  imp_draw_line(line++, " F-forward   LB  Menu        RB ");
+  imp_draw_line(line++, " Save        LS  Load        RS ");
 }
 
 static void imp_draw_recent()
