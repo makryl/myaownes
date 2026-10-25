@@ -950,7 +950,7 @@ static bool imp_draw_menu_line_raw(const char* label, uint line, int selection_i
 static bool imp_draw_menu_line(const char* label, uint line, int selection_id)
 {
   if (imp_draw_menu_line_raw(label, line, selection_id)) {
-    if (imp_menu_pressed(MN_INPUT_A)) {
+    if (imp_menu_pressed(MN_INPUT_A | MN_INPUT_START)) {
       return true;
     }
   }
