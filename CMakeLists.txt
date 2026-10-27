@@ -17,6 +17,7 @@ add_library(${PROJECT_NAME}-static
   src/core/dev.c
   src/core/map.c
   src/core/ppu.c
+  src/core/tas.c
 )
 target_include_directories(${PROJECT_NAME}-static PUBLIC include)
 target_link_libraries(${PROJECT_NAME}-static PUBLIC SDL3-static)

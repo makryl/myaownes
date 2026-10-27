@@ -75,6 +75,11 @@ Almost all information I got from next sites, source code of tests and other emu
 
 Some ideas and reminders for future:
 
+- Configurable binds
+- QoL embed mode:
+  - fix audio start
+  - add options to the tool
+  - attach palette
 - Review performance
 - Extra audio in mappers
 - More homebrew mappers

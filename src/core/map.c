@@ -422,7 +422,7 @@ bool mn_rom_set(mn_rom rom)
     if (!map_rom_load(rom, true)) {
       return false;
     }
-    dev_power();
+    mn_power();
   }
   return true;
 }

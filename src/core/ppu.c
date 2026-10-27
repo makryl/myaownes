@@ -120,6 +120,7 @@ MN_CACHE_LINE static struct Ppu
   uint sprite_shift_x;
   uint sprite_height;
 
+  uint frame;
   uint cyc;
   uint dot;
   uint sl;
@@ -221,11 +222,11 @@ void ppu_reset()
   ppu.x = 0;
   ppu.read_buf = 0;
   ppu.write_latch = false;
-  ppu.odd_frame = false;
   ppu.pam_mask = 0x3F;
   ppu.sprite_height = 8;
 }
 
+uint ppu_frame() { return ppu.frame; }
 uint ppu_cyc() { return ppu.cyc; }
 uint ppu_dot() { return ppu.dot; }
 uint ppu_sl() { return ppu.sl; }
@@ -1027,7 +1028,7 @@ void ppu_tick()
     }
   }
 
-  if (ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_LAST - 1 && ppu.odd_frame && ppu.render_enabled && ppu.ntsc) {
+  if (ppu.sl == ppu.sl_pre_render && ppu.dot == PPU_DOT_LAST - 1 && (ppu.frame & 1) && ppu.render_enabled && ppu.ntsc) {
     ++ppu.dot;
   }
 
@@ -1035,7 +1036,7 @@ void ppu_tick()
     ppu.dot = 0;
     if (++ppu.sl > ppu.sl_pre_render) {
       ppu.sl = 0;
-      ppu.odd_frame = !ppu.odd_frame;
+      ++ppu.frame;
     }
   }
 

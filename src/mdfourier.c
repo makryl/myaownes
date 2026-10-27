@@ -27,6 +27,7 @@ int main(int, char**)
   // const char* rom_path = "../../tmp/mdfourier4k-autostart.nes";
   const char* out_path = region == MN_REGION_PAL ? "../../tmp/myaownes_mdfourier_pal.wav"
                                                  : "../../tmp/myaownes_mdfourier.wav";
+  double video_rate = 0.0;
   uint seconds = region == MN_REGION_PAL ? 134 : 120;
   uint rate = region == MN_REGION_PAL ? 48000 : 96000;
   uint channels = 1;
@@ -59,6 +60,7 @@ int main(int, char**)
 
   mn_region_set(region);
   mn_audio_freq(rate);
+  mn_video_freq(video_rate);
 
   mn_rom rom = mn_rom_load(rom_path, nullptr);
   if (!rom) {

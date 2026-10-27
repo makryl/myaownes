@@ -10,6 +10,7 @@ typedef signed long long i64;
 typedef signed short i16;
 typedef signed char i8;
 typedef struct mn_rom* mn_rom;
+typedef struct mn_tas* mn_tas;
 
 enum
 {
@@ -54,6 +55,13 @@ struct mn_rom
   bool mapper_error;
 };
 
+struct mn_tas
+{
+  uint* data;
+  uint size;
+  uint curr;
+};
+
 mn_rom mn_rom_load(const char* rom_path, const char* sram_path);
 bool mn_rom_save(const char* sram_path);
 void mn_rom_release(mn_rom rom);
@@ -68,9 +76,14 @@ double mn_video_freq(double freq);
 void mn_audio_freq(uint freq);
 i16* mn_audio_data();
 uint mn_audio_size();
+void mn_power();
 void mn_reset();
 void mn_frame(uint port1, uint port2);
 bool mn_save(const char* path);
 bool mn_load(const char* path);
 void mn_palette(uint palette[64]);
 void mn_apu_test_mode(bool enabled);
+mn_tas mn_tas_load(const char* path);
+void mn_tas_release(mn_tas tas);
+void mn_tas_frame(mn_tas tas);
+void mn_tas_reset(mn_tas tas);

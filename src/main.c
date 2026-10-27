@@ -6,32 +6,43 @@
 #include <SDL3/SDL_main.h>
 
 static void imp_rom_load(const char* path);
+static void imp_tas_load(const char* path);
 
 static bool imp_init()
 {
-  const char* test = nullptr;
+  const char* rom = nullptr;
+  const char* tas = nullptr;
 
-  // test = "../../external/AccuracyCoin/AccuracyCoin.nes";
-  // test = "../../external/nes-test-roms/CPU/nestest/nestest.nes";
-  // test = "../../external/nes-test-roms/Interactive/240pee/240pee.nes";
-  // test = "../../external/nes-test-roms/Input/allpads.nes";
-  // test = "../../external/nes-test-roms/PPU/ppu_vbl_nmi/ppu_vbl_nmi.nes";
-  // test = "../../external/nes-test-roms/PPU/nmi_sync/demo_ntsc.nes";
-  // test = "../../external/nes-test-roms/PPU/nmi_sync/demo_pal.nes";
-  // test = "../../external/nes-test-roms/PPU/ppu_sprite_hit/rom_singles/09-timing.nes";
-  // test = "../../external/nes-test-roms/PPU/ppu_sprite_overflow/rom_singles/03-timing.nes";
-  // test = "../../external/nes-test-roms/APU/apu_test/rom_singles/7-dmc_basics.nes";
-  // test = "../../external/nes-test-roms/APU/apu_test/rom_singles/8-dmc_rates.nes";
-  // test = "../../external/nes-test-roms/Interactive/tvpassfail/tv.nes"; // todo: chroma/luma?
-  // test = "../../external/nes-test-roms/Demos/8bitpeoples_-_deadline_console_invitro.nes";
-  // test = "../../external/nes-test-roms/Mappers/n163test.nes"; // todo fail audio
-  // test = "../../external/nes-test-roms/PPU/sprite_evaluation_test(2).nes"; // todo
-  // test = "../../external/nes-test-roms/PPU/sprite_evaluation_test.nes"; // todo
-  // test = "../../external/nes-test-roms/CPU/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // 4015 open bus bit?
-  // test = "../../external/nes-test-roms/Mappers/mmc5test_v2/mmc5test.nes"; // todo
+  // rom = "../../external/AccuracyCoin/AccuracyCoin.nes";
+  // rom = "../../external/nes-test-roms/CPU/nestest/nestest.nes";
+  // rom = "../../external/nes-test-roms/Interactive/240pee/240pee.nes";
+  // rom = "../../external/nes-test-roms/Input/allpads.nes";
+  // rom = "../../external/nes-test-roms/PPU/ppu_vbl_nmi/ppu_vbl_nmi.nes";
+  // rom = "../../external/nes-test-roms/PPU/nmi_sync/demo_ntsc.nes";
+  // rom = "../../external/nes-test-roms/PPU/nmi_sync/demo_pal.nes";
+  // rom = "../../external/nes-test-roms/PPU/ppu_sprite_hit/rom_singles/09-timing.nes";
+  // rom = "../../external/nes-test-roms/PPU/ppu_sprite_overflow/rom_singles/03-timing.nes";
+  // rom = "../../external/nes-test-roms/APU/apu_test/rom_singles/7-dmc_basics.nes";
+  // rom = "../../external/nes-test-roms/APU/apu_test/rom_singles/8-dmc_rates.nes";
+  // rom = "../../external/nes-test-roms/Interactive/tvpassfail/tv.nes"; // todo: chroma/luma?
+  // rom = "../../external/nes-test-roms/Demos/8bitpeoples_-_deadline_console_invitro.nes";
+  // rom = "../../external/nes-test-roms/Mappers/n163test.nes"; // todo fail audio
+  // rom = "../../external/nes-test-roms/PPU/sprite_evaluation_test(2).nes"; // todo
+  // rom = "../../external/nes-test-roms/PPU/sprite_evaluation_test.nes"; // todo
+  // rom = "../../external/nes-test-roms/CPU/cpu_flag_concurrency/test_cpu_flag_concurrency.nes"; // 4015 open bus bit?
+  // rom = "../../external/nes-test-roms/Mappers/mmc5test_v2/mmc5test.nes"; // todo
 
-  if (test) {
-    imp_rom_load(test);
+  // rom = "../../tmp/MegaPack/USA/Super Mario Bros 3 (U) (PRG 1).nes";
+  // tas = "../../tmp/tas/lordtom-smb3-totalcontrol.fm2";
+
+  // rom = "../../tmp/GoodNES/USA/Battletoads (U) [!].nes";
+  // tas = "../../tmp/tas/feos,alyosha,samsarav1-battletoads.fm2";
+
+  if (rom) {
+    imp_rom_load(rom);
+  }
+  if (tas) {
+    imp_tas_load(tas);
   }
 
   return true;
@@ -140,6 +151,7 @@ static struct
   bool load_rom_dialog_wait;
   bool embed_enabled;
   mn_rom rom;
+  mn_tas tas;
   char rom_info[6][15];
   char load_rom_path[IMP_PATH_SIZE];
   char rom_path[IMP_PATH_SIZE];
@@ -483,6 +495,23 @@ static void imp_load_config()
   fclose(f);
 }
 
+static void imp_tas_unload()
+{
+  if (imp.tas) {
+    mn_tas_release(imp.tas);
+    imp.tas = nullptr;
+  }
+}
+
+static void imp_tas_load(const char* path)
+{
+  imp_tas_unload();
+  imp.tas = mn_tas_load(path);
+  if (imp.tas) {
+    mn_power();
+  }
+}
+
 static void imp_rom_unload()
 {
   if (imp.rom) {
@@ -495,6 +524,7 @@ static void imp_rom_unload()
 
 static void imp_rom_load(const char* path)
 {
+  imp_tas_unload();
   imp_rom_unload();
   SDL_strlcpy(imp.rom_path, path, IMP_PATH_SIZE);
   imp_save_path(imp.sram_path, "Saves", ".sav");
@@ -502,6 +532,14 @@ static void imp_rom_load(const char* path)
   if (imp.rom) {
     mn_rom_set(imp.rom);
   }
+}
+
+static void imp_reset()
+{
+  if (imp.tas) {
+    mn_tas_reset(imp.tas);
+  }
+  mn_reset();
 }
 
 static void imp_save()
@@ -1278,7 +1316,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
         case SDLK_F1: imp_toggle_help(); break;
         case SDLK_F2: imp_open_file(); break;
         case SDLK_F3: imp_toggle_region(); break;
-        case SDLK_F4: mn_reset(); break;
+        case SDLK_F4: imp_reset(); break;
         case SDLK_F5: imp_save(); break;
         case SDLK_F6: imp_toggle_aspect(); break;
         case SDLK_F7: imp_toggle_overscan(); break;
@@ -1660,7 +1698,11 @@ SDL_AppResult SDL_AppIterate(void*)
       ++imp.fps_count;
     }
 
-    mn_frame(imp.joy1, imp.joy2);
+    if (imp.tas) {
+      mn_tas_frame(imp.tas);
+    } else {
+      mn_frame(imp.joy1, imp.joy2);
+    }
     imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
 
     uint audio_size = mn_audio_size();

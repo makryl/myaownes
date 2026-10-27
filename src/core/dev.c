@@ -49,7 +49,7 @@ static struct
   uint io_shift[2];
 } dev;
 
-void dev_power()
+void mn_power()
 {
   memset(&dev, 0, sizeof(dev));
   apu_power();

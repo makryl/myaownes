@@ -723,7 +723,7 @@ static void apu_triangle_tick()
 {
   if (apu.triangle_timer == 0) {
     apu.triangle_timer = apu.triangle_period;
-    if (apu.triangle_len > 0 && apu.triangle_linear_val > 0 && apu.triangle_period > 2) {
+    if (apu.triangle_len > 0 && apu.triangle_linear_val > 0) {
       apu.triangle_phase = (apu.triangle_phase + 1) & 31;
       apu.triangle_val = apu_triangle_table[apu.triangle_phase];
       apu.sample_dirty = true;
