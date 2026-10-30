@@ -74,6 +74,8 @@ void mn_video_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint*
 void mn_video_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh);
 double mn_video_freq(double freq);
 void mn_audio_freq(uint freq);
+void mn_audio_hpf(uint freq);
+void mn_audio_lpf(uint freq);
 i16* mn_audio_data();
 uint mn_audio_size();
 void mn_power();

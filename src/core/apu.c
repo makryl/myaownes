@@ -66,6 +66,8 @@ static const uint apu_noise_period_pal[16] = { 4,   8,   14,  30,  60,  88,  118
 
 static uint apu_freq = 48000;
 static double apu_video_freq = 0.0;
+static uint apu_hpf = APU_FILTER_HP;
+static uint apu_lpf = APU_FILTER_LP;
 
 static struct
 {
@@ -83,6 +85,11 @@ static struct
   i64 mix_lp_alpha;
   i64 mix_lp_beta;
   uint time_target;
+  uint step1;
+  uint step2;
+  uint step3;
+  uint step4;
+  uint step5;
 } apu_dyn;
 
 static struct Apu
@@ -91,12 +98,6 @@ static struct Apu
 
   uint cyc;
   uint cyc_reset;
-
-  uint step1;
-  uint step2;
-  uint step3;
-  uint step4;
-  uint step5;
 
   int mix_hp_x;
   int mix_hp_y;
@@ -280,6 +281,13 @@ static double apu_update_time_target()
   return target_video_freq;
 }
 
+static void apu_update_filters()
+{
+  apu_dyn.mix_hp_alpha = apu_filter_alpha(apu_hpf, apu_freq);
+  apu_dyn.mix_lp_alpha = apu_filter_alpha(apu_lpf, apu_freq);
+  apu_dyn.mix_lp_beta = (1LL << APU_FILTER_BITS) - apu_dyn.mix_lp_alpha;
+}
+
 double mn_video_freq(double freq)
 {
   apu_video_freq = freq;
@@ -289,10 +297,38 @@ double mn_video_freq(double freq)
 void mn_audio_freq(uint freq)
 {
   apu_freq = freq;
-  apu_dyn.mix_hp_alpha = apu_filter_alpha(APU_FILTER_HP, freq);
-  apu_dyn.mix_lp_alpha = apu_filter_alpha(APU_FILTER_LP, freq);
-  apu_dyn.mix_lp_beta = (1LL << APU_FILTER_BITS) - apu_dyn.mix_lp_alpha;
+  apu_update_filters();
   apu_update_time_target();
+}
+
+void mn_audio_hpf(uint freq)
+{
+  if (freq == 0) {
+    freq = APU_FILTER_HP;
+  }
+  if (freq > 20000) {
+    freq = 20000;
+  }
+  if (freq < 5) {
+    freq = 5;
+  }
+  apu_hpf = freq;
+  apu_update_filters();
+}
+
+void mn_audio_lpf(uint freq)
+{
+  if (freq == 0) {
+    freq = APU_FILTER_LP;
+  }
+  if (freq > 20000) {
+    freq = 20000;
+  }
+  if (freq < 5) {
+    freq = 5;
+  }
+  apu_lpf = freq;
+  apu_update_filters();
 }
 
 static uint apu_get_status()
@@ -436,31 +472,31 @@ void apu_power()
 
   switch (mn_region_get()) {
     case MN_REGION_NTSC:
-      apu.step1 = APU_STEP1_NTSC;
-      apu.step2 = APU_STEP2_NTSC;
-      apu.step3 = APU_STEP3_NTSC;
-      apu.step4 = APU_STEP4_NTSC;
-      apu.step5 = APU_STEP5_NTSC;
+      apu_dyn.step1 = APU_STEP1_NTSC;
+      apu_dyn.step2 = APU_STEP2_NTSC;
+      apu_dyn.step3 = APU_STEP3_NTSC;
+      apu_dyn.step4 = APU_STEP4_NTSC;
+      apu_dyn.step5 = APU_STEP5_NTSC;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
       memcpy(apu_dyn.duty_table, apu_duty_table, sizeof(apu_dyn.duty_table));
       break;
     case MN_REGION_PAL:
-      apu.step1 = APU_STEP1_PAL;
-      apu.step2 = APU_STEP2_PAL;
-      apu.step3 = APU_STEP3_PAL;
-      apu.step4 = APU_STEP4_PAL;
-      apu.step5 = APU_STEP5_PAL;
+      apu_dyn.step1 = APU_STEP1_PAL;
+      apu_dyn.step2 = APU_STEP2_PAL;
+      apu_dyn.step3 = APU_STEP3_PAL;
+      apu_dyn.step4 = APU_STEP4_PAL;
+      apu_dyn.step5 = APU_STEP5_PAL;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_pal, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_pal, sizeof(apu_dyn.dmc_period_table));
       memcpy(apu_dyn.duty_table, apu_duty_table, sizeof(apu_dyn.duty_table));
       break;
     case MN_REGION_DENDY:
-      apu.step1 = APU_STEP1_NTSC;
-      apu.step2 = APU_STEP2_NTSC;
-      apu.step3 = APU_STEP3_NTSC;
-      apu.step4 = APU_STEP4_NTSC;
-      apu.step5 = APU_STEP5_NTSC;
+      apu_dyn.step1 = APU_STEP1_NTSC;
+      apu_dyn.step2 = APU_STEP2_NTSC;
+      apu_dyn.step3 = APU_STEP3_NTSC;
+      apu_dyn.step4 = APU_STEP4_NTSC;
+      apu_dyn.step5 = APU_STEP5_NTSC;
       memcpy(apu_dyn.noise_period_table, apu_noise_period_ntsc, sizeof(apu_dyn.noise_period_table));
       memcpy(apu_dyn.dmc_period_table, apu_dmc_period_ntsc, sizeof(apu_dyn.dmc_period_table));
       apu_dyn.duty_table[0] = apu_duty_table[0];
@@ -1044,13 +1080,13 @@ void apu_tick()
   apu_dmc_tick();
   apu_mix();
 
-  uint last_step = (apu.mode5 ? apu.step5 : apu.step4);
+  uint last_step = (apu.mode5 ? apu_dyn.step5 : apu_dyn.step4);
   if (apu.step_env) {
     apu.step_env = false;
     apu_update_env();
     apu_trace("env pulse1_decay=%d pulse2_decay=%d triangle_linear=%d noise_decay=%d", apu.pulse1_env_decay,
               apu.pulse2_env_decay, apu.triangle_linear_val, apu.noise_env_decay);
-  } else if (apu.cyc == apu.step1 || apu.cyc == apu.step2 || apu.cyc == apu.step3 || apu.cyc == last_step
+  } else if (apu.cyc == apu_dyn.step1 || apu.cyc == apu_dyn.step2 || apu.cyc == apu_dyn.step3 || apu.cyc == last_step
              || (apu.mode5 && apu.cyc_reset == 2))
   {
     apu.step_env = true;
@@ -1061,7 +1097,7 @@ void apu_tick()
     apu_update_len_put();
     apu_trace("len pulse1_len=%d pulse2_len=%d triangle_len=%d noise_len=%d", apu.pulse1_len, apu.pulse2_len,
               apu.triangle_len, apu.noise_len);
-  } else if (apu.cyc == apu.step2 || apu.cyc == last_step || (apu.mode5 && apu.cyc_reset == 2)) {
+  } else if (apu.cyc == apu_dyn.step2 || apu.cyc == last_step || (apu.mode5 && apu.cyc_reset == 2)) {
     apu.step_len = true;
     apu_update_len_get();
   }

@@ -15,35 +15,69 @@
       body {
         background: #000;
         color: #ccc;
-        font: 1em/1.5 sans-serif;
+        line-height: 1.5;
         margin: 1.5em auto;
         padding: 0 .5em;
         max-width: 200mm;
       }
-      p, form, label {
+      body,
+      input, button, select, textarea {
+        font-size: 18px;
+        font-family: sans-serif;
+      }
+      p, form, label, ul {
         margin: .5em 0 1.5em;
+      }
+      li {
+        margin: .5em 0 .5em 2em;
+      }
+      ul ul {
+        margin-bottom: .5em;
+      }
+      code {
+        font-family: monospace;
       }
       label {
         display: block;
       }
-      input {
+      input, button, textarea, select {
         display: block;
         padding: .5em;
         margin: 0;
+        line-height: normal;
+        box-sizing: border-box;
         background: #444;
         color: #ccc;
-        border-radius: .5em;
+        border-radius: .25em;
       }
-      input:focus {
+      input[type=text]:focus, button:focus, textarea:focus, select:focus {
         outline: 1px solid #ccc;
       }
-      input[type="button"] {
-        display: inline-block;
+      input[type=checkbox], input[type=radio] {
+        padding: 0;
       }
-      input[type="button"]:active {
+      button,
+      input[type=checkbox], input[type=radio],
+      input[type=submit], input[type=reset], input[type=button] {
+        cursor: pointer;
+        display: inline-block;
+        width: auto;
+      }
+      button,
+      input[type=submit], input[type=reset], input[type=button] {
+        overflow: visible;
+        white-space: nowrap;
+      }
+      input[type=submit]:active, input[type=reset]:active, input[type=button]:active {
         outline: 1px solid #fff;
         position: relative;
         top: 1px;
+      }
+      textarea {
+        width: 100%;
+        height: 15em;
+        font-family: monospace;
+        white-space: pre;
       }
       a {
         color: #fff;
@@ -58,48 +92,167 @@
     </p>
 
     <form id="form">
-      <label id="label-nes">
-        Select NES file:
+      <label>
+        Select NES file
         <input type="file" id="input-nes" accept=".nes">
       </label>
-      <label id="label-title">
-        Title (optional):
-        <input type="text" id="input-title">
-      </label>
-      <label id="label-desc">
-        Description (optional):
-        <input type="text" id="input-desc">
-      </label>
-      <input type="button" id="button-html" value="Download HTML">
+      <p><a id="a-advanced" href="javascript:null">Advanced options</a></p>
+      <div id="div-advanced" style="display: none">
+        <label>
+          Title
+          <input type="text" id="input-title">
+        </label>
+        <label>
+          Description
+          <input type="text" id="input-desc">
+        </label>
+        <label>
+          Config
+          <textarea id="input-config">start_screen 1
+volume 10
+auto_aspect 1
+overscan 0
+auto_save_period 60
+show_fps 0
+fast_forward_scale 4
+region 2
+bind_joy1_a "K"
+bind_joy1_b "J"
+bind_joy1_a_turbo "I"
+bind_joy1_b_turbo "U"
+bind_joy1_start "H"
+bind_joy1_select "F"
+bind_joy1_up "W"
+bind_joy1_down "S"
+bind_joy1_left "A"
+bind_joy1_right "D"
+bind_joy2_a "Keypad 2"
+bind_joy2_b "Keypad 1"
+bind_joy2_a_turbo "Keypad 5"
+bind_joy2_b_turbo "Keypad 4"
+bind_joy2_start "Return"
+bind_joy2_select "Space"
+bind_joy2_up "Up"
+bind_joy2_down "Down"
+bind_joy2_left "Left"
+bind_joy2_right "Right"
+bind_menu "Escape"
+bind_help "F1"
+bind_region "F3"
+bind_reset "F4"
+bind_save "F5"
+bind_aspect "F6"
+bind_overscan "F7"
+bind_load "F8"
+bind_fullscreen "F11"
+bind_pause "Pause"
+bind_show_fps "`"
+bind_fast_forward "Tab"
+bind_slot0 "0"
+bind_slot1 "1"
+bind_slot2 "2"
+bind_slot3 "3"
+bind_slot4 "4"
+bind_slot5 "5"
+bind_slot6 "6"
+bind_slot7 "7"
+bind_slot8 "8"
+bind_slot9 "9"
+bind_slot_next ""
+bind_slot_prev ""
+bind_volume_up "="
+bind_volume_down "-"
+</textarea>
+          <small><a id="a-config" href="javascript:null">Config info</a></small>
+          <div id="div-config" style="display: none">
+            <p>
+              This config will be used as default. When user changes some options in game, new config is stored in internal browser's storage.
+              If you change config for existing page, you should reset options using in-game menu or clear browser's cache and storages to see changes.
+            </p>
+            <p>You can keep only changed options in the config.</p>
+            <p>Options:</p>
+            <ul>
+              <li><code>start_screen</code>: 0 - disabled, 1 - enabled (default). Usually browser blocks audio until first user gesture. When enabled, emulator will show start screen only when audio is blocked. If audio is important for your game from very beginning, before user press any button in game - keep default setting. If your game already has "press to start" screen, or audio is not important - you can disable the option.</li>
+              <li><code>volume</code>: range 1-10, default 10</li>
+              <li><code>auto_aspect</code>: 0 - disabled, 1 - enabled (default)</li>
+              <li><code>overscan</code>: 0 - disabled (default), 1 - enabled</li>
+              <li><code>auto_save_period</code>: period of saving SRAM in seconds, range 1-300, default 60</li>
+              <li><code>show_fps</code>: 0 - disabled (default), 1 - enabled</li>
+              <li><code>fast_forward_scale</code>: range 1-5, default 4</li>
+              <li><code>region</code>: 0 - NTSC, 1 - PAL, 2 - Auto (default), 3 - Dendy</li>
+              <li><code>bind_*</code>: uses <a href="https://github.com/libsdl-org/SDL/blob/release-3.4.16/src/events/SDL_keymap.c#L749">SDL_scancode_names</a></li>
+            </ul>
+          </div>
+        </label>
+        <label>
+          Palette
+          <input type="file" id="input-palette" accept=".pal">
+        </label>
+        <div style="display: none">
+          <label>
+            <input type="radio" name="build-type" id="build-type-single" value="single" checked> Single file HTML
+          </label>
+          <label>
+            <input type="radio" name="build-type" id="build-type-separate" value="separate"> Separate HTML with NES embedded, and shareable JS+WASM
+          </label>
+        </div>
+      </div>
       <input type="button" id="button-zip" value="Download ZIP">
+      <input type="button" id="button-html" value="Download HTML">
     </form>
     <script>
       const form = document.getElementById("form");
       const inputNes = document.getElementById("input-nes");
+      const inputPalette = document.getElementById("input-palette");
       const inputTitle = document.getElementById("input-title");
       const inputDesc = document.getElementById("input-desc");
+      const inputConfig = document.getElementById("input-config");
       const buttonHtml = document.getElementById("button-html");
       const buttonZip = document.getElementById("button-zip");
+      const aAdvanced = document.getElementById("a-advanced");
+      const aConfig = document.getElementById("a-config");
+      const divAdvanced = document.getElementById("div-advanced");
+      const divConfig = document.getElementById("div-config");
+      const radioSingle = document.getElementById("build-type-single");
+      const radioSeparate = document.getElementById("build-type-separate");
 
-      const bytes = Uint8Array.fromBase64("%%HTML%%");
-      const decoder = new TextDecoder("utf-8");
-      const template = decoder.decode(bytes);
+      const templateBytes = Uint8Array.fromBase64("%%HTML%%");
+      const templateDecoder = new TextDecoder("utf-8");
+      const template = templateDecoder.decode(templateBytes);
 
       let title = "";
 
+      aAdvanced.onclick = function() { divAdvanced.style.display = divAdvanced.style.display === "none" ? "block" : "none"; }
+      aConfig.onclick = function() { divConfig.style.display = divConfig.style.display === "none" ? "block" : "none"; }
+      radioSingle.onclick = function() { buttonHtml.style.visibility = "visible"; };
+      radioSeparate.onclick = function() { buttonHtml.style.visibility = "hidden"; };
+
       async function embedHtml()
       {
-        const file = inputNes.files[0];
-        if (file) {
-          const bytes = await file.bytes();
-          const base64 = bytes.toBase64();
-          title = inputTitle.value || file.name.replace(/\.nes$/, "");
+        const nesFile = inputNes.files[0];
+        if (nesFile) {
+          const nesBytes = await nesFile.bytes();
+          const nesBase64 = nesBytes.toBase64();
+          title = inputTitle.value || nesFile.name.replace(/\.nes$/, "");
           const desc = inputDesc.value;
-          const html = template
+          let configText = inputConfig.value + '\nembed "embed.nes"\n';
+
+          let paletteBase64 = "";
+          const paletteFile = inputPalette.files[0];
+          if (paletteFile) {
+            const paletteBytes = await paletteFile.bytes();
+            paletteBase64 = paletteBytes.toBase64();
+            configText += '\npalette "embed.pal"\n';
+          }
+
+          const configEncoder = new TextEncoder();
+          const configBytes = configEncoder.encode(configText);
+          const configBase64 = configBytes.toBase64();
+
+          return template
             .replace(/<title>(.*)<\/title>/, `<title>${title}</title>`)
             .replace(/<meta content="(.*)"name=description>/, `<meta content="${desc}"name=description>`)
-            .replace("%%EMBEDNES%%", base64);
-          return html;
+            .replace("</canvas>", `</canvas><script>window.EMBEDCONFIG="${configBase64}";window.EMBEDPAL="${paletteBase64}";window.EMBEDNES="${nesBase64}";<\/script>`);
         }
         return "";
       }
@@ -174,7 +327,8 @@
         return new Blob([fh, fileBytes, dh, end], { type: "application/zip" });
       }
 
-      function downloadBlob(name, blob) {
+      function downloadBlob(name, blob)
+      {
         const blobUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.style.display = "none";

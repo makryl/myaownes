@@ -5,6 +5,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 static void imp_rom_load(const char* path);
 static void imp_tas_load(const char* path);
 
@@ -62,6 +66,7 @@ enum
   IMP_MENU_INFO,
   IMP_MENU_HELP,
   IMP_MENU_RECENT,
+  IMP_MENU_START,
 };
 
 enum
@@ -75,9 +80,73 @@ enum
   IMP_TOUCH_DOWN,
   IMP_TOUCH_LEFT,
   IMP_TOUCH_RIGHT,
-  // IMP_TOUCH_DPAD,
   IMP_TOUCH_COUNT,
 };
+
+typedef enum
+{
+  IMP_ACTION_NONE = 0,
+  IMP_ACTION_JOY1_A,
+  IMP_ACTION_JOY1_B,
+  IMP_ACTION_JOY1_A_TURBO,
+  IMP_ACTION_JOY1_B_TURBO,
+  IMP_ACTION_JOY1_START,
+  IMP_ACTION_JOY1_SELECT,
+  IMP_ACTION_JOY1_UP,
+  IMP_ACTION_JOY1_DOWN,
+  IMP_ACTION_JOY1_LEFT,
+  IMP_ACTION_JOY1_RIGHT,
+  IMP_ACTION_JOY2_A,
+  IMP_ACTION_JOY2_B,
+  IMP_ACTION_JOY2_A_TURBO,
+  IMP_ACTION_JOY2_B_TURBO,
+  IMP_ACTION_JOY2_START,
+  IMP_ACTION_JOY2_SELECT,
+  IMP_ACTION_JOY2_UP,
+  IMP_ACTION_JOY2_DOWN,
+  IMP_ACTION_JOY2_LEFT,
+  IMP_ACTION_JOY2_RIGHT,
+  IMP_ACTION_MENU,
+  IMP_ACTION_HELP,
+  IMP_ACTION_OPEN,
+  IMP_ACTION_REGION,
+  IMP_ACTION_RESET,
+  IMP_ACTION_SAVE,
+  IMP_ACTION_ASPECT,
+  IMP_ACTION_OVERSCAN,
+  IMP_ACTION_LOAD,
+  IMP_ACTION_QUIT,
+  IMP_ACTION_FULLSCREEN,
+  IMP_ACTION_SCREENSHOT,
+  IMP_ACTION_PAUSE,
+  IMP_ACTION_SHOW_FPS,
+  IMP_ACTION_MAX_FPS,
+  IMP_ACTION_FAST_FORWARD,
+  IMP_ACTION_SLOT0,
+  IMP_ACTION_SLOT1,
+  IMP_ACTION_SLOT2,
+  IMP_ACTION_SLOT3,
+  IMP_ACTION_SLOT4,
+  IMP_ACTION_SLOT5,
+  IMP_ACTION_SLOT6,
+  IMP_ACTION_SLOT7,
+  IMP_ACTION_SLOT8,
+  IMP_ACTION_SLOT9,
+  IMP_ACTION_SLOT_NEXT,
+  IMP_ACTION_SLOT_PREV,
+  IMP_ACTION_VOLUME_UP,
+  IMP_ACTION_VOLUME_DOWN,
+  IMP_ACTION_SCALE_UP,
+  IMP_ACTION_SCALE_DOWN,
+  IMP_ACTION_COUNT,
+} imp_action;
+
+typedef struct
+{
+  const char* label;
+  void (*onkeydown)();
+  void (*onkeyup)();
+} imp_action_data;
 
 static struct
 {
@@ -112,6 +181,8 @@ static struct
   uint audio_buffer_size;
   uint fast_forward_scale;
   uint region;
+  // uint filter_hp;
+  // uint filter_lp;
   uint joy1;
   uint joy2;
   uint menu_state;
@@ -150,6 +221,8 @@ static struct
   bool touch_active;
   bool load_rom_dialog_wait;
   bool embed_enabled;
+  bool start_screen;
+  bool quit;
   mn_rom rom;
   mn_tas tas;
   char rom_info[6][15];
@@ -161,6 +234,8 @@ static struct
   char history_path[IMP_PATH_SIZE];
   char palette_path[IMP_PATH_SIZE];
   char recent_files[IMP_RECENT_COUNT][IMP_PATH_SIZE];
+  SDL_Scancode scancode_by_action[IMP_ACTION_COUNT];
+  imp_action action_by_scancode[SDL_SCANCODE_COUNT];
 } imp;
 
 static const char* const imp_save_slot_labels[10] = { "Slot 0", "Slot 1", "Slot 2", "Slot 3", "Slot 4",
@@ -391,110 +466,6 @@ static void imp_rom_update()
   imp_save_history();
 }
 
-static void imp_config_defaults()
-{
-  imp.volume = 10;
-  imp.scale = 2;
-  imp.auto_aspect = true;
-  imp.overscan = false;
-  imp.auto_save_period = 60;
-  imp.fps = false;
-  imp.fps_test = false;
-  imp.fast_forward_scale = 4;
-  imp.region = MN_REGION_AUTO;
-}
-
-static void imp_reset_config()
-{
-  uint old_region = imp.region;
-  imp_config_defaults();
-  imp.dirty_config = true;
-  if (imp.region != old_region) {
-    mn_region_set(imp.region);
-    if (imp.rom) {
-      mn_rom_set(imp.rom);
-    }
-  }
-  imp_try_resize();
-}
-
-static void imp_save_config()
-{
-  if (!imp.dirty_config) {
-    return;
-  }
-  FILE* f = fopen(imp.config_path, "w");
-  if (!f) {
-    return;
-  }
-  fprintf(f, "volume %u\n", imp.volume);
-  fprintf(f, "scale %u\n", imp.scale);
-  fprintf(f, "auto_aspect %u\n", imp.auto_aspect);
-  fprintf(f, "overscan %u\n", imp.overscan);
-  fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
-  fprintf(f, "fps %u\n", imp.fps);
-  fprintf(f, "fast_forward_scale %u\n", imp.fast_forward_scale);
-  fprintf(f, "region %u\n", imp.region);
-  fprintf(f, "palette %s\n", imp.palette_path);
-  fclose(f);
-  imp.dirty_config = false;
-}
-
-static void imp_load_config()
-{
-  imp_config_defaults();
-
-  FILE* f = fopen(imp.config_path, "r");
-  if (!f) {
-    return;
-  }
-  char key[32];
-  while (fscanf(f, "%31s", key) == 1) {
-    if (strcmp(key, "volume") == 0) {
-      fscanf(f, "%u", &imp.volume);
-    } else if (strcmp(key, "scale") == 0) {
-      fscanf(f, "%u", &imp.scale);
-    } else if (strcmp(key, "auto_aspect") == 0) {
-      uint val;
-      fscanf(f, "%u", &val);
-      imp.auto_aspect = val;
-    } else if (strcmp(key, "overscan") == 0) {
-      uint val;
-      fscanf(f, "%u", &val);
-      imp.overscan = val;
-    } else if (strcmp(key, "auto_save_period") == 0) {
-      fscanf(f, "%u", &imp.auto_save_period);
-    } else if (strcmp(key, "fps") == 0) {
-      uint val;
-      fscanf(f, "%u", &val);
-      imp.fps = val;
-    } else if (strcmp(key, "fast_forward_scale") == 0) {
-      fscanf(f, "%u", &imp.fast_forward_scale);
-    } else if (strcmp(key, "region") == 0) {
-      fscanf(f, "%u", &imp.region);
-    } else if (strcmp(key, "palette") == 0) {
-      fscanf(f, " %[^\n]", imp.palette_path);
-      if (strlen(imp.palette_path)) {
-        size_t size = 0;
-        u8* data = SDL_LoadFile(imp.palette_path, &size);
-        if (data && size == 192) {
-          uint palette[64] = {};
-          for (uint i = 0; i < 64; ++i) {
-            u8 r = data[i * 3 + 0];
-            u8 g = data[i * 3 + 1];
-            u8 b = data[i * 3 + 2];
-            palette[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
-            // SDL_Log("0x%08X,", palette[i]);
-          }
-          mn_palette(palette);
-        }
-        SDL_free(data);
-      }
-    }
-  }
-  fclose(f);
-}
-
 static void imp_tas_unload()
 {
   if (imp.tas) {
@@ -553,7 +524,7 @@ static void imp_save()
   }
 }
 
-static bool imp_load()
+static bool imp_load_check()
 {
   char qs_path[IMP_PATH_SIZE] = {};
   char ext[5] = ".qs0";
@@ -566,120 +537,7 @@ static bool imp_load()
   return result;
 }
 
-SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
-{
-  SDL_Log("MyaowNES v%s", MN_VERSION);
-  SDL_memset(&imp, 0, sizeof(imp));
-
-  if (SDL_strlen(imp.save_dir) == 0) {
-    char* pref_path = SDL_GetPrefPath(nullptr, "MyaowNES");
-    SDL_strlcpy(imp.save_dir, pref_path, IMP_PATH_SIZE);
-    SDL_free(pref_path);
-  }
-
-  SDL_Log("Save path: %s", imp.save_dir);
-
-  imp_ensure_dir("Saves");
-  imp_ensure_dir("Screenshots");
-#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
-  imp_ensure_dir("Roms");
-#endif
-
-  SDL_strlcat(imp.config_path, imp.save_dir, IMP_PATH_SIZE);
-  SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
-
-  SDL_strlcat(imp.history_path, imp.save_dir, IMP_PATH_SIZE);
-  SDL_strlcat(imp.history_path, "history.txt", IMP_PATH_SIZE);
-
-  imp_load_config();
-  imp_load_history();
-  imp_volume_update();
-  mn_region_set(imp.region);
-
-  for (int i = 0; i < argc; ++i) {
-    if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
-      SDL_Log("MyaowNES v" MN_VERSION);
-      SDL_Log("Usage: myaownes [options] [file]");
-      SDL_Log("Options:");
-      SDL_Log("-h, --help         Display help");
-      SDL_Log("-p, --path <path>  Save path");
-      return SDL_APP_SUCCESS;
-    } else if (SDL_strcmp(argv[i], "-p") == 0 || SDL_strcmp(argv[i], "--path") == 0) {
-      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
-      uint len = SDL_strlen(imp.save_dir);
-      if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
-        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
-      }
-    } else if (i > 0) {
-      imp_rom_load(argv[i]);
-    }
-  }
-
-#ifdef __EMSCRIPTEN__
-  const char* embed_path = "embed.nes";
-  SDL_PathInfo info;
-  SDL_GetPathInfo(embed_path, &info);
-  if (info.type == SDL_PATHTYPE_FILE) {
-    imp.embed_enabled = true;
-    imp_rom_load(embed_path);
-  }
-#endif
-
-  SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
-  SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
-  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
-  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
-
-  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
-    SDL_Log("%s", SDL_GetError());
-    return SDL_APP_FAILURE;
-  }
-
-  imp.perf_freq = SDL_GetPerformanceFrequency();
-
-  uint width;
-  uint height;
-  mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
-
-  const char* title = imp.embed_enabled ? nullptr : "MyaowNES";
-  if (!SDL_CreateWindowAndRenderer(title, width, height, SDL_WINDOW_RESIZABLE, &imp.window, &imp.renderer)) {
-    SDL_Log("%s", SDL_GetError());
-    return SDL_APP_FAILURE;
-  }
-
-  int vsync;
-  SDL_GetRenderVSync(imp.renderer, &vsync);
-  SDL_Log("Video: %s %s %s", SDL_GetRendererName(imp.renderer), vsync ? "vsync:on" : "vsync:off",
-          SDL_ScreenSaverEnabled() ? "screensaver:on" : "screensaver:off");
-
-  imp.tex_out = SDL_CreateTexture(imp.renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
-  if (!imp.tex_out) {
-    SDL_Log("%s", SDL_GetError());
-    return SDL_APP_FAILURE;
-  }
-  SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
-
-  imp.audioDeviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
-  SDL_AudioSpec spec;
-  int samples;
-  SDL_GetAudioDeviceFormat(imp.audioDeviceId, &spec, &samples);
-  SDL_AudioSpec stream_spec = { SDL_AUDIO_S16, 1, spec.freq };
-  imp.stream = SDL_OpenAudioDeviceStream(imp.audioDeviceId, &stream_spec, nullptr, nullptr);
-  SDL_ResumeAudioStreamDevice(imp.stream);
-  SDL_Log("Audio: %s %d %s%d%s %dch %d", SDL_GetCurrentAudioDriver(), spec.freq,
-          SDL_AUDIO_ISFLOAT(spec.format)      ? "F"
-          : SDL_AUDIO_ISUNSIGNED(spec.format) ? "U"
-                                              : "S",
-          SDL_AUDIO_BITSIZE(spec.format), SDL_AUDIO_ISBIGENDIAN(spec.format) ? "BE" : "LE", spec.channels, samples);
-  imp.audio_buffer_size = samples * sizeof(i16);
-  mn_audio_freq(spec.freq);
-  imp_volume_update();
-
-  bool inited = imp_init();
-  imp_rom_update();
-
-  return inited ? SDL_APP_CONTINUE : SDL_APP_FAILURE;
-}
+static void imp_load() { imp_load_check(); }
 
 static void imp_menu_state(uint state)
 {
@@ -783,6 +641,7 @@ static void imp_toggle_fullscreen()
 
 static void imp_screenshot()
 {
+#ifndef __EMSCRIPTEN__
   SDL_Surface* screenshot = SDL_RenderReadPixels(imp.renderer, nullptr);
   if (screenshot) {
     char path[IMP_PATH_SIZE] = {};
@@ -800,6 +659,7 @@ static void imp_screenshot()
     SDL_SavePNG(screenshot, path);
     SDL_DestroySurface(screenshot);
   }
+#endif
 }
 
 static void imp_volume_down()
@@ -824,22 +684,26 @@ static void imp_volume_up()
 
 static void imp_upscale()
 {
+#ifndef __EMSCRIPTEN__
   if (imp.scale < 8) {
     ++imp.scale;
     imp.dirty_config = true;
   }
   imp_popup(imp_scale_labels[imp.scale - 1], 2);
   imp_try_resize();
+#endif
 }
 
 static void imp_downscale()
 {
+#ifndef __EMSCRIPTEN__
   if (imp.scale > 1) {
     --imp.scale;
     imp.dirty_config = true;
   }
   imp_popup(imp_scale_labels[imp.scale - 1], 2);
   imp_try_resize();
+#endif
 }
 
 static void imp_fast_forward_on()
@@ -909,6 +773,17 @@ static void imp_slot(uint slot)
   imp_popup(imp_save_slot_labels[imp.slot], 2);
 }
 
+static void imp_slot0() { imp_slot(0); }
+static void imp_slot1() { imp_slot(1); }
+static void imp_slot2() { imp_slot(2); }
+static void imp_slot3() { imp_slot(3); }
+static void imp_slot4() { imp_slot(4); }
+static void imp_slot5() { imp_slot(5); }
+static void imp_slot6() { imp_slot(6); }
+static void imp_slot7() { imp_slot(7); }
+static void imp_slot8() { imp_slot(8); }
+static void imp_slot9() { imp_slot(9); }
+
 static void imp_slot_next()
 {
   imp.slot = (imp.slot + 1) % 10;
@@ -919,6 +794,13 @@ static void imp_slot_prev()
 {
   imp.slot = (imp.slot + 9) % 10;
   imp_popup(imp_save_slot_labels[imp.slot], 2);
+}
+
+static void imp_quit()
+{
+#ifndef __EMSCRIPTEN__
+  imp.quit = true;
+#endif
 }
 
 static void imp_joy1_dpad_up_down() { imp.joy1 |= MN_INPUT_UP; }
@@ -958,6 +840,273 @@ static void imp_joy2_a_turbo_down() { imp.joy2 |= MN_INPUT_TURBO_A; }
 static void imp_joy2_a_turbo_up() { imp.joy2 &= ~MN_INPUT_TURBO_A; }
 static void imp_joy2_b_turbo_down() { imp.joy2 |= MN_INPUT_TURBO_B; }
 static void imp_joy2_b_turbo_up() { imp.joy2 &= ~MN_INPUT_TURBO_B; }
+
+static const imp_action_data imp_actions[IMP_ACTION_COUNT] = {
+  [IMP_ACTION_JOY1_A] = { "bind_joy1_a", imp_joy1_a_down, imp_joy1_a_up },
+  [IMP_ACTION_JOY1_B] = { "bind_joy1_b", imp_joy1_b_down, imp_joy1_b_up },
+  [IMP_ACTION_JOY1_A_TURBO] = { "bind_joy1_a_turbo", imp_joy1_a_turbo_down, imp_joy1_a_turbo_up },
+  [IMP_ACTION_JOY1_B_TURBO] = { "bind_joy1_b_turbo", imp_joy1_b_turbo_down, imp_joy1_b_turbo_up },
+  [IMP_ACTION_JOY1_START] = { "bind_joy1_start", imp_joy1_start_down, imp_joy1_start_up },
+  [IMP_ACTION_JOY1_SELECT] = { "bind_joy1_select", imp_joy1_select_down, imp_joy1_select_up },
+  [IMP_ACTION_JOY1_UP] = { "bind_joy1_up", imp_joy1_dpad_up_down, imp_joy1_dpad_up_up },
+  [IMP_ACTION_JOY1_DOWN] = { "bind_joy1_down", imp_joy1_dpad_down_down, imp_joy1_dpad_down_up },
+  [IMP_ACTION_JOY1_LEFT] = { "bind_joy1_left", imp_joy1_dpad_left_down, imp_joy1_dpad_left_up },
+  [IMP_ACTION_JOY1_RIGHT] = { "bind_joy1_right", imp_joy1_dpad_right_down, imp_joy1_dpad_right_up },
+  [IMP_ACTION_JOY2_A] = { "bind_joy2_a", imp_joy2_a_down, imp_joy2_a_up },
+  [IMP_ACTION_JOY2_B] = { "bind_joy2_b", imp_joy2_b_down, imp_joy2_b_up },
+  [IMP_ACTION_JOY2_A_TURBO] = { "bind_joy2_a_turbo", imp_joy2_a_turbo_down, imp_joy2_a_turbo_up },
+  [IMP_ACTION_JOY2_B_TURBO] = { "bind_joy2_b_turbo", imp_joy2_b_turbo_down, imp_joy2_b_turbo_up },
+  [IMP_ACTION_JOY2_START] = { "bind_joy2_start", imp_joy1_start_down, imp_joy1_start_up },
+  [IMP_ACTION_JOY2_SELECT] = { "bind_joy2_select", imp_joy1_select_down, imp_joy1_select_up },
+  [IMP_ACTION_JOY2_UP] = { "bind_joy2_up", imp_joy2_dpad_up_down, imp_joy2_dpad_up_up },
+  [IMP_ACTION_JOY2_DOWN] = { "bind_joy2_down", imp_joy2_dpad_down_down, imp_joy2_dpad_down_up },
+  [IMP_ACTION_JOY2_LEFT] = { "bind_joy2_left", imp_joy2_dpad_left_down, imp_joy2_dpad_left_up },
+  [IMP_ACTION_JOY2_RIGHT] = { "bind_joy2_right", imp_joy2_dpad_right_down, imp_joy2_dpad_right_up },
+  [IMP_ACTION_MENU] = { "bind_menu", imp_toggle_menu, nullptr },
+  [IMP_ACTION_HELP] = { "bind_help", imp_toggle_help, nullptr },
+  [IMP_ACTION_OPEN] = { "bind_open", imp_open_file, nullptr },
+  [IMP_ACTION_REGION] = { "bind_region", imp_toggle_region, nullptr },
+  [IMP_ACTION_RESET] = { "bind_reset", imp_reset, nullptr },
+  [IMP_ACTION_SAVE] = { "bind_save", imp_save, nullptr },
+  [IMP_ACTION_ASPECT] = { "bind_aspect", imp_toggle_aspect, nullptr },
+  [IMP_ACTION_OVERSCAN] = { "bind_overscan", imp_toggle_overscan, nullptr },
+  [IMP_ACTION_LOAD] = { "bind_load", imp_load, nullptr },
+  [IMP_ACTION_QUIT] = { "bind_quit", imp_quit, nullptr },
+  [IMP_ACTION_FULLSCREEN] = { "bind_fullscreen", imp_toggle_fullscreen, nullptr },
+  [IMP_ACTION_SCREENSHOT] = { "bind_screenshot", imp_screenshot, nullptr },
+  [IMP_ACTION_PAUSE] = { "bind_pause", imp_toggle_pause, nullptr },
+  [IMP_ACTION_SHOW_FPS] = { "bind_show_fps", imp_toggle_fps, nullptr },
+  [IMP_ACTION_MAX_FPS] = { "bind_max_fps", imp_toggle_fps_test, nullptr },
+  [IMP_ACTION_FAST_FORWARD] = { "bind_fast_forward", imp_fast_forward_on, imp_fast_forward_off },
+  [IMP_ACTION_SLOT0] = { "bind_slot0", imp_slot0, nullptr },
+  [IMP_ACTION_SLOT1] = { "bind_slot1", imp_slot1, nullptr },
+  [IMP_ACTION_SLOT2] = { "bind_slot2", imp_slot2, nullptr },
+  [IMP_ACTION_SLOT3] = { "bind_slot3", imp_slot3, nullptr },
+  [IMP_ACTION_SLOT4] = { "bind_slot4", imp_slot4, nullptr },
+  [IMP_ACTION_SLOT5] = { "bind_slot5", imp_slot5, nullptr },
+  [IMP_ACTION_SLOT6] = { "bind_slot6", imp_slot6, nullptr },
+  [IMP_ACTION_SLOT7] = { "bind_slot7", imp_slot7, nullptr },
+  [IMP_ACTION_SLOT8] = { "bind_slot8", imp_slot8, nullptr },
+  [IMP_ACTION_SLOT9] = { "bind_slot9", imp_slot9, nullptr },
+  [IMP_ACTION_SLOT_NEXT] = { "bind_slot_next", imp_slot_next, nullptr },
+  [IMP_ACTION_SLOT_PREV] = { "bind_slot_prev", imp_slot_prev, nullptr },
+  [IMP_ACTION_VOLUME_UP] = { "bind_volume_up", imp_volume_up, nullptr },
+  [IMP_ACTION_VOLUME_DOWN] = { "bind_volume_down", imp_volume_down, nullptr },
+  [IMP_ACTION_SCALE_UP] = { "bind_scale_up", imp_upscale, nullptr },
+  [IMP_ACTION_SCALE_DOWN] = { "bind_scale_down", imp_downscale, nullptr },
+};
+
+static void imp_save_config()
+{
+  if (!imp.dirty_config) {
+    return;
+  }
+  FILE* f = fopen(imp.config_path, "w");
+  if (!f) {
+    return;
+  }
+  fprintf(f, "volume %u\n", imp.volume);
+  fprintf(f, "scale %u\n", imp.scale);
+  fprintf(f, "auto_aspect %u\n", imp.auto_aspect);
+  fprintf(f, "overscan %u\n", imp.overscan);
+  fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
+  fprintf(f, "show_fps %u\n", imp.fps);
+  fprintf(f, "fast_forward_scale %u\n", imp.fast_forward_scale);
+  fprintf(f, "region %u\n", imp.region);
+#ifndef __EMSCRIPTEN__
+  // fprintf(f, "filter_hp %u\n", imp.filter_hp);
+  // fprintf(f, "filter_lp %u\n", imp.filter_lp);
+  fprintf(f, "palette \"%s\"\n", imp.palette_path);
+#endif
+  for (uint i = 1; i < IMP_ACTION_COUNT; ++i) {
+    fprintf(f, "%s \"%s\"\n", imp_actions[i].label, SDL_GetScancodeName(imp.scancode_by_action[i]));
+  }
+  fclose(f);
+  imp.dirty_config = false;
+}
+
+static void imp_read_config(const char* path)
+{
+  FILE* f = fopen(path, "r");
+  if (!f) {
+    return;
+  }
+
+  char key[32];
+  while (fscanf(f, " %31s", key) == 1) {
+    if (strcmp(key, "volume") == 0) {
+      fscanf(f, "%u", &imp.volume);
+    } else if (strcmp(key, "scale") == 0) {
+      fscanf(f, "%u", &imp.scale);
+    } else if (strcmp(key, "auto_aspect") == 0) {
+      uint val;
+      fscanf(f, "%u", &val);
+      imp.auto_aspect = val;
+    } else if (strcmp(key, "overscan") == 0) {
+      uint val;
+      fscanf(f, "%u", &val);
+      imp.overscan = val;
+    } else if (strcmp(key, "auto_save_period") == 0) {
+      fscanf(f, "%u", &imp.auto_save_period);
+    } else if (strcmp(key, "show_fps") == 0) {
+      uint val;
+      fscanf(f, "%u", &val);
+      imp.fps = val;
+    } else if (strcmp(key, "fast_forward_scale") == 0) {
+      fscanf(f, "%u", &imp.fast_forward_scale);
+    } else if (strcmp(key, "region") == 0) {
+      fscanf(f, "%u", &imp.region);
+      // } else if (strcmp(key, "filter_hp") == 0) {
+      //   fscanf(f, "%u", &imp.filter_hp);
+      // } else if (strcmp(key, "filter_lp") == 0) {
+      //   fscanf(f, "%u", &imp.filter_lp);
+    } else if (strcmp(key, "palette") == 0) {
+      fscanf(f, " \"%[^\"]\"", imp.palette_path);
+      if (imp.palette_path[0]) {
+        size_t size = 0;
+        u8* data = SDL_LoadFile(imp.palette_path, &size);
+        if (data && size == 192) {
+          uint palette[64] = {};
+          for (uint i = 0; i < 64; ++i) {
+            u8 r = data[i * 3 + 0];
+            u8 g = data[i * 3 + 1];
+            u8 b = data[i * 3 + 2];
+            palette[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
+            // SDL_Log("0x%08X,", palette[i]);
+          }
+          mn_palette(palette);
+        }
+        SDL_free(data);
+      }
+    } else if (strcmp(key, "embed") == 0) {
+      fscanf(f, " \"%[^\"]\"", imp.load_rom_path);
+      if (imp.load_rom_path[0]) {
+        SDL_PathInfo info;
+        SDL_GetPathInfo(imp.load_rom_path, &info);
+        if (info.type == SDL_PATHTYPE_FILE) {
+          imp.embed_enabled = true;
+        }
+      }
+    } else if (strcmp(key, "start_screen") == 0) {
+      uint val;
+      fscanf(f, "%u", &val);
+      imp.start_screen = val;
+    } else {
+      for (uint i = 1; i < IMP_ACTION_COUNT; ++i) {
+        if (strcmp(key, imp_actions[i].label) == 0) {
+          char val[32];
+          fscanf(f, " \"%[^\"]\"", val);
+          imp.scancode_by_action[i] = SDL_GetScancodeFromName(val);
+        }
+      }
+    }
+  }
+  fclose(f);
+}
+
+static void imp_config_update()
+{
+  memset(imp.action_by_scancode, 0, sizeof(imp.action_by_scancode));
+  for (uint i = 0; i < IMP_ACTION_COUNT; ++i) {
+    imp.action_by_scancode[imp.scancode_by_action[i]] = i;
+  }
+  // mn_audio_hpf(imp.filter_hp);
+  // mn_audio_lpf(imp.filter_lp);
+}
+
+static void imp_config_defaults()
+{
+  imp.start_screen = 1;
+  imp.volume = 10;
+  imp.scale = 2;
+  imp.auto_aspect = true;
+  imp.overscan = false;
+  imp.auto_save_period = 60;
+  imp.fps = false;
+  imp.fps_test = false;
+  imp.fast_forward_scale = 4;
+  imp.region = MN_REGION_AUTO;
+  // imp.filter_hp = 0;
+  // imp.filter_lp = 0;
+  imp.scancode_by_action[IMP_ACTION_JOY1_A] = SDL_SCANCODE_K;
+  imp.scancode_by_action[IMP_ACTION_JOY1_B] = SDL_SCANCODE_J;
+  imp.scancode_by_action[IMP_ACTION_JOY1_A_TURBO] = SDL_SCANCODE_I;
+  imp.scancode_by_action[IMP_ACTION_JOY1_B_TURBO] = SDL_SCANCODE_U;
+  imp.scancode_by_action[IMP_ACTION_JOY1_START] = SDL_SCANCODE_H;
+  imp.scancode_by_action[IMP_ACTION_JOY1_SELECT] = SDL_SCANCODE_F;
+  imp.scancode_by_action[IMP_ACTION_JOY1_UP] = SDL_SCANCODE_W;
+  imp.scancode_by_action[IMP_ACTION_JOY1_DOWN] = SDL_SCANCODE_S;
+  imp.scancode_by_action[IMP_ACTION_JOY1_LEFT] = SDL_SCANCODE_A;
+  imp.scancode_by_action[IMP_ACTION_JOY1_RIGHT] = SDL_SCANCODE_D;
+  imp.scancode_by_action[IMP_ACTION_JOY2_A] = SDL_SCANCODE_KP_2;
+  imp.scancode_by_action[IMP_ACTION_JOY2_B] = SDL_SCANCODE_KP_1;
+  imp.scancode_by_action[IMP_ACTION_JOY2_A_TURBO] = SDL_SCANCODE_KP_5;
+  imp.scancode_by_action[IMP_ACTION_JOY2_B_TURBO] = SDL_SCANCODE_KP_4;
+  imp.scancode_by_action[IMP_ACTION_JOY2_START] = SDL_SCANCODE_RETURN;
+  imp.scancode_by_action[IMP_ACTION_JOY2_SELECT] = SDL_SCANCODE_SPACE;
+  imp.scancode_by_action[IMP_ACTION_JOY2_UP] = SDL_SCANCODE_UP;
+  imp.scancode_by_action[IMP_ACTION_JOY2_DOWN] = SDL_SCANCODE_DOWN;
+  imp.scancode_by_action[IMP_ACTION_JOY2_LEFT] = SDL_SCANCODE_LEFT;
+  imp.scancode_by_action[IMP_ACTION_JOY2_RIGHT] = SDL_SCANCODE_RIGHT;
+  imp.scancode_by_action[IMP_ACTION_MENU] = SDL_SCANCODE_ESCAPE;
+  imp.scancode_by_action[IMP_ACTION_HELP] = SDL_SCANCODE_F1;
+  imp.scancode_by_action[IMP_ACTION_OPEN] = SDL_SCANCODE_F2;
+  imp.scancode_by_action[IMP_ACTION_REGION] = SDL_SCANCODE_F3;
+  imp.scancode_by_action[IMP_ACTION_RESET] = SDL_SCANCODE_F4;
+  imp.scancode_by_action[IMP_ACTION_SAVE] = SDL_SCANCODE_F5;
+  imp.scancode_by_action[IMP_ACTION_ASPECT] = SDL_SCANCODE_F6;
+  imp.scancode_by_action[IMP_ACTION_OVERSCAN] = SDL_SCANCODE_F7;
+  imp.scancode_by_action[IMP_ACTION_LOAD] = SDL_SCANCODE_F8;
+  imp.scancode_by_action[IMP_ACTION_QUIT] = SDL_SCANCODE_F10;
+  imp.scancode_by_action[IMP_ACTION_FULLSCREEN] = SDL_SCANCODE_F11;
+  imp.scancode_by_action[IMP_ACTION_SCREENSHOT] = SDL_SCANCODE_F12;
+  imp.scancode_by_action[IMP_ACTION_PAUSE] = SDL_SCANCODE_PAUSE;
+  imp.scancode_by_action[IMP_ACTION_SHOW_FPS] = SDL_SCANCODE_GRAVE;
+  imp.scancode_by_action[IMP_ACTION_MAX_FPS] = SDL_SCANCODE_Z;
+  imp.scancode_by_action[IMP_ACTION_FAST_FORWARD] = SDL_SCANCODE_TAB;
+  imp.scancode_by_action[IMP_ACTION_SLOT0] = SDL_SCANCODE_0;
+  imp.scancode_by_action[IMP_ACTION_SLOT1] = SDL_SCANCODE_1;
+  imp.scancode_by_action[IMP_ACTION_SLOT2] = SDL_SCANCODE_2;
+  imp.scancode_by_action[IMP_ACTION_SLOT3] = SDL_SCANCODE_3;
+  imp.scancode_by_action[IMP_ACTION_SLOT4] = SDL_SCANCODE_4;
+  imp.scancode_by_action[IMP_ACTION_SLOT5] = SDL_SCANCODE_5;
+  imp.scancode_by_action[IMP_ACTION_SLOT6] = SDL_SCANCODE_6;
+  imp.scancode_by_action[IMP_ACTION_SLOT7] = SDL_SCANCODE_7;
+  imp.scancode_by_action[IMP_ACTION_SLOT8] = SDL_SCANCODE_8;
+  imp.scancode_by_action[IMP_ACTION_SLOT9] = SDL_SCANCODE_9;
+  imp.scancode_by_action[IMP_ACTION_SLOT_NEXT] = SDL_SCANCODE_UNKNOWN;
+  imp.scancode_by_action[IMP_ACTION_SLOT_PREV] = SDL_SCANCODE_UNKNOWN;
+  imp.scancode_by_action[IMP_ACTION_VOLUME_UP] = SDL_SCANCODE_EQUALS;
+  imp.scancode_by_action[IMP_ACTION_VOLUME_DOWN] = SDL_SCANCODE_MINUS;
+  imp.scancode_by_action[IMP_ACTION_SCALE_UP] = SDL_SCANCODE_RIGHTBRACKET;
+  imp.scancode_by_action[IMP_ACTION_SCALE_DOWN] = SDL_SCANCODE_LEFTBRACKET;
+
+#ifdef __EMSCRIPTEN__
+  imp_read_config("embed.txt");
+#endif
+}
+
+static void imp_load_config()
+{
+  imp_config_defaults();
+  imp_read_config(imp.config_path);
+  imp_config_update();
+}
+
+static void imp_reset_config()
+{
+  uint old_region = imp.region;
+  imp_config_defaults();
+  imp_config_update();
+  imp.dirty_config = true;
+  if (imp.region != old_region) {
+    mn_region_set(imp.region);
+    if (imp.rom) {
+      mn_rom_set(imp.rom);
+    }
+  }
+  imp_try_resize();
+}
 
 static void imp_drop_file(const char* path)
 {
@@ -1053,7 +1202,7 @@ static void imp_draw_menu()
       imp_save();
     }
     if (imp_draw_menu_line("Load", line++, menu++)) {
-      if (imp_load()) {
+      if (imp_load_check()) {
         imp_menu_state(IMP_MENU_OFF);
       }
     }
@@ -1088,7 +1237,21 @@ static void imp_draw_menu()
   imp_draw_line(line++, "     Touch to show controls     ");
 
   if (!imp.embed_enabled) {
-    imp_draw_line(28, "                MyaowNES v" MN_VERSION " ");
+    imp_draw_line(27, "                MyaowNES v" MN_VERSION " ");
+  }
+}
+
+static void imp_draw_start()
+{
+  imp_draw_menu_prepare(0);
+  uint line = 10;
+  imp_draw_line(line++, "    Press any button to start   ");
+  line += 4;
+  imp_draw_line(line++, "     Press F1 to show keymap    ");
+  ++line;
+  imp_draw_line(line++, "     Touch to show controls     ");
+  if (imp_menu_pressed(-1)) {
+    imp_menu_state(IMP_MENU_OFF);
   }
 }
 
@@ -1168,6 +1331,8 @@ static void imp_draw_info()
   imp_draw_line(line++, "          %s", imp.rom_info[5]);
 }
 
+#define K(action) SDL_GetScancodeName(imp.scancode_by_action[action])
+
 static void imp_draw_help()
 {
   imp_draw_menu_prepare(1);
@@ -1178,34 +1343,43 @@ static void imp_draw_help()
   }
   ++line;
   imp_draw_line(line++, "           Joy1            Joy2 ");
-  imp_draw_line(line++, " D-pad     WASD          Arrows ");
-  imp_draw_line(line++, " B            J           NUM_1 ");
-  imp_draw_line(line++, " A            K           NUM_2 ");
-  imp_draw_line(line++, " B turbo      U           NUM_4 ");
-  imp_draw_line(line++, " A turbo      I           NUM_5 ");
-  imp_draw_line(line++, " Start        H           Enter ");
-  imp_draw_line(line++, " Select       F           Space ");
+  imp_draw_line(line++, " D-pad %2.2s%2.2s%2.2s%2.2s        %2.2s%2.2s%2.2s%2.2s ", K(IMP_ACTION_JOY1_UP),
+                K(IMP_ACTION_JOY1_LEFT), K(IMP_ACTION_JOY1_DOWN), K(IMP_ACTION_JOY1_RIGHT), K(IMP_ACTION_JOY2_UP),
+                K(IMP_ACTION_JOY2_LEFT), K(IMP_ACTION_JOY2_DOWN), K(IMP_ACTION_JOY2_RIGHT));
+  imp_draw_line(line++, " B %12.12s  %14.14s ", K(IMP_ACTION_JOY1_B), K(IMP_ACTION_JOY2_B));
+  imp_draw_line(line++, " A %12.12s  %14.14s ", K(IMP_ACTION_JOY1_A), K(IMP_ACTION_JOY2_A));
+  imp_draw_line(line++, " B turbo %6.6s  %14.14s ", K(IMP_ACTION_JOY1_B_TURBO), K(IMP_ACTION_JOY2_B_TURBO));
+  imp_draw_line(line++, " A turbo %6.6s  %14.14s ", K(IMP_ACTION_JOY1_A_TURBO), K(IMP_ACTION_JOY2_A_TURBO));
+  imp_draw_line(line++, " Start %8.8s  %14.14s ", K(IMP_ACTION_JOY1_START), K(IMP_ACTION_JOY2_START));
+  imp_draw_line(line++, " Select %7.7s  %14.14s ", K(IMP_ACTION_JOY1_SELECT), K(IMP_ACTION_JOY2_SELECT));
   imp_draw_line(line++, "                                ");
-  imp_draw_line(line++, " Help        F1  Menu       Esc ");
+  imp_draw_line(line++, " Help %9.9s  Menu %9.9s ", K(IMP_ACTION_HELP), K(IMP_ACTION_MENU));
   if (!imp.embed_enabled) {
-    imp_draw_line(line++, " Open        F2   ");
+    imp_draw_line(line++, " Open %9.9s   ", K(IMP_ACTION_OPEN));
   }
-  imp_draw_line(line++, " Region      F3  F-forward  Tab ");
-  imp_draw_line(line++, " Reset       F4  Volume     -/+ ");
-  imp_draw_line(line++, " Quick save  F5  Scale      [/] ");
-  imp_draw_line(line++, " Aspect      F6  Save slot  0-9 ");
-  imp_draw_line(line++, " Overscan    F7  Pause    Pause ");
-  imp_draw_line(line++, " Quick load  F8  Show FPS     ` ");
+  imp_draw_line(line++, " Region %7.7s  F-forward %4.4s ", K(IMP_ACTION_REGION), K(IMP_ACTION_FAST_FORWARD));
+  imp_draw_line(line++, " Reset %8.8s  Volume %3.3s/%-3.3s ", K(IMP_ACTION_RESET), K(IMP_ACTION_VOLUME_DOWN),
+                K(IMP_ACTION_VOLUME_UP));
+  imp_draw_line(line++, " Save %9.9s  Slot   %3.3s-%-3.3s ", K(IMP_ACTION_SAVE), K(IMP_ACTION_SLOT0),
+                K(IMP_ACTION_SLOT9));
+  imp_draw_line(line++, " Aspect %7.7s  Pause %8.8s ", K(IMP_ACTION_ASPECT), K(IMP_ACTION_PAUSE));
+  imp_draw_line(line++, " Overscan %5.5s  Show FPS %5.5s ", K(IMP_ACTION_OVERSCAN), K(IMP_ACTION_SHOW_FPS));
+  imp_draw_line(line++, " Load %9.9s                 ", K(IMP_ACTION_LOAD));
 #ifndef __EMSCRIPTEN__
-  imp_draw_line(line++, " Quit       F10                 ");
+  imp_draw_line(line++, " Quit %9.9s  Scale  %3.3s/%-3.3s ", K(IMP_ACTION_QUIT), K(IMP_ACTION_SCALE_DOWN),
+                K(IMP_ACTION_SCALE_UP));
 #endif
-  imp_draw_line(line++, " Fullscreen F11                 ");
-  imp_draw_line(line++, " Screenshot F12  Test FPS     Z ");
+  imp_draw_line(line++, " Fullscreen %3.3s                 ", K(IMP_ACTION_FULLSCREEN));
+#ifndef __EMSCRIPTEN__
+  imp_draw_line(line++, " Screenshot %3.3s  Max FPS %6.6s ", K(IMP_ACTION_SCREENSHOT), K(IMP_ACTION_MAX_FPS));
+#endif
   ++line;
   imp_draw_line(line++, "     Controller");
   imp_draw_line(line++, " F-forward   LB  Menu        RB ");
   imp_draw_line(line++, " Save        LS  Load        RS ");
 }
+
+#undef K
 
 static void imp_draw_recent()
 {
@@ -1298,10 +1472,138 @@ static void imp_touch_cancel(SDL_FingerID fingerID)
   }
 }
 
+bool imp_audio_suspended()
+{
+#ifdef __EMSCRIPTEN__
+  return emscripten_run_script_int(
+    "(function() {"
+    "  var ctx = new AudioContext();"
+    "  var state = ctx.state;"
+    "  ctx.close();"
+    "  return (state === 'suspended') ? 1 : 0;"
+    "})()");
+#else
+  return false;
+#endif
+}
+
+SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
+{
+  SDL_Log("MyaowNES v%s", MN_VERSION);
+  SDL_memset(&imp, 0, sizeof(imp));
+
+  if (SDL_strlen(imp.save_dir) == 0) {
+    char* pref_path = SDL_GetPrefPath(nullptr, "MyaowNES");
+    SDL_strlcpy(imp.save_dir, pref_path, IMP_PATH_SIZE);
+    SDL_free(pref_path);
+  }
+
+  SDL_Log("Save path: %s", imp.save_dir);
+
+  imp_ensure_dir("Saves");
+  imp_ensure_dir("Screenshots");
+#if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
+  imp_ensure_dir("Roms");
+#endif
+
+  SDL_strlcat(imp.config_path, imp.save_dir, IMP_PATH_SIZE);
+  SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
+
+  SDL_strlcat(imp.history_path, imp.save_dir, IMP_PATH_SIZE);
+  SDL_strlcat(imp.history_path, "history.txt", IMP_PATH_SIZE);
+
+  imp_load_config();
+  imp_load_history();
+  imp_volume_update();
+  mn_region_set(imp.region);
+
+  if (imp.embed_enabled) {
+    imp_rom_load(imp.load_rom_path);
+  }
+
+  for (int i = 0; i < argc; ++i) {
+    if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
+      SDL_Log("MyaowNES v" MN_VERSION);
+      SDL_Log("Usage: myaownes [options] [file]");
+      SDL_Log("Options:");
+      SDL_Log("-h, --help         Display help");
+      SDL_Log("-p, --path <path>  Save path");
+      return SDL_APP_SUCCESS;
+    } else if (SDL_strcmp(argv[i], "-p") == 0 || SDL_strcmp(argv[i], "--path") == 0) {
+      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
+      uint len = SDL_strlen(imp.save_dir);
+      if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
+        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
+      }
+    } else if (i > 0) {
+      imp_rom_load(argv[i]);
+    }
+  }
+
+  SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+  SDL_SetHint(SDL_HINT_RENDER_VSYNC, "1");
+  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+
+  if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
+    SDL_Log("%s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  imp.perf_freq = SDL_GetPerformanceFrequency();
+
+  uint width;
+  uint height;
+  mn_video_size(imp.auto_aspect, imp.overscan, imp.scale, &width, &height);
+
+  const char* title = imp.embed_enabled ? nullptr : "MyaowNES";
+  if (!SDL_CreateWindowAndRenderer(title, width, height, SDL_WINDOW_RESIZABLE, &imp.window, &imp.renderer)) {
+    SDL_Log("%s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
+  int vsync;
+  SDL_GetRenderVSync(imp.renderer, &vsync);
+  SDL_Log("Video: %s %s %s", SDL_GetRendererName(imp.renderer), vsync ? "vsync:on" : "vsync:off",
+          SDL_ScreenSaverEnabled() ? "screensaver:on" : "screensaver:off");
+
+  imp.tex_out = SDL_CreateTexture(imp.renderer, SDL_PIXELFORMAT_XRGB8888, SDL_TEXTUREACCESS_STREAMING, 256, 240);
+  if (!imp.tex_out) {
+    SDL_Log("%s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+  SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
+
+  imp.audioDeviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
+  SDL_AudioSpec spec;
+  int samples;
+  SDL_GetAudioDeviceFormat(imp.audioDeviceId, &spec, &samples);
+  SDL_AudioSpec stream_spec = { SDL_AUDIO_S16, 1, spec.freq };
+  imp.stream = SDL_OpenAudioDeviceStream(imp.audioDeviceId, &stream_spec, nullptr, nullptr);
+  SDL_ResumeAudioStreamDevice(imp.stream);
+  SDL_Log("Audio: %s %d %s%d%s %dch %d", SDL_GetCurrentAudioDriver(), spec.freq,
+          SDL_AUDIO_ISFLOAT(spec.format)      ? "F"
+          : SDL_AUDIO_ISUNSIGNED(spec.format) ? "U"
+                                              : "S",
+          SDL_AUDIO_BITSIZE(spec.format), SDL_AUDIO_ISBIGENDIAN(spec.format) ? "BE" : "LE", spec.channels, samples);
+  imp.audio_buffer_size = samples * sizeof(i16);
+  mn_audio_freq(spec.freq);
+  imp_volume_update();
+
+  bool inited = imp_init();
+  imp_rom_update();
+
+  if (imp.embed_enabled && imp.start_screen && imp_audio_suspended()) {
+    imp_menu_state(IMP_MENU_START);
+  }
+
+  return inited ? SDL_APP_CONTINUE : SDL_APP_FAILURE;
+}
+
 SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
 {
   switch (event->type) {
-    case SDL_EVENT_QUIT: return SDL_APP_SUCCESS;
+    case SDL_EVENT_QUIT: imp_quit(); break;
     case SDL_EVENT_WINDOW_RESIZED:
     case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
     case SDL_EVENT_WINDOW_DISPLAY_CHANGED: imp_ondisplaychange(); break;
@@ -1310,98 +1612,23 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     //   imp_set_fullscreen(event->display.data1 == SDL_ORIENTATION_LANDSCAPE
     //                      || event->display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED);
     // break;
-    case SDL_EVENT_KEY_DOWN:
+    case SDL_EVENT_KEY_DOWN: {
       imp.touch_active = false;
-      switch (event->key.key) {
-        case SDLK_F1: imp_toggle_help(); break;
-        case SDLK_F2: imp_open_file(); break;
-        case SDLK_F3: imp_toggle_region(); break;
-        case SDLK_F4: imp_reset(); break;
-        case SDLK_F5: imp_save(); break;
-        case SDLK_F6: imp_toggle_aspect(); break;
-        case SDLK_F7: imp_toggle_overscan(); break;
-        case SDLK_F8: imp_load(); break;
-#ifndef __EMSCRIPTEN__
-        case SDLK_F10: return SDL_APP_SUCCESS;
-#endif
-        case SDLK_F11: imp_toggle_fullscreen(); break;
-        case SDLK_F12: imp_screenshot(); break;
-        case SDLK_MINUS: imp_volume_down(); break;
-        case SDLK_EQUALS: imp_volume_up(); break;
-        case SDLK_LEFTBRACKET: imp_downscale(); break;
-        case SDLK_RIGHTBRACKET: imp_upscale(); break;
-        case SDLK_PAUSE: imp_toggle_pause(); break;
-        case SDLK_ESCAPE: imp_toggle_menu(); break;
-        case SDLK_TAB: imp_fast_forward_on(); break;
-        case SDLK_GRAVE: imp_toggle_fps(); break;
-        case SDLK_Z: imp_toggle_fps_test(); break;
-        case SDLK_0:
-        case SDLK_1:
-        case SDLK_2:
-        case SDLK_3:
-        case SDLK_4:
-        case SDLK_5:
-        case SDLK_6:
-        case SDLK_7:
-        case SDLK_8:
-        case SDLK_9: imp_slot(event->key.key - SDLK_0); break;
-
-        case SDLK_W: imp_joy1_dpad_up_down(); break;
-        case SDLK_A: imp_joy1_dpad_left_down(); break;
-        case SDLK_S: imp_joy1_dpad_down_down(); break;
-        case SDLK_D: imp_joy1_dpad_right_down(); break;
-        case SDLK_J: imp_joy1_b_down(); break;
-        case SDLK_K: imp_joy1_a_down(); break;
-        case SDLK_U: imp_joy1_b_turbo_down(); break;
-        case SDLK_I: imp_joy1_a_turbo_down(); break;
-        case SDLK_SPACE:
-        case SDLK_F: imp_joy1_select_down(); break;
-        case SDLK_RETURN:
-        case SDLK_H: imp_joy1_start_down(); break;
-
-        case SDLK_UP: imp_joy2_dpad_up_down(); break;
-        case SDLK_LEFT: imp_joy2_dpad_left_down(); break;
-        case SDLK_DOWN: imp_joy2_dpad_down_down(); break;
-        case SDLK_RIGHT: imp_joy2_dpad_right_down(); break;
-        case SDLK_KP_1: imp_joy2_b_down(); break;
-        case SDLK_KP_2: imp_joy2_a_down(); break;
-        case SDLK_KP_4: imp_joy2_b_turbo_down(); break;
-        case SDLK_KP_5: imp_joy2_a_turbo_down(); break;
-
-        default:
-          if (event->key.key >= SDLK_A && event->key.key <= SDLK_Z) {
-            imp_popup("Press F1 to show keymap", 2);
-          }
-          break;
+      void (*onkeydown)() = imp_actions[imp.action_by_scancode[event->key.scancode]].onkeydown;
+      if (onkeydown) {
+        onkeydown();
+      } else {
+        imp_popup("Press F1 to show keymap", 2);
       }
       break;
-    case SDL_EVENT_KEY_UP:
-      switch (event->key.key) {
-        case SDLK_TAB: imp_fast_forward_off(); break;
-
-        case SDLK_W: imp_joy1_dpad_up_up(); break;
-        case SDLK_A: imp_joy1_dpad_left_up(); break;
-        case SDLK_S: imp_joy1_dpad_down_up(); break;
-        case SDLK_D: imp_joy1_dpad_right_up(); break;
-        case SDLK_J: imp_joy1_b_up(); break;
-        case SDLK_K: imp_joy1_a_up(); break;
-        case SDLK_U: imp_joy1_b_turbo_up(); break;
-        case SDLK_I: imp_joy1_a_turbo_up(); break;
-        case SDLK_SPACE:
-        case SDLK_F: imp_joy1_select_up(); break;
-        case SDLK_RETURN:
-        case SDLK_H: imp_joy1_start_up(); break;
-
-        case SDLK_UP: imp_joy2_dpad_up_up(); break;
-        case SDLK_LEFT: imp_joy2_dpad_left_up(); break;
-        case SDLK_DOWN: imp_joy2_dpad_down_up(); break;
-        case SDLK_RIGHT: imp_joy2_dpad_right_up(); break;
-        case SDLK_KP_1: imp_joy2_b_up(); break;
-        case SDLK_KP_2: imp_joy2_a_up(); break;
-        case SDLK_KP_4: imp_joy2_b_turbo_up(); break;
-        case SDLK_KP_5: imp_joy2_a_turbo_up(); break;
+    }
+    case SDL_EVENT_KEY_UP: {
+      void (*onkeyup)() = imp_actions[imp.action_by_scancode[event->key.scancode]].onkeyup;
+      if (onkeyup) {
+        onkeyup();
       }
       break;
+    }
     case SDL_EVENT_GAMEPAD_ADDED:
       if (!imp.gamepad1) {
         imp.gamepad1 = SDL_OpenGamepad(event->gdevice.which);
@@ -1653,7 +1880,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       break;
     }
   }
-  return SDL_APP_CONTINUE;
+  return imp.quit ? SDL_APP_SUCCESS : SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void*)
@@ -1728,8 +1955,8 @@ SDL_AppResult SDL_AppIterate(void*)
     if (imp.rom) {
       mn_rom_save(imp.sram_path);
     }
-    imp_save_config();
   }
+  imp_save_config();
 
   SDL_SetRenderScale(imp.renderer, 1, 1);
   SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xFF);
@@ -1745,6 +1972,7 @@ SDL_AppResult SDL_AppIterate(void*)
     case IMP_MENU_INFO: imp_draw_info(); break;
     case IMP_MENU_HELP: imp_draw_help(); break;
     case IMP_MENU_RECENT: imp_draw_recent(); break;
+    case IMP_MENU_START: imp_draw_start(); break;
   }
   if (imp.popup_time > 0) {
     imp_draw_popup();

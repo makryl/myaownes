@@ -12,8 +12,13 @@ Module = {
   },
   preRun: [
     function () {
-      window.EMBEDNES = "%%EMBEDNES%%";
-      if (window.EMBEDNES.length > 12) {
+      if (window.EMBEDCONFIG) {
+        FS.writeFile("/embed.txt", Uint8Array.fromBase64(window.EMBEDCONFIG));
+      }
+      if (window.EMBEDPAL) {
+        FS.writeFile("/embed.pal", Uint8Array.fromBase64(window.EMBEDPAL));
+      }
+      if (window.EMBEDNES) {
         FS.writeFile("/embed.nes", Uint8Array.fromBase64(window.EMBEDNES));
       }
     },

@@ -28,13 +28,19 @@ Use [online tool](https://makryl.github.io/myaownes/embed.html) or script for of
 Next instructions for offline script.
 Download WebAssembly build from [releases](https://github.com/makryl/myaownes/releases), and use `embed.js` script included in archive.
 You will need [Node.js](https://github.com/nodejs/node) to run this script.
-Actually it is possible to do it without script by simply replacing `%%EMBEDNES%%` with your ROM file in Base64 string format.
 
 ```
-node embed.js --nes <path/to/game.nes> [--out <path/to/game.html>] [--template <index.html>] [--title <title>] [--desc <desc>]
+node embed.js --nes <path/to/game.nes> [optional arguments]
 ```
 
-It will generate HTML with your game embedded.
+Optional arguments:
+
+- `--out <path/to/game.html>`
+- `--template <path/to/index.html>`
+- `--config <path/to/config.txt>`
+- `--palette <path/to/palette.pal>`
+- `--title <title>`
+- `--desc <desc>`
 
 ## Build
 
@@ -75,11 +81,9 @@ Almost all information I got from next sites, source code of tests and other emu
 
 Some ideas and reminders for future:
 
-- Configurable binds
 - QoL embed mode:
-  - fix audio start
-  - add options to the tool
-  - attach palette
+  - custom font and touch control icons
+  - allow separate files build mode
 - Review performance
 - Extra audio in mappers
 - More homebrew mappers
