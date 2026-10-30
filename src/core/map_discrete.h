@@ -543,6 +543,39 @@ static void map_homebrew_nsf_subset_load(bool init)
   map_homebrew_nsf_subset_update();
 }
 
+static void map_homebrew_magic_floor_load()
+{
+  mn_rom rom = mn_rom_get();
+  uint shift = rom->alt_mirror ? (rom->vert_mirror ? 3 : 2) : (rom->vert_mirror ? 0 : 1);
+  for (uint i = 0; i < 16; ++i) {
+    map_ppu_ciram_page((i >> shift) & 1, i);
+  }
+}
+
+static void map_homebrew_cheapocabra_update()
+{
+  uint val = map_reg_read(0);
+  map_prg_rom_page_32k((val & 0x0F), 1);
+  map_chr_page_8k(((val & 0x10) >> 4), 0);
+  map_chr_page_8k(((val & 0x20) >> 5) | 0x02, 1);
+}
+
+static bool map_homebrew_cheapocabra_cpu_write(uint addr, uint val)
+{
+  if ((addr & 0xD000) != 0x5000) {
+    return false;
+  }
+  map_reg_write(0, val);
+  map_homebrew_cheapocabra_update();
+  return true;
+}
+
+static void map_homebrew_cheapocabra_load()
+{
+  map_set_cpu_write_cb(map_homebrew_cheapocabra_cpu_write);
+  map_homebrew_cheapocabra_update();
+}
+
 bool map_discrete_load(bool init)
 {
   mn_rom rom = mn_rom_get();
@@ -575,6 +608,7 @@ bool map_discrete_load(bool init)
     case 97: map_irem_tams1_load(); break;
     case 101: map_discrete_common_load(0xE000, 0x6000, 0, 0, 0, 0, 0xFF, 0, 0, 8, 0, 0, 0); break; // CxROM-like
     case 107: map_discrete_prg_chr(0xFE, 1, 0, 32, 0xFF, 0, 0, 8, 0); break; // GxROM-like
+    case 111: map_homebrew_cheapocabra_load(); break; // no flash impl
     case 113: map_113_load(); break;
     case 133: map_discrete_common_load(0xE100, 0x4100, 0x04, 2, 0, 32, 0x03, 0, 0, 8, 0, 0, 0); break; // GxROM-like
     case 140: map_discrete_common_load(0xE000, 0x6000, 0x30, 4, 0, 32, 0x0F, 0, 0, 8, 0, 0, 0); break; // GxROM-like
@@ -588,6 +622,7 @@ bool map_discrete_load(bool init)
     case 180: map_discrete_prg(0xFF, 0, 1, 16, 1); break; // UxROM
     case 184: map_sunsoft184_load(); break;
     case 185: map_discrete_chr(0x0F, 0, 0, 8, 1); break; // CxROM, CS1/CS2 no impl
+    case 218: map_homebrew_magic_floor_load(); break;
     case 232: map_camerica232_load(); break;
     case 240: map_discrete_common_load(0xE000, 0x4000, 0xF0, 4, 0, 32, 0x0F, 0, 0, 8, 0, 0, 0); break; // GxROM-like
     case 241: map_discrete_prg(0xFF, 0, 0, 32, 0); break; // BxROM, LPC Speech Chip no impl

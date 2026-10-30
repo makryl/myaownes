@@ -42,6 +42,7 @@ void map_chr_page(uint sp, uint dp, uint shift);
 
 void map_nt_page(uint sp, uint dp, bool use_chr);
 void map_cpu_ciram_page(uint sp, uint dp, bool readonly);
+void map_ppu_ciram_page(uint sp, uint dp);
 void map_ciram_page(uint sp, uint dp);
 void map_ciram_single_low();
 void map_ciram_single_high();

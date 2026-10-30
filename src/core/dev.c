@@ -122,7 +122,7 @@ void dev_tick()
       dev.io_shift[dev.io_shift_idx] = (dev.io_shift[dev.io_shift_idx] >> 1) | 0x80;
     }
   }
-  if ((cpu_cyc() & 1)) {
+  if (ppu_frame() & 1) {
     if (dev.io_input[0] & MN_INPUT_TURBO_A) {
       dev.io_input[0] ^= MN_INPUT_A;
     }
@@ -135,6 +135,8 @@ void dev_tick()
     if (dev.io_input[1] & MN_INPUT_TURBO_B) {
       dev.io_input[1] ^= MN_INPUT_B;
     }
+  }
+  if ((cpu_cyc() & 1)) {
     if ((dev.io_out & 1)) {
       dev.io_shift[0] = (dev.io_input[0] & 0xFF);
       dev.io_shift[1] = (dev.io_input[1] & 0xFF);

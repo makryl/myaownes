@@ -315,13 +315,16 @@ void map_cpu_ciram_page(uint sp, uint dp, bool readonly)
   map_cpu_write_pages(readonly ? nullptr : map.ciram, sp, dp, 1);
 }
 
+void map_ppu_ciram_page(uint sp, uint dp)
+{
+  map_ppu_read_pages(map.ciram, sp, dp, 1);
+  map_ppu_write_pages(map.ciram, sp, dp, 1);
+}
+
 void map_ciram_page(uint sp, uint dp)
 {
-  u8* src = map.ciram + sp * (size_t)MAP_PAGE_SIZE;
-  map_dyn.ppu_read_page[dp] = src;
-  map_dyn.ppu_write_page[dp] = src;
-  map_dyn.ppu_read_page[dp + 4] = src;
-  map_dyn.ppu_write_page[dp + 4] = src;
+  map_ppu_ciram_page(sp, dp);
+  map_ppu_ciram_page(sp, dp + 4);
 }
 
 void map_ciram_single_low()
@@ -366,8 +369,10 @@ void map_ciram_four_screen()
 
 static void map_nrom_load()
 {
-  map_prg_rom_page_16k(0, 2);
-  map_prg_rom_page_16k(-1, 3);
+  for (uint i = 0; i < 16; ++i) { // ram may have < 16k
+    map_prg_rom_page_1k(i, 32 + i);
+    map_prg_rom_page_1k(-16 + i, 48 + i);
+  }
 
   for (uint i = 0; i < 8; ++i) { // ram may have < 8k
     map_prg_ram_page_1k(i, 24 + i, false);
