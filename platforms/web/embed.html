@@ -37,6 +37,20 @@
       code {
         font-family: monospace;
       }
+      h1, h2, h3, h4, h5, h6 {
+        line-height: 1.2;
+        margin: .4em 0;
+        font-variant: small-caps;
+      }
+      h1 {
+        font-size: 2.5em;
+      }
+      h2 {
+        font-size: 2.0em;
+      }
+      h3 {
+        font-size: 1.6em;
+      }
       label {
         display: block;
       }
@@ -85,30 +99,28 @@
     </style>
   </head>
   <body>
+    <h1>MyaowNES HTML Embed Tool</h1>
     <p>
       This is online tool for embedding your NES game into single HTML file
       with <a href="https://makryl.github.io/myaownes/">MyaowNES</a> emulator.
-      Read more info and star the repo on <a href="https://github.com/makryl/myaownes">GitHub</a>.
+      Read more info under the form. Star the repo on <a href="https://github.com/makryl/myaownes">GitHub</a>.
     </p>
-
     <form id="form">
       <label>
         Select NES file
         <input type="file" id="input-nes" accept=".nes">
       </label>
-      <p><a id="a-advanced" href="javascript:null">Advanced options</a></p>
-      <div id="div-advanced" style="display: none">
-        <label>
-          Title
-          <input type="text" id="input-title">
-        </label>
-        <label>
-          Description
-          <input type="text" id="input-desc">
-        </label>
-        <label>
-          Config
-          <textarea id="input-config">start_screen 1
+      <label>
+        Title (optional):
+        <input type="text" id="input-title">
+      </label>
+      <label>
+        Description (optional):
+        <input type="text" id="input-desc">
+      </label>
+      <label>
+        Config (optional):
+        <textarea id="input-config">start_screen 1
 volume 10
 auto_aspect 1
 overscan 0
@@ -163,42 +175,49 @@ bind_slot_prev ""
 bind_volume_up "="
 bind_volume_down "-"
 </textarea>
-          <p>
-            This config will be used as default. When user changes some options in game, new config is stored in internal browser's storage.
-            If you change config for existing page, you should reset options using in-game menu or clear browser's cache and storages to see changes.
-            You can keep only changed options in the config.
-            <br><a id="a-config" href="javascript:null">Options description</a>
-          </p>
-          <div id="div-config" style="display: none">
-            <ul>
-              <li><code>start_screen</code>: 0 - disabled, 1 - enabled (default). Usually browser blocks audio until first user gesture. When enabled, emulator will show start screen only when audio is blocked. If audio is important for your game from very beginning, before user press any button in game - keep default setting. If your game already has "press to start" screen, or audio is not important - you can disable the option.</li>
-              <li><code>volume</code>: range 1-10, default 10</li>
-              <li><code>auto_aspect</code>: 0 - disabled, 1 - enabled (default)</li>
-              <li><code>overscan</code>: 0 - disabled (default), 1 - enabled</li>
-              <li><code>auto_save_period</code>: period of saving SRAM in seconds, range 1-300, default 60</li>
-              <li><code>show_fps</code>: 0 - disabled (default), 1 - enabled</li>
-              <li><code>fast_forward_scale</code>: range 1-5, default 4</li>
-              <li><code>region</code>: 0 - NTSC, 1 - PAL, 2 - Auto (default), 3 - Dendy</li>
-              <li><code>bind_*</code>: uses <a href="https://github.com/libsdl-org/SDL/blob/release-3.4.16/src/events/SDL_keymap.c#L749">SDL_scancode_names</a></li>
-            </ul>
-          </div>
+      </label>
+      <label>
+        Palette (optional):
+        <input type="file" id="input-palette" accept=".pal">
+      </label>
+      <div style="display: none">
+        <label>
+          <input type="radio" name="build-type" id="build-type-single" value="single" checked> Single file HTML
         </label>
         <label>
-          Palette
-          <input type="file" id="input-palette" accept=".pal">
+          <input type="radio" name="build-type" id="build-type-separate" value="separate"> Separate HTML with NES embedded, and shareable JS+WASM
         </label>
-        <div style="display: none">
-          <label>
-            <input type="radio" name="build-type" id="build-type-single" value="single" checked> Single file HTML
-          </label>
-          <label>
-            <input type="radio" name="build-type" id="build-type-separate" value="separate"> Separate HTML with NES embedded, and shareable JS+WASM
-          </label>
-        </div>
       </div>
       <input type="button" id="button-zip" value="Download ZIP">
       <input type="button" id="button-html" value="Download HTML">
     </form>
+    <h2>About</h2>
+    <p>In embed mode emulator will run game immediately after page loads, and hide some UI, so users can't change rom file.</p>
+    <h3>Browser's cache and storages</h3>
+    <p>
+      Submitted config will be used as default. When user changes some options in game, new config is stored in internal browser's storage.
+      If you change config for existing page, you should reset options using in-game menu or clear browser's cache and storages to see changes.
+    </p>
+    <h3>Audio auto-start</h3>
+    <p>
+      Usually browser blocks audio until first user gesture. By default, emulator will show special "start screen", when audio is blocked, in order to unblock audio. If audio is important for your game from very beginning, before user press any button in game &ndash; keep default setting. If your game already has similar screen, or audio is not important &ndash; you can disable the option.
+    </p>
+    <h3>Config</h3>
+    <p>You can keep only changed options in the config.</p>
+    <ul>
+      <li><code>start_screen</code>: 0 - disabled, 1 - enabled (default)</li>
+      <li><code>volume</code>: range 1-10, default 10</li>
+      <li><code>auto_aspect</code>: 0 - disabled, 1 - enabled (default)</li>
+      <li><code>overscan</code>: 0 - disabled (default), 1 - enabled</li>
+      <li><code>auto_save_period</code>: period of saving SRAM in seconds, range 1-300, default 60</li>
+      <li><code>show_fps</code>: 0 - disabled (default), 1 - enabled</li>
+      <li><code>fast_forward_scale</code>: range 1-5, default 4</li>
+      <li><code>region</code>: 0 - NTSC, 1 - PAL, 2 - Auto (default), 3 - Dendy</li>
+      <li><code>bind_*</code>: uses <a href="https://github.com/libsdl-org/SDL/blob/release-3.4.16/src/events/SDL_keymap.c#L749">SDL_scancode_names</a></li>
+    </ul>
+    <h3>Offline script</h3>
+    <p>For automation there is script with similar functionality in project's <a href="https://github.com/makryl/myaownes">repository</a>.</p>
+    <p><small>Copyright &copy; 2026-2026 Maksim Krylosov</small></p>
     <script>
       const form = document.getElementById("form");
       const inputNes = document.getElementById("input-nes");
@@ -208,10 +227,6 @@ bind_volume_down "-"
       const inputConfig = document.getElementById("input-config");
       const buttonHtml = document.getElementById("button-html");
       const buttonZip = document.getElementById("button-zip");
-      const aAdvanced = document.getElementById("a-advanced");
-      const aConfig = document.getElementById("a-config");
-      const divAdvanced = document.getElementById("div-advanced");
-      const divConfig = document.getElementById("div-config");
       const radioSingle = document.getElementById("build-type-single");
       const radioSeparate = document.getElementById("build-type-separate");
 
@@ -221,8 +236,6 @@ bind_volume_down "-"
 
       let title = "";
 
-      aAdvanced.onclick = function() { divAdvanced.style.display = divAdvanced.style.display === "none" ? "block" : "none"; }
-      aConfig.onclick = function() { divConfig.style.display = divConfig.style.display === "none" ? "block" : "none"; }
       radioSingle.onclick = function() { buttonHtml.style.visibility = "visible"; };
       radioSeparate.onclick = function() { buttonHtml.style.visibility = "hidden"; };
 
