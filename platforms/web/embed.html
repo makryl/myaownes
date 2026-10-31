@@ -163,14 +163,13 @@ bind_slot_prev ""
 bind_volume_up "="
 bind_volume_down "-"
 </textarea>
-          <small><a id="a-config" href="javascript:null">Config info</a></small>
+          <p>
+            This config will be used as default. When user changes some options in game, new config is stored in internal browser's storage.
+            If you change config for existing page, you should reset options using in-game menu or clear browser's cache and storages to see changes.
+            You can keep only changed options in the config.
+            <br><a id="a-config" href="javascript:null">Options description</a>
+          </p>
           <div id="div-config" style="display: none">
-            <p>
-              This config will be used as default. When user changes some options in game, new config is stored in internal browser's storage.
-              If you change config for existing page, you should reset options using in-game menu or clear browser's cache and storages to see changes.
-            </p>
-            <p>You can keep only changed options in the config.</p>
-            <p>Options:</p>
             <ul>
               <li><code>start_screen</code>: 0 - disabled, 1 - enabled (default). Usually browser blocks audio until first user gesture. When enabled, emulator will show start screen only when audio is blocked. If audio is important for your game from very beginning, before user press any button in game - keep default setting. If your game already has "press to start" screen, or audio is not important - you can disable the option.</li>
               <li><code>volume</code>: range 1-10, default 10</li>
