@@ -230,6 +230,7 @@ static struct
   char rom_path[IMP_PATH_SIZE];
   char sram_path[IMP_PATH_SIZE];
   char save_dir[IMP_PATH_SIZE];
+  char default_config_path[IMP_PATH_SIZE];
   char config_path[IMP_PATH_SIZE];
   char history_path[IMP_PATH_SIZE];
   char palette_path[IMP_PATH_SIZE];
@@ -367,6 +368,9 @@ static void imp_save_path(char* dst, const char* subdir, const char* ext)
 
 static void imp_load_history()
 {
+  if (imp.embed_enabled) {
+    return;
+  }
   for (uint i = 0; i < IMP_RECENT_COUNT; ++i) {
     imp.recent_files[i][0] = 0;
   }
@@ -384,6 +388,9 @@ static void imp_load_history()
 
 static void imp_save_history()
 {
+  if (imp.embed_enabled) {
+    return;
+  }
   int idx = -1;
   for (int i = 0; i < IMP_RECENT_COUNT; ++i) {
     if (SDL_strcmp(imp.recent_files[i], imp.rom_path) == 0) {
@@ -557,6 +564,13 @@ static void imp_menu_state(uint state)
 
 static void imp_toggle_menu() { imp_menu_state(imp.menu_state == IMP_MENU_MAIN ? IMP_MENU_OFF : IMP_MENU_MAIN); }
 static void imp_toggle_help() { imp_menu_state(imp.menu_state == IMP_MENU_HELP ? imp.menu_state_prev : IMP_MENU_HELP); }
+
+static void imp_start_off()
+{
+  if (imp.menu_state == IMP_MENU_START) {
+    imp_menu_state(IMP_MENU_OFF);
+  }
+}
 
 static void imp_toggle_pause()
 {
@@ -978,15 +992,6 @@ static void imp_read_config(const char* path)
         }
         SDL_free(data);
       }
-    } else if (strcmp(key, "embed") == 0) {
-      fscanf(f, " \"%[^\"]\"", imp.load_rom_path);
-      if (imp.load_rom_path[0]) {
-        SDL_PathInfo info;
-        SDL_GetPathInfo(imp.load_rom_path, &info);
-        if (info.type == SDL_PATHTYPE_FILE) {
-          imp.embed_enabled = true;
-        }
-      }
     } else if (strcmp(key, "start_screen") == 0) {
       uint val;
       fscanf(f, "%u", &val);
@@ -1081,9 +1086,9 @@ static void imp_config_defaults()
   imp.scancode_by_action[IMP_ACTION_SCALE_UP] = SDL_SCANCODE_RIGHTBRACKET;
   imp.scancode_by_action[IMP_ACTION_SCALE_DOWN] = SDL_SCANCODE_LEFTBRACKET;
 
-#ifdef __EMSCRIPTEN__
-  imp_read_config("embed.txt");
-#endif
+  if (imp.default_config_path[0]) {
+    imp_read_config(imp.default_config_path);
+  }
 }
 
 static void imp_load_config()
@@ -1250,9 +1255,6 @@ static void imp_draw_start()
   imp_draw_line(line++, "     Press F1 to show keymap    ");
   ++line;
   imp_draw_line(line++, "     Touch to show controls     ");
-  if (imp_menu_pressed(-1)) {
-    imp_menu_state(IMP_MENU_OFF);
-  }
 }
 
 static void imp_draw_options()
@@ -1492,7 +1494,32 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   SDL_Log("MyaowNES v%s", MN_VERSION);
   SDL_memset(&imp, 0, sizeof(imp));
 
-  if (SDL_strlen(imp.save_dir) == 0) {
+  for (int i = 0; i < argc; ++i) {
+    if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
+      SDL_Log("MyaowNES v" MN_VERSION);
+      SDL_Log("Usage: myaownes <path/to/game.nes> [options]");
+      SDL_Log("Options:");
+      SDL_Log("-h, --help                       Display help");
+      SDL_Log("--embed                          Embed mode");
+      SDL_Log("--config   <path/to/config.txt>  Default config");
+      SDL_Log("--path     <path/to/save/dir>    Path to save directory");
+      return SDL_APP_SUCCESS;
+    } else if (SDL_strcmp(argv[i], "--embed") == 0) {
+      imp.embed_enabled = true;
+    } else if (SDL_strcmp(argv[i], "--config") == 0) {
+      SDL_strlcpy(imp.default_config_path, argv[++i], IMP_PATH_SIZE);
+    } else if (SDL_strcmp(argv[i], "--path") == 0) {
+      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
+      uint len = SDL_strlen(imp.save_dir);
+      if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
+        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
+      }
+    } else if (i > 0) {
+      SDL_strlcpy(imp.load_rom_path, argv[i], IMP_PATH_SIZE);
+    }
+  }
+
+  if (imp.save_dir[0] == 0) {
     char* pref_path = SDL_GetPrefPath(nullptr, "MyaowNES");
     SDL_strlcpy(imp.save_dir, pref_path, IMP_PATH_SIZE);
     SDL_free(pref_path);
@@ -1517,27 +1544,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   imp_volume_update();
   mn_region_set(imp.region);
 
-  if (imp.embed_enabled) {
+  if (imp.load_rom_path[0]) {
     imp_rom_load(imp.load_rom_path);
-  }
-
-  for (int i = 0; i < argc; ++i) {
-    if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
-      SDL_Log("MyaowNES v" MN_VERSION);
-      SDL_Log("Usage: myaownes [options] [file]");
-      SDL_Log("Options:");
-      SDL_Log("-h, --help         Display help");
-      SDL_Log("-p, --path <path>  Save path");
-      return SDL_APP_SUCCESS;
-    } else if (SDL_strcmp(argv[i], "-p") == 0 || SDL_strcmp(argv[i], "--path") == 0) {
-      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
-      uint len = SDL_strlen(imp.save_dir);
-      if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
-        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
-      }
-    } else if (i > 0) {
-      imp_rom_load(argv[i]);
-    }
   }
 
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
@@ -1627,6 +1635,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       if (onkeyup) {
         onkeyup();
       }
+      imp_start_off();
       break;
     }
     case SDL_EVENT_GAMEPAD_ADDED:
@@ -1716,6 +1725,7 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
           case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_up(); break;
         }
       }
+      imp_start_off();
       break;
 #ifndef NDEBUG
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -1781,13 +1791,16 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
       }
       break;
     }
-#ifndef NDEBUG
     case SDL_EVENT_MOUSE_BUTTON_UP:
+#ifdef NDEBUG
+      imp_start_off();
+      break;
 #endif
     case SDL_EVENT_FINGER_UP:
     case SDL_EVENT_FINGER_CANCELED:
       if (!imp.touch_active) {
         imp.touch_active = true;
+        imp_start_off();
         break;
       }
       imp_touch_cancel(event->type == SDL_EVENT_MOUSE_BUTTON_UP ? SDL_TOUCH_MOUSEID : event->tfinger.fingerID);

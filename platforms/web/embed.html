@@ -245,9 +245,9 @@ bind_volume_down "-"
         if (nesFile) {
           const nesBytes = await nesFile.bytes();
           const nesBase64 = nesBytes.toBase64();
-          title = inputTitle.value || nesFile.name.replace(/\.nes$/, "");
+          title = (inputTitle.value || nesFile.name.replace(/\.nes$/, "")).replace(/[<>:"/\\|?*]/g, "").substring(0, 128);
           const desc = inputDesc.value;
-          let configText = inputConfig.value + '\nembed "embed.nes"\n';
+          let configText = inputConfig.value;
 
           let paletteBase64 = "";
           const paletteFile = inputPalette.files[0];
@@ -264,7 +264,7 @@ bind_volume_down "-"
           return template
             .replace(/<title>(.*)<\/title>/, `<title>${title}</title>`)
             .replace(/<meta content="(.*)"name=description>/, `<meta content="${desc}"name=description>`)
-            .replace("</canvas>", `</canvas><script>window.EMBEDCONFIG="${configBase64}";window.EMBEDPAL="${paletteBase64}";window.EMBEDNES="${nesBase64}";<\/script>`);
+            .replace("</canvas>", `</canvas><script>Module={arguments:["--embed","/${title}.nes","--config","/embed.txt","--path","/storage/${title}/"],preRun:[function(){FS.writeFile("/embed.txt",Uint8Array.fromBase64("${configBase64}"));var p="${paletteBase64}";p&&FS.writeFile("/embed.pal",Uint8Array.fromBase64(p));FS.writeFile("/${title}.nes",Uint8Array.fromBase64("${nesBase64}"))}]}<\/script>`);
         }
         return "";
       }
