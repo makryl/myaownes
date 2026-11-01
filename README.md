@@ -11,7 +11,7 @@ but at some point I just couldn't stop trying to pass every test rom I could fin
 
 Emulator has SDL3 frontend, and the core library can be built independently.
 I tried to keep code straightforward and compact,
-but while the core library code was written carefully, frontend (main.c) is a bit of a mess.
+but while the core library code was written carefully, frontend (src/app) is a bit of a mess.
 
 It passing more than 300 test roms ([log.txt](tests/log.txt), [screenshots](tests/screenshots/)), but still lacks manual testing and may contain simple bugs.
 Supports far from all, but many mappers: 44 discrete, MMC1-4 and partially MMC5, 36 others. While they passes all tests i found, many of mappers were tested simply by launching some game, and some discrete mappers were not tested at all.

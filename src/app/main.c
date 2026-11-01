@@ -1,12 +1,18 @@
 #include "myaownes.h"
 #include "app.h"
-#include "actions.h"
+#include "events.h"
 #include "views.h"
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
 
-static void imp_init()
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+app imp;
+
+static void app_init()
 {
   const char* rom = nullptr;
   const char* tas = nullptr;
@@ -37,11 +43,34 @@ static void imp_init()
   // tas = "../../tmp/tas/feos,alyosha,samsarav1-battletoads.fm2";
 
   if (rom) {
-    imp_rom_load(rom);
+    app_rom_load(rom);
   }
   if (tas) {
-    imp_tas_load(tas);
+    app_tas_load(tas);
   }
+}
+
+static void app_ensure_dir(const char* subdir)
+{
+  char path[APP_PATH_SIZE] = {};
+  SDL_strlcat(path, imp.save_dir, APP_PATH_SIZE);
+  SDL_strlcat(path, subdir, APP_PATH_SIZE);
+  SDL_CreateDirectory(path);
+}
+
+static bool app_audio_suspended()
+{
+#ifdef __EMSCRIPTEN__
+  return emscripten_run_script_int(
+    "(function() {"
+    "  var ctx = new AudioContext();"
+    "  var state = ctx.state;"
+    "  ctx.close();"
+    "  return (state === 'suspended') ? 1 : 0;"
+    "})()");
+#else
+  return false;
+#endif
 }
 
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
@@ -62,45 +91,44 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
     } else if (SDL_strcmp(argv[i], "--embed") == 0) {
       imp.embed_enabled = true;
     } else if (SDL_strcmp(argv[i], "--config") == 0) {
-      SDL_strlcpy(imp.default_config_path, argv[++i], IMP_PATH_SIZE);
+      SDL_strlcpy(imp.default_config_path, argv[++i], APP_PATH_SIZE);
     } else if (SDL_strcmp(argv[i], "--path") == 0) {
-      SDL_strlcpy(imp.save_dir, argv[++i], IMP_PATH_SIZE);
+      SDL_strlcpy(imp.save_dir, argv[++i], APP_PATH_SIZE);
       uint len = SDL_strlen(imp.save_dir);
       if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
-        SDL_strlcat(imp.save_dir, "/", IMP_PATH_SIZE);
+        SDL_strlcat(imp.save_dir, "/", APP_PATH_SIZE);
       }
     } else if (i > 0) {
-      SDL_strlcpy(imp.load_rom_path, argv[i], IMP_PATH_SIZE);
+      SDL_strlcpy(imp.load_rom_path, argv[i], APP_PATH_SIZE);
     }
   }
 
   if (imp.save_dir[0] == 0) {
     char* pref_path = SDL_GetPrefPath(nullptr, "MyaowNES");
-    SDL_strlcpy(imp.save_dir, pref_path, IMP_PATH_SIZE);
+    SDL_strlcpy(imp.save_dir, pref_path, APP_PATH_SIZE);
     SDL_free(pref_path);
   }
 
   SDL_Log("Save path: %s", imp.save_dir);
 
-  imp_ensure_dir("Saves");
-  imp_ensure_dir("Screenshots");
+  app_ensure_dir("Saves");
+  app_ensure_dir("Screenshots");
 #if defined(__EMSCRIPTEN__) || defined(__ANDROID__)
-  imp_ensure_dir("Roms");
+  app_ensure_dir("Roms");
 #endif
 
-  SDL_strlcat(imp.config_path, imp.save_dir, IMP_PATH_SIZE);
-  SDL_strlcat(imp.config_path, "config.txt", IMP_PATH_SIZE);
+  SDL_strlcat(imp.config_path, imp.save_dir, APP_PATH_SIZE);
+  SDL_strlcat(imp.config_path, "config.txt", APP_PATH_SIZE);
 
-  SDL_strlcat(imp.history_path, imp.save_dir, IMP_PATH_SIZE);
-  SDL_strlcat(imp.history_path, "history.txt", IMP_PATH_SIZE);
+  SDL_strlcat(imp.history_path, imp.save_dir, APP_PATH_SIZE);
+  SDL_strlcat(imp.history_path, "history.txt", APP_PATH_SIZE);
 
-  imp_load_config();
-  imp_load_history();
-  imp_volume_update();
+  app_load_config();
+  app_load_history();
   mn_region_set(imp.region);
 
   if (imp.load_rom_path[0]) {
-    imp_rom_load(imp.load_rom_path);
+    app_rom_load(imp.load_rom_path);
   }
 
   SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
@@ -151,341 +179,16 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
           SDL_AUDIO_BITSIZE(spec.format), SDL_AUDIO_ISBIGENDIAN(spec.format) ? "BE" : "LE", spec.channels, samples);
   imp.audio_buffer_size = samples * sizeof(i16);
   mn_audio_freq(spec.freq);
-  imp_volume_update();
+  app_volume_update();
 
-  imp_init();
-  imp_rom_update();
+  app_init();
+  app_rom_update();
 
-  if (imp.embed_enabled && imp.start_screen && imp_audio_suspended()) {
-    imp_menu_state(IMP_MENU_START);
+  if (imp.embed_enabled && imp.start_screen && app_audio_suspended()) {
+    app_menu_state(APP_MENU_START);
   }
 
   return SDL_APP_CONTINUE;
-}
-
-SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
-{
-  switch (event->type) {
-    case SDL_EVENT_QUIT: imp_quit(); break;
-    case SDL_EVENT_WINDOW_RESIZED:
-    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-    case SDL_EVENT_WINDOW_DISPLAY_CHANGED: imp_ondisplaychange(); break;
-    case SDL_EVENT_DROP_FILE: imp_drop_file(event->drop.data); break;
-    // case SDL_EVENT_DISPLAY_ORIENTATION:
-    //   imp_set_fullscreen(event->display.data1 == SDL_ORIENTATION_LANDSCAPE
-    //                      || event->display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED);
-    // break;
-    case SDL_EVENT_KEY_DOWN: {
-      imp.touch_active = false;
-      void (*onkeydown)() = imp_actions[imp.action_by_scancode[event->key.scancode]].onkeydown;
-      if (onkeydown) {
-        onkeydown();
-      } else {
-        imp_popup("Press F1 to show keymap", 2);
-      }
-      break;
-    }
-    case SDL_EVENT_KEY_UP: {
-      void (*onkeyup)() = imp_actions[imp.action_by_scancode[event->key.scancode]].onkeyup;
-      if (onkeyup) {
-        onkeyup();
-      }
-      imp_start_off();
-      break;
-    }
-    case SDL_EVENT_GAMEPAD_ADDED:
-      if (!imp.gamepad1) {
-        imp.gamepad1 = SDL_OpenGamepad(event->gdevice.which);
-        imp.gamepad_id1 = event->gdevice.which;
-      } else if (!imp.gamepad2) {
-        imp.gamepad2 = SDL_OpenGamepad(event->gdevice.which);
-        imp.gamepad_id2 = event->gdevice.which;
-      }
-      break;
-    case SDL_EVENT_GAMEPAD_REMOVED:
-      if (event->gdevice.which == imp.gamepad_id1) {
-        SDL_CloseGamepad(imp.gamepad1);
-        imp.gamepad1 = nullptr;
-        imp.gamepad_id1 = 0;
-      } else if (event->gdevice.which == imp.gamepad_id2) {
-        SDL_CloseGamepad(imp.gamepad2);
-        imp.gamepad2 = nullptr;
-        imp.gamepad_id2 = 0;
-      }
-      break;
-    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-      imp.touch_active = false;
-      switch (event->gbutton.button) {
-        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: imp_fast_forward_on(); break;
-        case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: imp_toggle_menu(); break;
-        case SDL_GAMEPAD_BUTTON_LEFT_STICK: imp_save(); break;
-        case SDL_GAMEPAD_BUTTON_RIGHT_STICK: imp_load(); break;
-      }
-      if (event->gbutton.which == imp.gamepad_id1) {
-        switch (event->gbutton.button) {
-          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy1_dpad_up_down(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy1_dpad_left_down(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy1_dpad_down_down(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy1_dpad_right_down(); break;
-          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy1_b_down(); break;
-          case SDL_GAMEPAD_BUTTON_EAST: imp_joy1_a_down(); break;
-          case SDL_GAMEPAD_BUTTON_WEST: imp_joy1_b_turbo_down(); break;
-          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy1_a_turbo_down(); break;
-          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_down(); break;
-          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_down(); break;
-        }
-      } else if (event->gbutton.which == imp.gamepad_id2) {
-        switch (event->gbutton.button) {
-          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy2_dpad_up_down(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy2_dpad_left_down(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy2_dpad_down_down(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy2_dpad_right_down(); break;
-          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy2_b_down(); break;
-          case SDL_GAMEPAD_BUTTON_EAST: imp_joy2_a_down(); break;
-          case SDL_GAMEPAD_BUTTON_WEST: imp_joy2_b_turbo_down(); break;
-          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy2_a_turbo_down(); break;
-          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_down(); break;
-          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_down(); break;
-        }
-      }
-      break;
-    case SDL_EVENT_GAMEPAD_BUTTON_UP:
-      switch (event->gbutton.button) {
-        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: imp_fast_forward_off(); break;
-      }
-      if (event->gbutton.which == imp.gamepad_id1) {
-        switch (event->gbutton.button) {
-          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy1_dpad_up_up(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy1_dpad_left_up(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy1_dpad_down_up(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy1_dpad_right_up(); break;
-          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy1_b_up(); break;
-          case SDL_GAMEPAD_BUTTON_EAST: imp_joy1_a_up(); break;
-          case SDL_GAMEPAD_BUTTON_WEST: imp_joy1_b_turbo_up(); break;
-          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy1_a_turbo_up(); break;
-          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_up(); break;
-          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_up(); break;
-        }
-      } else if (event->gbutton.which == imp.gamepad_id2) {
-        switch (event->gbutton.button) {
-          case SDL_GAMEPAD_BUTTON_DPAD_UP: imp_joy2_dpad_up_up(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_LEFT: imp_joy2_dpad_left_up(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_DOWN: imp_joy2_dpad_down_up(); break;
-          case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: imp_joy2_dpad_right_up(); break;
-          case SDL_GAMEPAD_BUTTON_SOUTH: imp_joy2_b_up(); break;
-          case SDL_GAMEPAD_BUTTON_EAST: imp_joy2_a_up(); break;
-          case SDL_GAMEPAD_BUTTON_WEST: imp_joy2_b_turbo_up(); break;
-          case SDL_GAMEPAD_BUTTON_NORTH: imp_joy2_a_turbo_up(); break;
-          case SDL_GAMEPAD_BUTTON_BACK: imp_joy1_select_up(); break;
-          case SDL_GAMEPAD_BUTTON_START: imp_joy1_start_up(); break;
-        }
-      }
-      imp_start_off();
-      break;
-#ifndef NDEBUG
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
-#endif
-    case SDL_EVENT_FINGER_DOWN: {
-      if (!imp.touch_active) {
-        break;
-      }
-      float ex = 0;
-      float ey = 0;
-      SDL_FingerID id = 0;
-      if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-        ex = event->button.x;
-        ey = event->button.y;
-        id = SDL_TOUCH_MOUSEID;
-      } else {
-        ex = event->tfinger.x * imp.width;
-        ey = event->tfinger.y * imp.height;
-        id = event->tfinger.fingerID;
-      }
-      if (imp_touch_hit(ex, ey, imp.touch_a_x, imp.touch_a_y, imp.touch_button_ab_radius)) {
-        imp.touch_button[IMP_TOUCH_A] = id;
-        imp_joy1_a_down();
-      } else if (imp_touch_hit(ex, ey, imp.touch_b_x, imp.touch_b_y, imp.touch_button_ab_radius)) {
-        imp.touch_button[IMP_TOUCH_B] = id;
-        imp_joy1_b_down();
-      } else if (imp_touch_hit(ex, ey, imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius)) {
-        imp.touch_button[IMP_TOUCH_START] = id;
-        imp_joy1_start_down();
-      } else if (imp_touch_hit(ex, ey, imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius)) {
-        imp.touch_button[IMP_TOUCH_SELECT] = id;
-        imp_joy1_select_down();
-      } else if (imp_touch_hit(ex, ey, imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius)) {
-        imp_toggle_menu();
-      } else if (imp_touch_hit(ex, ey, imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius)) {
-        imp.touch_button[IMP_TOUCH_FF] = id;
-        imp_fast_forward_on();
-      } else {
-        int dx = ex - imp.touch_dpad_x;
-        int dy = ey - imp.touch_dpad_y;
-        int d2 = dx * dx + dy * dy;
-        int r2 = imp.touch_dpad_radius * imp.touch_dpad_radius;
-        int t2 = imp.touch_dpad_threshold * imp.touch_dpad_threshold;
-        if (d2 < r2 && d2 > t2) {
-          float a = SDL_atan2f(dy, dx);
-          if (a >= -0.875f * SDL_PI_F && a < -0.125f * SDL_PI_F) {
-            imp.touch_button[IMP_TOUCH_UP] = id;
-            imp_joy1_dpad_up_down();
-          }
-          if (a >= 0.125f * SDL_PI_F && a < 0.875f * SDL_PI_F) {
-            imp.touch_button[IMP_TOUCH_DOWN] = id;
-            imp_joy1_dpad_down_down();
-          }
-          if (a < -0.625f * SDL_PI_F || a >= 0.625f * SDL_PI_F) {
-            imp.touch_button[IMP_TOUCH_LEFT] = id;
-            imp_joy1_dpad_left_down();
-          }
-          if (a >= -0.375f * SDL_PI_F && a < 0.375f * SDL_PI_F) {
-            imp.touch_button[IMP_TOUCH_RIGHT] = id;
-            imp_joy1_dpad_right_down();
-          }
-        }
-      }
-      break;
-    }
-    case SDL_EVENT_MOUSE_BUTTON_UP:
-#ifdef NDEBUG
-      imp_start_off();
-      break;
-#endif
-    case SDL_EVENT_FINGER_UP:
-    case SDL_EVENT_FINGER_CANCELED: {
-      if (!imp.touch_active) {
-        imp.touch_active = true;
-        imp_start_off();
-        break;
-      }
-      SDL_FingerID fingerID = event->type == SDL_EVENT_MOUSE_BUTTON_UP ? SDL_TOUCH_MOUSEID : event->tfinger.fingerID;
-      if (imp.touch_button[IMP_TOUCH_A] == fingerID) {
-        imp.touch_button[IMP_TOUCH_A] = 0;
-        imp_joy1_a_up();
-      }
-      if (imp.touch_button[IMP_TOUCH_B] == fingerID) {
-        imp.touch_button[IMP_TOUCH_B] = 0;
-        imp_joy1_b_up();
-      }
-      if (imp.touch_button[IMP_TOUCH_START] == fingerID) {
-        imp.touch_button[IMP_TOUCH_START] = 0;
-        imp_joy1_start_up();
-      }
-      if (imp.touch_button[IMP_TOUCH_SELECT] == fingerID) {
-        imp.touch_button[IMP_TOUCH_SELECT] = 0;
-        imp_joy1_select_up();
-      }
-      if (imp.touch_button[IMP_TOUCH_FF] == fingerID) {
-        imp.touch_button[IMP_TOUCH_FF] = 0;
-        imp_fast_forward_off();
-      }
-      if (imp.touch_button[IMP_TOUCH_UP] == fingerID) {
-        imp.touch_button[IMP_TOUCH_UP] = 0;
-        imp_joy1_dpad_up_up();
-      }
-      if (imp.touch_button[IMP_TOUCH_DOWN] == fingerID) {
-        imp.touch_button[IMP_TOUCH_DOWN] = 0;
-        imp_joy1_dpad_down_up();
-      }
-      if (imp.touch_button[IMP_TOUCH_LEFT] == fingerID) {
-        imp.touch_button[IMP_TOUCH_LEFT] = 0;
-        imp_joy1_dpad_left_up();
-      }
-      if (imp.touch_button[IMP_TOUCH_RIGHT] == fingerID) {
-        imp.touch_button[IMP_TOUCH_RIGHT] = 0;
-        imp_joy1_dpad_right_up();
-      }
-      break;
-    }
-#ifndef NDEBUG
-    case SDL_EVENT_MOUSE_MOTION:
-#endif
-    case SDL_EVENT_FINGER_MOTION: {
-      if (!imp.touch_active) {
-        break;
-      }
-      float ex = 0;
-      float ey = 0;
-      SDL_FingerID id = 0;
-      if (event->type == SDL_EVENT_MOUSE_MOTION) {
-        if (event->motion.state != 1) {
-          break;
-        }
-        ex = event->motion.x;
-        ey = event->motion.y;
-        id = SDL_TOUCH_MOUSEID;
-      } else {
-        ex = event->tfinger.x * imp.width;
-        ey = event->tfinger.y * imp.height;
-        id = event->tfinger.fingerID;
-      }
-      if (imp_touch_hit(ex, ey, imp.touch_a_x, imp.touch_a_y, imp.touch_button_ab_radius)) {
-        if (imp.touch_button[IMP_TOUCH_A] != id) {
-          imp.touch_button[IMP_TOUCH_A] = id;
-          imp_joy1_a_down();
-        }
-      } else if (imp.touch_button[IMP_TOUCH_A] == id) {
-        imp.touch_button[IMP_TOUCH_A] = 0;
-        imp_joy1_a_up();
-      }
-      if (imp_touch_hit(ex, ey, imp.touch_b_x, imp.touch_b_y, imp.touch_button_ab_radius)) {
-        if (imp.touch_button[IMP_TOUCH_B] != id) {
-          imp.touch_button[IMP_TOUCH_B] = id;
-          imp_joy1_b_down();
-        }
-      } else if (imp.touch_button[IMP_TOUCH_B] == id) {
-        imp.touch_button[IMP_TOUCH_B] = 0;
-        imp_joy1_b_up();
-      }
-      {
-        int dx = ex - imp.touch_dpad_x;
-        int dy = ey - imp.touch_dpad_y;
-        int d2 = dx * dx + dy * dy;
-        int r2 = imp.touch_dpad_radius * imp.touch_dpad_radius;
-        int t2 = imp.touch_dpad_threshold * imp.touch_dpad_threshold;
-        bool hit = d2 < r2 && d2 > t2;
-        float a = SDL_atan2f(dy, dx);
-        if (hit && a >= -0.875f * SDL_PI_F && a < -0.125f * SDL_PI_F) {
-          if (imp.touch_button[IMP_TOUCH_UP] != id) {
-            imp.touch_button[IMP_TOUCH_UP] = id;
-            imp_joy1_dpad_up_down();
-          }
-        } else if (imp.touch_button[IMP_TOUCH_UP] == id) {
-          imp.touch_button[IMP_TOUCH_UP] = 0;
-          imp_joy1_dpad_up_up();
-        }
-        if (hit && a >= 0.125f * SDL_PI_F && a < 0.875f * SDL_PI_F) {
-          if (imp.touch_button[IMP_TOUCH_DOWN] != id) {
-            imp.touch_button[IMP_TOUCH_DOWN] = id;
-            imp_joy1_dpad_down_down();
-          }
-        } else if (imp.touch_button[IMP_TOUCH_DOWN] == id) {
-          imp.touch_button[IMP_TOUCH_DOWN] = 0;
-          imp_joy1_dpad_down_up();
-        }
-        if (hit && (a < -0.625f * SDL_PI_F || a >= 0.625f * SDL_PI_F)) {
-          if (imp.touch_button[IMP_TOUCH_LEFT] != id) {
-            imp.touch_button[IMP_TOUCH_LEFT] = id;
-            imp_joy1_dpad_left_down();
-          }
-        } else if (imp.touch_button[IMP_TOUCH_LEFT] == id) {
-          imp.touch_button[IMP_TOUCH_LEFT] = 0;
-          imp_joy1_dpad_left_up();
-        }
-        if (hit && a >= -0.375f * SDL_PI_F && a < 0.375f * SDL_PI_F) {
-          if (imp.touch_button[IMP_TOUCH_RIGHT] != id) {
-            imp.touch_button[IMP_TOUCH_RIGHT] = id;
-            imp_joy1_dpad_right_down();
-          }
-        } else if (imp.touch_button[IMP_TOUCH_RIGHT] == id) {
-          imp.touch_button[IMP_TOUCH_RIGHT] = 0;
-          imp_joy1_dpad_right_up();
-        }
-      }
-      break;
-    }
-  }
-  return imp.quit ? SDL_APP_SUCCESS : SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void*)
@@ -494,8 +197,8 @@ SDL_AppResult SDL_AppIterate(void*)
     if (SDL_CompareAndSwapAtomicInt(&imp.load_rom_dialog_done, 1, 0)) {
       imp.load_rom_dialog_wait = false;
       if (imp.load_rom_path[0]) {
-        imp_rom_load(imp.load_rom_path);
-        imp_rom_update();
+        app_rom_load(imp.load_rom_path);
+        app_rom_update();
       }
     }
   }
@@ -512,7 +215,7 @@ SDL_AppResult SDL_AppIterate(void*)
     game_frame_time = 0;
   } else if (imp.fast_forward) {
     game_frame_time *= imp.fast_forward_scale;
-    imp_popup(">>", 0.5);
+    app_popup(">>", 0.5);
   } else if (imp.fps_test) {
     game_frame_time = imp.target_frame_time;
   }
@@ -561,7 +264,7 @@ SDL_AppResult SDL_AppIterate(void*)
       mn_rom_save(imp.sram_path);
     }
   }
-  imp_save_config();
+  app_save_config();
 
   SDL_SetRenderScale(imp.renderer, 1, 1);
   SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xFF);
@@ -572,15 +275,15 @@ SDL_AppResult SDL_AppIterate(void*)
 
   SDL_SetRenderScale(imp.renderer, imp.ui_offset.w, imp.ui_offset.h);
   switch (imp.menu_state) {
-    case IMP_MENU_MAIN: imp_draw_menu(); break;
-    case IMP_MENU_OPTIONS: imp_draw_options(); break;
-    case IMP_MENU_INFO: imp_draw_info(); break;
-    case IMP_MENU_HELP: imp_draw_help(); break;
-    case IMP_MENU_RECENT: imp_draw_recent(); break;
-    case IMP_MENU_START: imp_draw_start(); break;
+    case APP_MENU_MAIN: app_draw_menu(); break;
+    case APP_MENU_OPTIONS: app_draw_options(); break;
+    case APP_MENU_INFO: app_draw_info(); break;
+    case APP_MENU_HELP: app_draw_help(); break;
+    case APP_MENU_RECENT: app_draw_recent(); break;
+    case APP_MENU_START: app_draw_start(); break;
   }
   if (imp.popup_time > 0) {
-    imp_draw_popup();
+    app_draw_popup();
   }
   if (imp.fps) {
     SDL_SetRenderDrawColor(imp.renderer, 0x80, 0, 0x80, 0xFF);
@@ -592,7 +295,7 @@ SDL_AppResult SDL_AppIterate(void*)
   }
   if (imp.touch_active) {
     SDL_SetRenderScale(imp.renderer, 1, 1);
-    imp_draw_touch();
+    app_draw_touch();
   }
 
   SDL_RenderPresent(imp.renderer);
@@ -602,8 +305,9 @@ SDL_AppResult SDL_AppIterate(void*)
 
 void SDL_AppQuit(void*, SDL_AppResult)
 {
-  imp_rom_unload();
-  imp_save_config();
+  app_rom_unload();
+  app_tas_unload();
+  app_save_config();
   SDL_CloseGamepad(imp.gamepad1);
   SDL_CloseGamepad(imp.gamepad2);
   SDL_DestroyAudioStream(imp.stream);

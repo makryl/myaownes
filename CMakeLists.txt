@@ -22,7 +22,12 @@ add_library(${PROJECT_NAME}-static
 target_include_directories(${PROJECT_NAME}-static PUBLIC include)
 target_link_libraries(${PROJECT_NAME}-static PUBLIC SDL3-static)
 
-add_executable(${PROJECT_NAME} src/app/main.c)
+add_executable(${PROJECT_NAME}
+  src/app/app.c
+  src/app/events.c
+  src/app/main.c
+  src/app/views.c
+)
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-static)
 
 add_executable(${PROJECT_NAME}-tests EXCLUDE_FROM_ALL src/tests.c)
