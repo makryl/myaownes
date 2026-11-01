@@ -1,7 +1,7 @@
 #include "myaownes.h"
-#include "app/app.h"
-#include "app/actions.h"
-#include "app/views.h"
+#include "app.h"
+#include "actions.h"
+#include "views.h"
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
@@ -604,12 +604,8 @@ void SDL_AppQuit(void*, SDL_AppResult)
 {
   imp_rom_unload();
   imp_save_config();
-  if (imp.gamepad1) {
-    SDL_CloseGamepad(imp.gamepad1);
-  }
-  if (imp.gamepad2) {
-    SDL_CloseGamepad(imp.gamepad2);
-  }
+  SDL_CloseGamepad(imp.gamepad1);
+  SDL_CloseGamepad(imp.gamepad2);
   SDL_DestroyAudioStream(imp.stream);
   SDL_CloseAudioDevice(imp.audioDeviceId);
   SDL_DestroyTexture(imp.tex_out);

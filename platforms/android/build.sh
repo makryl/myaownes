@@ -16,7 +16,7 @@ PROJ_DIR=$OUT_DIR/$NAME
 RES_DIR=$PROJ_DIR/app/src/main/res/
 
 # Generate project
-$SDL_DIR/build-scripts/create-android-project.py $NAME $ROOT_DIR/src/main.c $ROOT_DIR/src/core/* $ROOT_DIR/include/* -o $OUT_DIR
+$SDL_DIR/build-scripts/create-android-project.py $NAME $ROOT_DIR/src/app/* $ROOT_DIR/src/core/* $ROOT_DIR/include/* -o $OUT_DIR
 
 # Overwrite configs
 sed -i 's/add_library/set(CMAKE_C_STANDARD 23)\nset(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -g -DNDEBUG -flto")\nset(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "-flto")\nadd_library/' $PROJ_DIR/app/jni/src/CMakeLists.txt
