@@ -4,7 +4,7 @@ NES emulator written in C, aimed at cycle-accuracy and passing tests.
 
 - [Play MyaowNES online](https://makryl.github.io/myaownes/)
 - [Download release](https://github.com/makryl/myaownes/releases) (Linux x64, Windows x64, MacOS, Android, WebAssembly)
-- [Zlib license](LICENSE.txt)
+- [Embed NES in HTML online tool](https://makryl.github.io/myaownes/embed.html)
 
 This project was started for educational purposes, to learn bytecode and assembly,
 but at some point I just couldn't stop trying to pass every test rom I could find.
