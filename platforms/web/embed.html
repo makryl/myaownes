@@ -180,6 +180,18 @@ bind_volume_down "-"
         Palette (optional):
         <input type="file" id="input-palette" accept=".pal">
       </label>
+      <label>
+        UI Atlas (optional):
+        <input type="file" id="input-atlas" accept=".png">
+        <small>
+          Download and edit template with
+          <a download="myaownes_ui_default.png" href="data:image/png;base64,%%ATLAS0%%">default</a>,
+          or one of alternative fonts:
+          <a download="myaownes_ui_sans.png" href="data:image/png;base64,%%ATLAS1%%">sans-serif</a>,
+          <a download="myaownes_ui_fantasy.png" href="data:image/png;base64,%%ATLAS2%%">fantasy</a>,
+          <a download="myaownes_ui_scifi.png" href="data:image/png;base64,%%ATLAS3%%">sci-fi</a>.
+        </small>
+      </label>
       <div style="display: none">
         <label>
           <input type="radio" name="build-type" id="build-type-single" value="single" checked> Single file HTML
@@ -222,6 +234,7 @@ bind_volume_down "-"
       const form = document.getElementById("form");
       const inputNes = document.getElementById("input-nes");
       const inputPalette = document.getElementById("input-palette");
+      const inputAtlas = document.getElementById("input-atlas");
       const inputTitle = document.getElementById("input-title");
       const inputDesc = document.getElementById("input-desc");
       const inputConfig = document.getElementById("input-config");
@@ -257,6 +270,14 @@ bind_volume_down "-"
             configText += '\npalette "embed.pal"\n';
           }
 
+          let atlasBase64 = "";
+          const atlasFile = inputAtlas.files[0];
+          if (atlasFile) {
+            const atlasBytes = await atlasFile.bytes();
+            atlasBase64 = atlasBytes.toBase64();
+            configText += '\natlas "embed.png"\n';
+          }
+
           const configEncoder = new TextEncoder();
           const configBytes = configEncoder.encode(configText);
           const configBase64 = configBytes.toBase64();
@@ -264,7 +285,7 @@ bind_volume_down "-"
           return template
             .replace(/<title>(.*)<\/title>/, `<title>${title}</title>`)
             .replace(/<meta content="(.*)"name=description>/, `<meta content="${desc}"name=description>`)
-            .replace("</canvas>", `</canvas><script>Module={arguments:["--embed","/${title}.nes","--config","/embed.txt","--path","/storage/${title}/"],preRun:[function(){FS.writeFile("/embed.txt",Uint8Array.fromBase64("${configBase64}"));var p="${paletteBase64}";p&&FS.writeFile("/embed.pal",Uint8Array.fromBase64(p));FS.writeFile("/${title}.nes",Uint8Array.fromBase64("${nesBase64}"))}]}<\/script>`);
+            .replace("</canvas>", `</canvas><script>Module={arguments:["--embed","/${title}.nes","--config","/embed.txt","--path","/storage/${title}/"],preRun:[function(){FS.writeFile("/embed.txt",Uint8Array.fromBase64("${configBase64}"));var p="${paletteBase64}";p&&FS.writeFile("/embed.pal",Uint8Array.fromBase64(p));var a="${atlasBase64}";a&&FS.writeFile("/embed.png",Uint8Array.fromBase64(a));FS.writeFile("/${title}.nes",Uint8Array.fromBase64("${nesBase64}"))}]}<\/script>`);
         }
         return "";
       }

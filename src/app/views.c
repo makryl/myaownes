@@ -9,6 +9,20 @@ static const uint char_padding = 1;
 static const uint app_char_width = 8;
 static const uint app_char_height = 8;
 
+static const SDL_FRect app_touch_buttons[APP_TOUCH_COUNT] = {
+  { 0, 128, 128, 128 }, //
+  { 128, 128, 128, 128 }, //
+  { 0, 64, 64, 64 }, //
+  { 64, 64, 64, 64 }, //
+  { 0, 0, 0, 0 }, //
+  { 0, 0, 0, 0 }, //
+  { 0, 0, 0, 0 }, //
+  { 0, 0, 0, 0 }, //
+  { 128, 64, 64, 64 }, //
+  { 192, 64, 64, 64 }, //
+  { 256, 0, 256, 256 }, //
+};
+
 bool app_load_atlas()
 {
   SDL_Surface* surface = imp.atlas_path[0] ? SDL_LoadPNG(imp.atlas_path)
@@ -17,14 +31,17 @@ bool app_load_atlas()
     SDL_Log("%s", SDL_GetError());
     return false;
   }
-  imp.tex_ui = SDL_CreateTextureFromSurface(imp.renderer, surface);
+  imp.tex_font = SDL_CreateTextureFromSurface(imp.renderer, surface);
+  imp.tex_buttons = SDL_CreateTextureFromSurface(imp.renderer, surface);
   SDL_DestroySurface(surface);
-  if (!imp.tex_ui) {
+  if (!imp.tex_font || !imp.tex_buttons) {
     SDL_Log("%s", SDL_GetError());
     return false;
   }
-  SDL_SetTextureScaleMode(imp.tex_ui, SDL_SCALEMODE_PIXELART);
-  SDL_SetTextureBlendMode(imp.tex_ui, SDL_BLENDMODE_BLEND);
+  SDL_SetTextureScaleMode(imp.tex_font, SDL_SCALEMODE_PIXELART);
+  SDL_SetTextureBlendMode(imp.tex_font, SDL_BLENDMODE_BLEND);
+  SDL_SetTextureScaleMode(imp.tex_buttons, SDL_SCALEMODE_LINEAR);
+  SDL_SetTextureBlendMode(imp.tex_buttons, SDL_BLENDMODE_BLEND);
   return true;
 }
 
@@ -38,7 +55,7 @@ static void app_draw_char(float x, float y, char c)
   const uint atlas_y = ((i / char_per_row) * (app_char_height + 2 * char_padding)) + char_padding;
   const SDL_FRect srect = { atlas_x, atlas_y, app_char_width, app_char_height };
   const SDL_FRect drect = { x, y, app_char_width, app_char_height };
-  SDL_RenderTexture(imp.renderer, imp.tex_ui, &srect, &drect);
+  SDL_RenderTexture(imp.renderer, imp.tex_font, &srect, &drect);
 }
 
 static void app_draw_text(float x, float y, const char* str)
@@ -58,8 +75,7 @@ static void app_draw_text_format(float x, float y, const char* fmt, ...)
   app_draw_text(x, y, str);
 }
 
-static void app_text_color(u8 r, u8 g, u8 b) { SDL_SetTextureColorMod(imp.tex_ui, r, g, b); }
-static void app_text_alpha(u8 a) { SDL_SetTextureAlphaMod(imp.tex_ui, a); }
+static void app_text_color(u8 r, u8 g, u8 b) { SDL_SetTextureColorMod(imp.tex_font, r, g, b); }
 
 void app_draw_popup()
 {
@@ -141,7 +157,6 @@ static void app_draw_menu_prepare(int menu_size)
   SDL_RenderFillRect(imp.renderer, &fill);
 
   app_text_color(0xFF, 0xFF, 0xFF);
-  app_text_alpha(0xFF);
 }
 
 void app_draw_menu()
@@ -363,25 +378,19 @@ void app_draw_recent()
   }
 }
 
-static void app_draw_touch_button(const char* label, uint x, uint y, uint r)
+static void app_draw_touch_button(uint button, uint x, uint y, uint r)
 {
-  SDL_FRect rect = { x - r, y - r, 2 * r, 2 * r };
-  SDL_RenderRect(imp.renderer, &rect);
-  app_draw_text(x - 4, y - 4, label);
+  SDL_FRect drect = { x - r, y - r, 2 * r, 2 * r };
+  SDL_RenderTexture(imp.renderer, imp.tex_buttons, &app_touch_buttons[button], &drect);
 }
 
 void app_draw_touch()
 {
-  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0x80, 0x80, 0x80);
-  app_text_color(0x80, 0x80, 0x80);
-  app_text_alpha(0x80);
-
-  app_draw_touch_button("M", imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius);
-  app_draw_touch_button("F", imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius);
-  app_draw_touch_button("St", imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius);
-  app_draw_touch_button("Se", imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius);
-  app_draw_touch_button("A", imp.touch_a_x, imp.touch_a_y, imp.touch_button_ab_radius);
-  app_draw_touch_button("B", imp.touch_b_x, imp.touch_b_y, imp.touch_button_ab_radius);
-  app_draw_touch_button("+", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius);
-  app_draw_touch_button("", imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_threshold);
+  app_draw_touch_button(APP_TOUCH_A, imp.touch_a_x, imp.touch_a_y, imp.touch_button_ab_radius);
+  app_draw_touch_button(APP_TOUCH_B, imp.touch_b_x, imp.touch_b_y, imp.touch_button_ab_radius);
+  app_draw_touch_button(APP_TOUCH_START, imp.touch_start_x, imp.touch_start_y, imp.touch_button_radius);
+  app_draw_touch_button(APP_TOUCH_SELECT, imp.touch_select_x, imp.touch_select_y, imp.touch_button_radius);
+  app_draw_touch_button(APP_TOUCH_MENU, imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius);
+  app_draw_touch_button(APP_TOUCH_FF, imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius);
+  app_draw_touch_button(APP_TOUCH_DPAD, imp.touch_dpad_x, imp.touch_dpad_y, imp.touch_dpad_radius);
 }

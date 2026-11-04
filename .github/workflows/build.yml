@@ -202,7 +202,7 @@ jobs:
           cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-use=pgo.profdata" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use=pgo.profdata"
           cmake --build build/Emscripten-Release --clean-first --target install
 
-          base64 -w 0 dist/Emscripten-Release/index.html | awk 'NR==FNR {b64=$0; next} {gsub(/%%HTML%%/, b64); print}' - platforms/web/embed.html > dist/Emscripten-Release/embed.html
+          (base64 -w 0 dist/Emscripten-Release/index.html; echo; base64 -w 0 res/ui_default.png; echo; base64 -w 0 res/ui_sans.png; echo; base64 -w 0 res/ui_fantasy.png; echo; base64 -w 0 res/ui_scifi.png) | awk 'NR==1{b1=$0;next} NR==2{b2=$0;next} NR==3{b3=$0;next} NR==4{b4=$0;next} NR==5{b5=$0;next} {gsub(/%%HTML%%/,b1); gsub(/%%ATLAS0%%/,b2); gsub(/%%ATLAS1%%/,b3); gsub(/%%ATLAS2%%/,b4); gsub(/%%ATLAS3%%/,b5); print}' - platforms/web/embed.html > dist/Emscripten-Release/embed.html
           zip -j dist/myaownes_latest_wasm32.zip LICENSE.txt README.md platforms/web/embed.js dist/Emscripten-Release/*
 
       - uses: actions/upload-pages-artifact@v3

@@ -39,6 +39,7 @@ Optional arguments:
 - `--template <path/to/index.html>`
 - `--config <path/to/config.txt>`
 - `--palette <path/to/palette.pal>`
+- `--atlas <path/to/atlas.png>`
 - `--title <title>`
 - `--desc <desc>`
 

@@ -253,6 +253,7 @@ void app_save_config()
   // fprintf(f, "filter_hp %u\n", imp.filter_hp);
   // fprintf(f, "filter_lp %u\n", imp.filter_lp);
   fprintf(f, "palette \"%s\"\n", imp.palette_path);
+  fprintf(f, "atlas \"%s\"\n", imp.atlas_path);
 #endif
   for (uint i = 1; i < APP_ACTION_COUNT; ++i) {
     fprintf(f, "%s \"%s\"\n", app_actions[i].label, SDL_GetScancodeName(imp.scancode_by_action[i]));
@@ -314,6 +315,8 @@ static void app_read_config(const char* path)
         }
         SDL_free(data);
       }
+    } else if (strcmp(key, "atlas") == 0) {
+      fscanf(f, " \"%[^\"]\"", imp.atlas_path);
     } else if (strcmp(key, "start_screen") == 0) {
       uint val;
       fscanf(f, "%u", &val);

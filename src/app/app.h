@@ -26,11 +26,13 @@ enum
   APP_TOUCH_B,
   APP_TOUCH_START,
   APP_TOUCH_SELECT,
-  APP_TOUCH_FF,
   APP_TOUCH_UP,
   APP_TOUCH_DOWN,
   APP_TOUCH_LEFT,
   APP_TOUCH_RIGHT,
+  APP_TOUCH_MENU,
+  APP_TOUCH_FF,
+  APP_TOUCH_DPAD,
   APP_TOUCH_COUNT,
 };
 
@@ -104,7 +106,8 @@ typedef struct
   SDL_Window* window;
   SDL_Renderer* renderer;
   SDL_Texture* tex_out;
-  SDL_Texture* tex_ui;
+  SDL_Texture* tex_font;
+  SDL_Texture* tex_buttons;
   SDL_Gamepad* gamepad1;
   SDL_Gamepad* gamepad2;
   SDL_AudioDeviceID audioDeviceId;

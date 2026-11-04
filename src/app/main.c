@@ -312,7 +312,8 @@ void SDL_AppQuit(void*, SDL_AppResult)
   SDL_DestroyAudioStream(imp.stream);
   SDL_CloseAudioDevice(imp.audioDeviceId);
   SDL_DestroyTexture(imp.tex_out);
-  SDL_DestroyTexture(imp.tex_ui);
+  SDL_DestroyTexture(imp.tex_font);
+  SDL_DestroyTexture(imp.tex_buttons);
   SDL_DestroyRenderer(imp.renderer);
   SDL_DestroyWindow(imp.window);
 }
