@@ -177,23 +177,29 @@ void mn_video_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint*
   *dh = (uint)(h + 0.5f);
 }
 
-void mn_video_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh)
+void mn_video_fit(bool auto_aspect, bool overscan, uint sw, uint sh, int* dx, int* dy, uint* dw, uint* dh)
 {
   if (mn_region_get() != MN_REGION_NTSC) {
     overscan = false;
   }
   float aspect_scale = dev_aspect_scale(auto_aspect);
   float aspect_target = dev_aspect_target(auto_aspect, overscan);
-  float aspect_output = sw / sh;
+  float aspect_output = (float)sw / sh;
+  float w = 0.0f;
+  float h = 0.0f;
   if (aspect_target <= aspect_output) {
-    *dh = sh * aspect_target / aspect_scale;
-    *dw = *dh * aspect_scale;
+    h = sh * aspect_target / aspect_scale;
+    w = h * aspect_scale;
   } else {
-    *dw = sw;
-    *dh = *dw / aspect_scale;
+    w = sw;
+    h = w / aspect_scale;
   }
-  *dx = (sw - *dw) / 2.0f;
-  *dy = (sh - *dh) / 2.0f;
+  float x = (sw - w) / 2.0f;
+  float y = (sh - h) / 2.0f;
+  *dx = (int)(x + 0.5f);
+  *dy = (int)(y + 0.5f);
+  *dw = (uint)(w + 0.5f);
+  *dh = (uint)(h + 0.5f);
 }
 
 uint mn_region_get() { return dev_region; }

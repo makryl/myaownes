@@ -165,6 +165,10 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
   SDL_SetTextureScaleMode(imp.tex_out, SDL_SCALEMODE_PIXELART);
 
+  if (!app_load_atlas()) {
+    return SDL_APP_FAILURE;
+  }
+
   imp.audioDeviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
   SDL_AudioSpec spec;
   int samples;
@@ -286,12 +290,7 @@ SDL_AppResult SDL_AppIterate(void*)
     app_draw_popup();
   }
   if (imp.fps) {
-    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0, 0x80, 0xFF);
-    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8, imp.ui_offset.y + 21, "%4d",
-                              (int)imp.fps_value);
-    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
-    SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x + 256 - 4 * 8 - 1, imp.ui_offset.y + 20, "%4d",
-                              (int)imp.fps_value);
+    app_draw_fps();
   }
   if (imp.touch_active) {
     SDL_SetRenderScale(imp.renderer, 1, 1);
@@ -313,7 +312,7 @@ void SDL_AppQuit(void*, SDL_AppResult)
   SDL_DestroyAudioStream(imp.stream);
   SDL_CloseAudioDevice(imp.audioDeviceId);
   SDL_DestroyTexture(imp.tex_out);
-  SDL_DestroyTexture(imp.tex_font);
+  SDL_DestroyTexture(imp.tex_ui);
   SDL_DestroyRenderer(imp.renderer);
   SDL_DestroyWindow(imp.window);
 }

@@ -104,7 +104,7 @@ typedef struct
   SDL_Window* window;
   SDL_Renderer* renderer;
   SDL_Texture* tex_out;
-  SDL_Texture* tex_font;
+  SDL_Texture* tex_ui;
   SDL_Gamepad* gamepad1;
   SDL_Gamepad* gamepad2;
   SDL_AudioDeviceID audioDeviceId;
@@ -185,6 +185,7 @@ typedef struct
   char config_path[APP_PATH_SIZE];
   char history_path[APP_PATH_SIZE];
   char palette_path[APP_PATH_SIZE];
+  char atlas_path[APP_PATH_SIZE];
   char recent_files[APP_RECENT_COUNT][APP_PATH_SIZE];
   SDL_Scancode scancode_by_action[APP_ACTION_COUNT];
   app_action action_by_scancode[SDL_SCANCODE_COUNT];

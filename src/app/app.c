@@ -14,12 +14,19 @@ void app_ondisplaychange()
   imp.target_frame_time = imp.perf_freq / mn_video_freq(freq);
 
   SDL_GetWindowSizeInPixels(imp.window, &imp.width, &imp.height);
-  mn_video_fit(imp.auto_aspect, imp.overscan, imp.width, imp.height, &imp.rect.x, &imp.rect.y, &imp.rect.w,
-               &imp.rect.h);
-  imp.ui_offset.w = imp.rect.w / 256;
-  imp.ui_offset.h = imp.rect.h / 240;
-  imp.ui_offset.x = imp.rect.x / imp.ui_offset.w;
-  imp.ui_offset.y = imp.rect.y / imp.ui_offset.h;
+  int x = 0;
+  int y = 0;
+  uint w = 0;
+  uint h = 0;
+  mn_video_fit(imp.auto_aspect, imp.overscan, imp.width, imp.height, &x, &y, &w, &h);
+  imp.rect.x = x;
+  imp.rect.y = y;
+  imp.rect.w = w;
+  imp.rect.h = h;
+  imp.ui_offset.w = (float)w / 256;
+  imp.ui_offset.h = (float)h / 240;
+  imp.ui_offset.x = (float)x / imp.ui_offset.w;
+  imp.ui_offset.y = (float)y / imp.ui_offset.h;
 
   float ph = (imp.height < imp.width ? imp.height : imp.width) / 16.0f;
   uint ab_off = (float)imp.width / imp.height > 16.0 / 15.0 ? 1 : 0;

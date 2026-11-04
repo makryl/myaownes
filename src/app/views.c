@@ -2,19 +2,84 @@
 
 #include "app.h"
 #include "events.h"
+#include "res_ui.h"
+
+static const uint char_per_row = 25;
+static const uint char_padding = 1;
+static const uint app_char_width = 8;
+static const uint app_char_height = 8;
+
+bool app_load_atlas()
+{
+  SDL_Surface* surface = imp.atlas_path[0] ? SDL_LoadPNG(imp.atlas_path)
+                                           : SDL_LoadPNG_IO(SDL_IOFromConstMem(res_ui_png, res_ui_png_len), true);
+  if (!surface) {
+    SDL_Log("%s", SDL_GetError());
+    return false;
+  }
+  imp.tex_ui = SDL_CreateTextureFromSurface(imp.renderer, surface);
+  SDL_DestroySurface(surface);
+  if (!imp.tex_ui) {
+    SDL_Log("%s", SDL_GetError());
+    return false;
+  }
+  SDL_SetTextureScaleMode(imp.tex_ui, SDL_SCALEMODE_PIXELART);
+  SDL_SetTextureBlendMode(imp.tex_ui, SDL_BLENDMODE_BLEND);
+  return true;
+}
+
+static void app_draw_char(float x, float y, char c)
+{
+  if ((c <= 32) || (c >= 127)) {
+    return;
+  }
+  const uint i = c - 32;
+  const uint atlas_x = ((i % char_per_row) * (app_char_width + 2 * char_padding)) + char_padding;
+  const uint atlas_y = ((i / char_per_row) * (app_char_height + 2 * char_padding)) + char_padding;
+  const SDL_FRect srect = { atlas_x, atlas_y, app_char_width, app_char_height };
+  const SDL_FRect drect = { x, y, app_char_width, app_char_height };
+  SDL_RenderTexture(imp.renderer, imp.tex_ui, &srect, &drect);
+}
+
+static void app_draw_text(float x, float y, const char* str)
+{
+  for (uint i = 0; str[i] != 0; ++i) {
+    app_draw_char(x + i * app_char_width, y, str[i]);
+  }
+}
+
+static void app_draw_text_format(float x, float y, const char* fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  char str[256];
+  SDL_vsnprintf(str, sizeof(str), fmt, ap);
+  va_end(ap);
+  app_draw_text(x, y, str);
+}
+
+static void app_text_color(u8 r, u8 g, u8 b) { SDL_SetTextureColorMod(imp.tex_ui, r, g, b); }
+static void app_text_alpha(u8 a) { SDL_SetTextureAlphaMod(imp.tex_ui, a); }
 
 void app_draw_popup()
 {
   imp.popup_time -= imp.popup_time > imp.real_frame_time ? imp.real_frame_time : imp.popup_time;
-  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0, 0x80, 0xFF);
-  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 2, imp.ui_offset.y + 21, imp.popup_text);
-  SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
-  SDL_RenderDebugText(imp.renderer, imp.ui_offset.x + 1, imp.ui_offset.y + 20, imp.popup_text);
+  app_text_color(0x80, 0, 0x80);
+  app_draw_text(imp.ui_offset.x + 2, imp.ui_offset.y + 21, imp.popup_text);
+  app_text_color(0x80, 0xFF, 0x80);
+  app_draw_text(imp.ui_offset.x + 1, imp.ui_offset.y + 20, imp.popup_text);
 }
 
-#define app_draw_line(line, fmt, ...)                                                    \
-  SDL_RenderDebugTextFormat(imp.renderer, imp.ui_offset.x, imp.ui_offset.y + 8 * (line), \
-                            fmt __VA_OPT__(, ) __VA_ARGS__);
+void app_draw_fps()
+{
+  app_text_color(0x80, 0, 0x80);
+  app_draw_text_format(imp.ui_offset.x + 256 - 4 * 8, imp.ui_offset.y + 21, "%4d", (int)imp.fps_value);
+  app_text_color(0x80, 0xFF, 0x80);
+  app_draw_text_format(imp.ui_offset.x + 256 - 4 * 8 - 1, imp.ui_offset.y + 20, "%4d", (int)imp.fps_value);
+}
+
+#define app_draw_line(line, fmt, ...) \
+  app_draw_text_format(imp.ui_offset.x, imp.ui_offset.y + app_char_height * (line), fmt __VA_OPT__(, ) __VA_ARGS__);
 
 static bool app_menu_pressed(uint mask) { return (imp.menu_input & mask) && !(imp.menu_input_prev & mask); }
 
@@ -22,10 +87,10 @@ static bool app_draw_menu_line_raw(const char* label, uint line, int selection_i
 {
   bool selected = imp.menu_selection == selection_id;
   if (selected) {
-    SDL_SetRenderDrawColor(imp.renderer, 0x80, 0xFF, 0x80, 0xFF);
+    app_text_color(0x80, 0xFF, 0x80);
   }
   app_draw_line(line, "          %s %s", selected ? "*" : " ", label);
-  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+  app_text_color(0xFF, 0xFF, 0xFF);
   return selected;
 }
 
@@ -74,7 +139,9 @@ static void app_draw_menu_prepare(int menu_size)
   SDL_SetRenderDrawColor(imp.renderer, 0, 0, 0, 0xE0);
   SDL_SetRenderDrawBlendMode(imp.renderer, SDL_BLENDMODE_BLEND);
   SDL_RenderFillRect(imp.renderer, &fill);
-  SDL_SetRenderDrawColor(imp.renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+
+  app_text_color(0xFF, 0xFF, 0xFF);
+  app_text_alpha(0xFF);
 }
 
 void app_draw_menu()
@@ -300,12 +367,14 @@ static void app_draw_touch_button(const char* label, uint x, uint y, uint r)
 {
   SDL_FRect rect = { x - r, y - r, 2 * r, 2 * r };
   SDL_RenderRect(imp.renderer, &rect);
-  SDL_RenderDebugText(imp.renderer, x - 4, y - 4, label);
+  app_draw_text(x - 4, y - 4, label);
 }
 
 void app_draw_touch()
 {
   SDL_SetRenderDrawColor(imp.renderer, 0x80, 0x80, 0x80, 0x80);
+  app_text_color(0x80, 0x80, 0x80);
+  app_text_alpha(0x80);
 
   app_draw_touch_button("M", imp.touch_menu_x, imp.touch_menu_y, imp.touch_button_radius);
   app_draw_touch_button("F", imp.touch_ff_x, imp.touch_ff_y, imp.touch_button_radius);

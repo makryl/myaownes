@@ -1,5 +1,7 @@
 #pragma once
 
+bool app_load_atlas();
+void app_draw_fps();
 void app_draw_popup();
 void app_draw_menu();
 void app_draw_start();

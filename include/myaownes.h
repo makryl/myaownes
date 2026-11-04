@@ -71,7 +71,7 @@ void mn_region_set(uint region);
 uint mn_region_get();
 uint* mn_video_data();
 void mn_video_size(bool auto_aspect, bool overscan, float scale, uint* dw, uint* dh);
-void mn_video_fit(bool auto_aspect, bool overscan, float sw, float sh, float* dx, float* dy, float* dw, float* dh);
+void mn_video_fit(bool auto_aspect, bool overscan, uint sw, uint sh, int* dx, int* dy, uint* dw, uint* dh);
 double mn_video_freq(double freq);
 void mn_audio_freq(uint freq);
 void mn_audio_hpf(uint freq);
