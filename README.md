@@ -82,9 +82,6 @@ Almost all information I got from next sites, source code of tests and other emu
 
 Some ideas and reminders for future:
 
-- QoL embed mode:
-  - custom font and touch control icons
-  - allow separate files build mode
 - Review performance
 - Extra audio in mappers
 - More homebrew mappers
@@ -93,8 +90,6 @@ Some ideas and reminders for future:
 - Zapper
 - NSF player mode
 - Fake stereo
-- Wide screen
-- No sprite limit
 - Slowdown
 - Rewind
 - CRT shader
