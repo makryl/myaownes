@@ -49,6 +49,9 @@ static struct
   uint io_shift[2];
 } dev;
 
+static uint dev_size() { return sizeof(dev); }
+static void* dev_data() { return &dev; }
+
 void mn_power()
 {
   memset(&dev, 0, sizeof(dev));
@@ -237,6 +240,11 @@ bool mn_save(const char* path)
     return false;
   }
   const char* err_fmt = "can not write file %s: %s\n";
+  if (fwrite(dev_data(), 1, dev_size(), f) != dev_size()) {
+    errorf(err_fmt, path, strerror(errno));
+    fclose(f);
+    return false;
+  }
   if (fwrite(apu_data(), 1, apu_size(), f) != apu_size()) {
     errorf(err_fmt, path, strerror(errno));
     fclose(f);
@@ -288,6 +296,11 @@ bool mn_load(const char* path)
     return false;
   }
   const char* err_fmt = "can not read file %s: %s\n";
+  if (fread(dev_data(), 1, dev_size(), f) != dev_size()) {
+    errorf(err_fmt, path, strerror(errno));
+    fclose(f);
+    return false;
+  }
   if (fread(apu_data(), 1, apu_size(), f) != apu_size()) {
     errorf(err_fmt, path, strerror(errno));
     fclose(f);
