@@ -170,8 +170,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
 
   imp.audioDeviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, nullptr);
-  SDL_AudioSpec spec;
-  int samples;
+  SDL_AudioSpec spec = { SDL_AUDIO_S16, 1, 48000 };
+  int samples = 2048;
   SDL_GetAudioDeviceFormat(imp.audioDeviceId, &spec, &samples);
   SDL_AudioSpec stream_spec = { SDL_AUDIO_S16, 1, spec.freq };
   imp.stream = SDL_OpenAudioDeviceStream(imp.audioDeviceId, &stream_spec, nullptr, nullptr);

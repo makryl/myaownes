@@ -495,7 +495,7 @@ void ppu_bus_write(uint addr, uint val)
 static uint ppu_nt_addr() { return 0x2000 | (ppu.v & 0x0FFF); }
 static uint ppu_at_addr() { return 0x23C0 | (ppu.v & 0x0C00) | ((ppu.v >> 4) & 0x38) | ((ppu.v >> 2) & 7); }
 
-static uint ppu_pipe_step() { return (ppu.dot - PPU_DOT_BEGIN) % 8; }
+static uint ppu_pipe_step() { return (ppu.dot - PPU_DOT_BEGIN) & 7; }
 
 static void ppu_fetch_back()
 {

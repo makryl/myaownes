@@ -139,11 +139,9 @@ void dev_tick()
       dev.io_input[1] ^= MN_INPUT_B;
     }
   }
-  if ((cpu_cyc() & 1)) {
-    if ((dev.io_out & 1)) {
-      dev.io_shift[0] = (dev.io_input[0] & 0xFF);
-      dev.io_shift[1] = (dev.io_input[1] & 0xFF);
-    }
+  if ((dev.io_out & 1) && (cpu_cyc() & 1)) {
+    dev.io_shift[0] = (dev.io_input[0] & 0xFF);
+    dev.io_shift[1] = (dev.io_input[1] & 0xFF);
   }
 }
 
