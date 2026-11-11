@@ -155,6 +155,7 @@ MN_CACHE_LINE static struct Ppu
   uint mask_delay;
   uint swap_v_delay;
 
+  bool fast_mode: 1;
   bool ntsc: 1;
   bool ale: 1;
   bool read: 1;
@@ -232,6 +233,7 @@ uint ppu_dot() { return ppu.dot; }
 uint ppu_sl() { return ppu.sl; }
 bool ppu_vblank() { return ppu.sl >= ppu.sl_vblank && ppu.sl < ppu.sl_pre_render; }
 static bool ppu_render_active() { return ppu.render_enabled && (ppu.sl <= ppu.sl_end || ppu.sl == ppu.sl_pre_render); }
+void ppu_fast(bool enabled) { ppu.fast_mode = enabled; }
 
 static uint ppu_pam_addr(uint addr) { return (addr & 0x03) == 0 ? (addr & 0x0F) : (addr & 0x1F); }
 static uint ppu_pam_read(uint addr) { return ppu.pam[ppu_pam_addr(addr)]; }
@@ -923,14 +925,18 @@ static void ppu_render_mask(uint x)
 static void ppu_render()
 {
   if (ppu.sl <= ppu.sl_end) {
-    if (ppu.dot >= PPU_DOT_BEGIN + 2 && ppu.dot <= PPU_DOT_END + 2) {
-      ppu_render_mask(ppu.dot - PPU_DOT_BEGIN - 2);
+    if (!ppu.fast_mode) {
+      if (ppu.dot >= PPU_DOT_BEGIN + 2 && ppu.dot <= PPU_DOT_END + 2) {
+        ppu_render_mask(ppu.dot - PPU_DOT_BEGIN - 2);
+      }
+      if (ppu.dot >= PPU_DOT_BEGIN + 1 && ppu.dot <= PPU_DOT_END + 1) {
+        ppu_render_palette();
+      }
     }
-    if (ppu.dot >= PPU_DOT_BEGIN + 1 && ppu.dot <= PPU_DOT_END + 1) {
-      ppu_render_palette();
-    }
-    if (ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END) {
-      ppu_render_pixel(ppu.dot - PPU_DOT_BEGIN);
+    if (!ppu.fast_mode || !((ppu.status & PPU_STATUS_SPRITE0_HIT))) {
+      if (ppu.dot >= PPU_DOT_BEGIN && ppu.dot <= PPU_DOT_END) {
+        ppu_render_pixel(ppu.dot - PPU_DOT_BEGIN);
+      }
     }
   }
 }
@@ -1032,9 +1038,13 @@ void ppu_tick()
     ++ppu.dot;
   }
 
-  if (++ppu.dot > PPU_DOT_LAST) {
+  if (ppu.dot < PPU_DOT_LAST) {
+    ++ppu.dot;
+  } else {
     ppu.dot = 0;
-    if (++ppu.sl > ppu.sl_pre_render) {
+    if (ppu.sl < ppu.sl_pre_render) {
+      ++ppu.sl;
+    } else {
       ppu.sl = 0;
       ++ppu.frame;
     }
@@ -1046,5 +1056,5 @@ void ppu_tick()
   ppu.ale = false;
   ppu.read = false;
 
-  ++ppu.cyc;
+  // ++ppu.cyc;
 }

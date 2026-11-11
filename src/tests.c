@@ -721,7 +721,8 @@ static uint run_test_step(TestStep step, bool audio, FILE* wav_file)
     mn_reset();
   }
   for (uint i = 0; i < step.frames; ++i) {
-    mn_frame(step.joy1, 0);
+    mn_input(step.joy1, 0);
+    mn_frame();
     if (audio) {
       visualize_audio_frame();
 #if WRITE_WAV

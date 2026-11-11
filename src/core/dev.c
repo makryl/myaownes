@@ -93,7 +93,7 @@ static uint dev_dpad_filter(uint input, uint port, uint changed)
   return input;
 }
 
-static void dev_input(uint port1, uint port2)
+void mn_input(uint port1, uint port2)
 {
   uint changed1 = (port1 ^ dev.io_mask[0]) | 0x0F;
   uint changed2 = (port2 ^ dev.io_mask[1]) | 0x0F;
@@ -145,12 +145,11 @@ void dev_tick()
   }
 }
 
-void mn_frame(uint port1, uint port2)
+void mn_frame()
 {
   if (!map_ready()) {
     return;
   }
-  dev_input(port1, port2);
   apu_reset_out();
   bool vblank_before;
   do {
@@ -160,6 +159,15 @@ void mn_frame(uint port1, uint port2)
 #if MN_TRACE_BLARGG
   tracef("\e[2J\e[Hstatus=%02X\n%s\n", *mn_rom_get()->prg_ram, (const char*)mn_rom_get()->prg_ram + 4);
 #endif
+}
+
+void mn_frame_fast()
+{
+  ppu_fast(true);
+  apu_fast(true);
+  mn_frame();
+  ppu_fast(false);
+  apu_fast(false);
 }
 
 static float dev_aspect_region() { return mn_region_get() == MN_REGION_NTSC ? (8.0f / 7.0f) : (18.0f / 13.0f); }

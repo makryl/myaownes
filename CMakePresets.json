@@ -24,7 +24,9 @@
       "hidden": true,
       "inherits": ["Base"],
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_FLAGS_RELWITHDEBINFO": "-O3 -g -DNDEBUG",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": true
       }
     },
     {

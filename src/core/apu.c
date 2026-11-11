@@ -168,6 +168,7 @@ static struct Apu
   uint dmc_addr;
   uint dmc_buf;
 
+  bool fast_mode: 1;
   bool test_mode: 1;
   bool mode5: 1;
   bool frame_irq_status: 1;
@@ -225,6 +226,7 @@ void apu_reset_out() { apu.out_size = 0; }
 void mn_apu_test_mode(bool enabled) { apu.test_mode = enabled; }
 static bool apu_is_put_phase() { return (cpu_cyc() & 1); }
 static bool apu_is_get_phase() { return !apu_is_put_phase(); }
+void apu_fast(bool enabled) { apu.fast_mode = enabled; }
 
 #define APU_FILTER_BITS 30
 
@@ -1071,14 +1073,16 @@ void apu_tick()
     }
   }
 
-  if (apu_is_get_phase()) { // better results with GET phase in apu_mixer/square.nes
-    apu_pulse1_tick();
-    apu_pulse2_tick();
-  }
-  apu_noise_tick();
-  apu_triangle_tick();
   apu_dmc_tick();
-  apu_mix();
+  if (!apu.fast_mode) {
+    if (apu_is_get_phase()) { // better results with GET phase in apu_mixer/square.nes
+      apu_pulse1_tick();
+      apu_pulse2_tick();
+    }
+    apu_noise_tick();
+    apu_triangle_tick();
+    apu_mix();
+  }
 
   uint last_step = (apu.mode5 ? apu_dyn.step5 : apu_dyn.step4);
   if (apu.step_env) {

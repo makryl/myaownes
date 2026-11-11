@@ -15,7 +15,7 @@ static void run_test(const char* rom_path, uint frames)
   }
   mn_rom_set(rom);
   for (uint i = 0; i < frames; ++i) {
-    mn_frame(0, 0);
+    mn_frame();
   }
   mn_rom_release(rom);
   printf("done\n");

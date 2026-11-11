@@ -69,7 +69,7 @@ int main(int, char**)
   mn_rom_set(rom);
   uint total_size = 0;
   while (true) {
-    mn_frame(0, 0);
+    mn_frame();
 
     uint write_size = mn_audio_size();
     if (total_size + write_size > data_size) {

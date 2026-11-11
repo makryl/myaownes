@@ -214,41 +214,50 @@ SDL_AppResult SDL_AppIterate(void*)
   imp.real_frame_time = time - imp.last_time;
   imp.last_time = time;
 
-  Uint64 game_frame_time = imp.real_frame_time;
-  if (imp.pause) {
-    game_frame_time = 0;
-  } else if (imp.fast_forward) {
-    game_frame_time *= imp.fast_forward_scale;
-    app_popup(">>", 0.5);
-  } else if (imp.fps_test) {
-    game_frame_time = imp.target_frame_time;
-  }
-  imp.curr_time += game_frame_time;
-
-  uint max_time = imp.target_frame_time * ((imp.fast_forward ? imp.fast_forward_scale : 1) + 1);
-  if (imp.curr_time > max_time) {
-    imp.curr_time = max_time;
-  }
-
-  uint queued_size = SDL_GetAudioStreamQueued(imp.stream);
-
-  while (!imp.pause && (imp.curr_time >= imp.target_frame_time || queued_size < imp.audio_buffer_size)) {
-    if (imp.fps) {
-      ++imp.fps_count;
+  if (!imp.pause) {
+    Uint64 game_frame_time = imp.real_frame_time;
+    if (imp.fast_forward) {
+      game_frame_time *= imp.fast_forward_scale;
+      app_popup(">>", 0.5);
+    } else if (imp.fps_test) {
+      game_frame_time = imp.target_frame_time * 32;
     }
+
+    imp.curr_time += game_frame_time;
+
+    uint max_time = imp.target_frame_time * ((imp.fast_forward ? imp.fast_forward_scale : 1) + 2);
+    if (imp.curr_time > max_time && !imp.fps_test) {
+      imp.curr_time = max_time;
+    }
+
+    uint queued_size = SDL_GetAudioStreamQueued(imp.stream);
+    bool has_video = false;
+    bool has_audio = queued_size >= imp.audio_buffer_size;
 
     if (imp.tas) {
-      mn_tas_frame(imp.tas);
+      mn_tas_input(imp.tas);
     } else {
-      mn_frame(imp.joy1, imp.joy2);
+      mn_input(imp.joy1, imp.joy2);
     }
-    imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
 
-    uint audio_size = mn_audio_size();
-    uint target_size = imp.audio_buffer_size > audio_size ? imp.audio_buffer_size : audio_size;
-    if (queued_size < 3 * target_size) {
-      SDL_PutAudioStreamData(imp.stream, mn_audio_data(), audio_size);
-      queued_size += audio_size;
+    while (imp.curr_time >= imp.target_frame_time || !has_audio) {
+      imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
+      if (imp.fps) {
+        ++imp.fps_count;
+      }
+      if (!has_video || !has_audio) {
+        mn_frame();
+        uint audio_size = mn_audio_size();
+        uint target_size = imp.audio_buffer_size > audio_size ? imp.audio_buffer_size : audio_size;
+        if (queued_size < 3 * target_size) {
+          SDL_PutAudioStreamData(imp.stream, mn_audio_data(), audio_size);
+          queued_size += audio_size;
+          has_audio = queued_size >= imp.audio_buffer_size;
+        }
+        has_video = true;
+      } else {
+        mn_frame_fast();
+      }
     }
   }
 

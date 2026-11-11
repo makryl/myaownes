@@ -11,3 +11,4 @@ uint apu_bus_read(uint addr, uint val, bool trace);
 void apu_bus_write(uint addr, uint val);
 void apu_dmc_dma(uint val);
 void apu_reset_out();
+void apu_fast(bool enabled);

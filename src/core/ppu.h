@@ -14,3 +14,4 @@ uint ppu_cyc();
 uint ppu_dot();
 uint ppu_sl();
 bool ppu_vblank();
+void ppu_fast(bool enabled);

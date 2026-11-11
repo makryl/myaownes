@@ -749,7 +749,7 @@ static void cpu_dmc_dma()
       }
     }
   } else {
-    while (!cpu.write && cpu.dmc_dma_halt) {
+    while (cpu.dmc_dma_halt && !cpu.write) {
       cpu.dmc_dma_halt = false;
       cpu_dma_dummy(); // halt
       if (cpu.dmc_dma_wait) {

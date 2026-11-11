@@ -81,7 +81,7 @@ mn_tas mn_tas_load(const char* path)
   return tas;
 }
 
-void mn_tas_frame(mn_tas tas)
+void mn_tas_input(mn_tas tas)
 {
   uint command = 0;
   uint port1 = 0;
@@ -97,5 +97,5 @@ void mn_tas_frame(mn_tas tas)
   if (command & 0x02) {
     mn_power();
   }
-  mn_frame(port1, port2);
+  mn_input(port1, port2);
 }
