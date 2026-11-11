@@ -3,6 +3,8 @@
 #include "myaownes.h"
 
 void app_popup(const char* text, float time);
+void app_power();
+void app_reset();
 void app_menu_state(uint state);
 void app_slot_next();
 void app_slot_prev();

@@ -97,7 +97,8 @@ void app_draw_fps()
 #define app_draw_line(line, fmt, ...) \
   app_draw_text_format(imp.ui_offset.x, imp.ui_offset.y + app_char_height * (line), fmt __VA_OPT__(, ) __VA_ARGS__);
 
-static bool app_menu_pressed(uint mask) { return (imp.menu_input & mask) && !(imp.menu_input_prev & mask); }
+static bool app_menu_button_down(uint mask) { return (imp.menu_input & mask) && !(imp.menu_input_prev & mask); }
+static bool app_menu_button_up(uint mask) { return !(imp.menu_input & mask) && (imp.menu_input_prev & mask); }
 
 static bool app_draw_menu_line_raw(const char* label, uint line, int selection_id)
 {
@@ -113,7 +114,7 @@ static bool app_draw_menu_line_raw(const char* label, uint line, int selection_i
 static bool app_draw_menu_line(const char* label, uint line, int selection_id)
 {
   if (app_draw_menu_line_raw(label, line, selection_id)) {
-    if (app_menu_pressed(MN_INPUT_A | MN_INPUT_START)) {
+    if (app_menu_button_up(MN_INPUT_A | MN_INPUT_START)) {
       return true;
     }
   }
@@ -123,10 +124,10 @@ static bool app_draw_menu_line(const char* label, uint line, int selection_id)
 static uint app_draw_menu_line_arrows(const char* label, uint line, int selection_id)
 {
   if (app_draw_menu_line_raw(label, line, selection_id)) {
-    if (app_menu_pressed(MN_INPUT_LEFT)) {
+    if (app_menu_button_down(MN_INPUT_LEFT)) {
       return MN_INPUT_LEFT;
     }
-    if (app_menu_pressed(MN_INPUT_RIGHT)) {
+    if (app_menu_button_down(MN_INPUT_RIGHT)) {
       return MN_INPUT_RIGHT;
     }
   }
@@ -138,10 +139,10 @@ static void app_draw_menu_prepare(int menu_size)
   imp.menu_input_prev = imp.menu_input;
   imp.menu_input = (imp.joy1 | imp.joy2);
 
-  if (app_menu_pressed(MN_INPUT_DOWN | MN_INPUT_SELECT)) {
+  if (app_menu_button_down(MN_INPUT_DOWN | MN_INPUT_SELECT)) {
     ++imp.menu_selection;
   }
-  if (app_menu_pressed(MN_INPUT_UP)) {
+  if (app_menu_button_down(MN_INPUT_UP)) {
     --imp.menu_selection;
   }
   if (imp.menu_selection >= menu_size) {
@@ -162,12 +163,20 @@ static void app_draw_menu_prepare(int menu_size)
 void app_draw_menu()
 {
   bool rom_loaded = imp.rom && !imp.rom->mapper_error;
-  app_draw_menu_prepare(rom_loaded ? 9 : 4);
-  uint line = 2;
+  app_draw_menu_prepare(rom_loaded ? 11 : 4);
+  uint line = 8;
   uint menu = 0;
-  line += 4;
   if (rom_loaded) {
-    if (app_draw_menu_line("Continue", line++, menu++) || app_menu_pressed(MN_INPUT_B)) {
+    line -= 4;
+    if (app_draw_menu_line("Continue", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
+      app_menu_state(APP_MENU_OFF);
+    }
+    if (app_draw_menu_line("Reset", line++, menu++)) {
+      app_reset();
+      app_menu_state(APP_MENU_OFF);
+    }
+    if (app_draw_menu_line("Power", line++, menu++)) {
+      app_power();
       app_menu_state(APP_MENU_OFF);
     }
     ++line;
@@ -177,6 +186,7 @@ void app_draw_menu()
     }
     if (app_draw_menu_line("Save", line++, menu++)) {
       app_save();
+      app_menu_state(APP_MENU_OFF);
     }
     if (app_draw_menu_line("Load", line++, menu++)) {
       if (app_load_check()) {
@@ -221,7 +231,7 @@ void app_draw_menu()
 void app_draw_start()
 {
   app_draw_menu_prepare(0);
-  uint line = 10;
+  uint line = 12;
   app_draw_line(line++, "    Press any button to start   ");
   line += 4;
   app_draw_line(line++, "     Press F1 to show keymap    ");
@@ -232,9 +242,9 @@ void app_draw_start()
 void app_draw_options()
 {
   app_draw_menu_prepare(12);
-  uint line = 8;
+  uint line = 6;
   uint menu = 0;
-  if (app_draw_menu_line("Back", line++, menu++) || app_menu_pressed(MN_INPUT_B)) {
+  if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
     app_menu_state(APP_MENU_MAIN);
   }
   ++line;
@@ -291,7 +301,7 @@ void app_draw_info()
   app_draw_menu_prepare(1);
   uint line = 8;
   uint menu = 0;
-  if (app_draw_menu_line("Back", line++, menu++) || app_menu_pressed(MN_INPUT_B)) {
+  if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
     app_menu_state(APP_MENU_MAIN);
   }
   ++line;
@@ -312,7 +322,7 @@ void app_draw_help()
   app_draw_menu_prepare(1);
   uint line = 2;
   uint menu = 0;
-  if (app_draw_menu_line("Back", line++, menu++) || app_menu_pressed(-1)) {
+  if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(-1)) {
     app_toggle_help();
   }
   ++line;
@@ -366,7 +376,7 @@ void app_draw_recent()
   app_draw_menu_prepare(count + 1);
   uint line = 4;
   uint menu = 0;
-  if (app_draw_menu_line("Back", line++, menu++) || app_menu_pressed(MN_INPUT_B)) {
+  if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
     app_menu_state(APP_MENU_MAIN);
   }
   ++line;

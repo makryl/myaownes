@@ -1,17 +1,21 @@
 #include "app.h"
 
-static void app_reset()
-{
-  if (imp.tas) {
-    mn_tas_reset(imp.tas);
-  }
-  mn_reset();
-}
-
 void app_popup(const char* text, float time)
 {
   imp.popup_text = text;
   imp.popup_time = imp.perf_freq * time;
+}
+
+void app_power()
+{
+  mn_power();
+  app_popup("Power", 2);
+}
+
+void app_reset()
+{
+  mn_reset();
+  app_popup("Reset", 2);
 }
 
 void app_save()
