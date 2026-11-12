@@ -175,8 +175,8 @@ void app_draw_menu()
       app_reset();
       app_menu_state(APP_MENU_OFF);
     }
-    if (app_draw_menu_line("Power", line++, menu++)) {
-      app_power();
+    if (app_draw_menu_line("Reload", line++, menu++)) {
+      app_reload();
       app_menu_state(APP_MENU_OFF);
     }
     ++line;

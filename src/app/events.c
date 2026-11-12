@@ -6,10 +6,11 @@ void app_popup(const char* text, float time)
   imp.popup_time = imp.perf_freq * time;
 }
 
-void app_power()
+void app_reload()
 {
-  mn_power();
-  app_popup("Power", 2);
+  app_rom_load(imp.rom_path);
+  app_rom_update();
+  app_popup("Reload", 2);
 }
 
 void app_reset()
