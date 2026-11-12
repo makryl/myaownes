@@ -28,13 +28,13 @@ typedef struct
 
 // clang-format off
 static TestParams tests[] = {
-  { "AccuracyCoin/AccuracyCoin.nes", MN_REGION_NTSC, 0, 0, { { 0x6121DCA1, 40, 0, 0 }, { 0x56FC8DFD, 2, MN_INPUT_START, 0 }, { 0xE68D4D51, 4200, 0, 0 } } }, //
+  { "AccuracyCoin/AccuracyCoin.nes", MN_REGION_NTSC, 0, 0, { { 0xDA270BEA, 40, 0, 0 }, { 0xDD3D8C52, 2, MN_INPUT_START, 0 }, { 0xB01A801F, 4200, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_mixer/dmc.nes", MN_REGION_NTSC, 1, 0, { { 0x736D7002, 900, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_mixer/noise.nes", MN_REGION_NTSC, 1, 0, { { 0xF14AEE68, 1400, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_mixer/square.nes", MN_REGION_NTSC, 1, 0, { { 0xC3224F57, 1200, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_mixer/triangle.nes", MN_REGION_NTSC, 1, 0, { { 0xFCDEA597, 800, 0, 0 } } }, //
   { "nes-test-roms/APU/apu_phase_reset/apu_phase_reset.nes", MN_REGION_NTSC, 1, 0, { { 0x60667C09, 600, 0, 0 } } }, //
-  { "nes-test-roms/APU/apu_register_activation_test_wip1/apu_register_activation_test.nes", MN_REGION_NTSC, 0, 0, { { 0xC1210397, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/APU/apu_register_activation_test_wip1/apu_register_activation_test.nes", MN_REGION_NTSC, 0, 0, { { 0x23DC9A4B, 10, 0x00, 0 } } }, //
   { "nes-test-roms/APU/apu_reset/4015_cleared.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0x68020FC4, 20, 0, 1 } } }, //
   { "nes-test-roms/APU/apu_reset/4017_timing.nes", MN_REGION_NTSC, 0, 0, { { 0x65F6087F, 20, 0, 0 }, { 0x92964251, 20, 0, 1 } } }, //
   { "nes-test-roms/APU/apu_reset/4017_written.nes", MN_REGION_NTSC, 0, 0, { { 0x03085F30, 20, 0, 0 }, { 0x8BECFD90, 20, 0, 1 }, { 0x2421E3A9, 20, 0, 1 } } }, //
@@ -61,12 +61,12 @@ static TestParams tests[] = {
   { "nes-test-roms/APU/blargg_apu_2005.07.30/09.reset_timing.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 11, 0x00, 0 } } }, //
   { "nes-test-roms/APU/blargg_apu_2005.07.30/10.len_halt_timing.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 15, 0x00, 0 } } }, //
   { "nes-test-roms/APU/blargg_apu_2005.07.30/11.len_reload_timing.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 15, 0x00, 0 } } }, //
-  { "nes-test-roms/APU/dmc_dma/dmc_dma_explicit_stop_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0x2317DDB1, 10, 0x00, 0 } } }, //
-  { "nes-test-roms/APU/dmc_dma/dmc_dma_implicit_stop_level_test_wip1.nes", MN_REGION_NTSC, 0, 1, { { 0xF27419F3, 10, 0x00, 0 } } }, //
-  { "nes-test-roms/APU/dmc_dma/dmc_dma_implicit_stop_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0xE2999877, 10, 0x00, 0 } } }, //
-  { "nes-test-roms/APU/dmc_dma/dmc_dma_status_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0x238BE815, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/APU/dmc_dma/dmc_dma_explicit_stop_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0xA39F1D01, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/APU/dmc_dma/dmc_dma_implicit_stop_level_test_wip1.nes", MN_REGION_NTSC, 0, 1, { { 0xCDA3F410, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/APU/dmc_dma/dmc_dma_implicit_stop_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0x8537ABBF, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/APU/dmc_dma/dmc_dma_status_test_wip1.nes", MN_REGION_NTSC, 0, 0, { { 0xE5315FEE, 10, 0x00, 0 } } }, //
   { "nes-test-roms/APU/dmc_dma/DMC_IRQ.nes", MN_REGION_NTSC, 1, 0, { { 0x76D57009, 100, 0x00, 0 } } }, //
-  { "nes-test-roms/APU/dpcmletterbox/dpcmletterbox.nes", MN_REGION_NTSC, 0, 0, { { 0x4C78B1D5, 10, 0x00, 0 }, { 0x649F38C9, 216, 0xA0, 0 } } }, //
+  { "nes-test-roms/APU/dpcmletterbox/dpcmletterbox.nes", MN_REGION_NTSC, 0, 0, { { 0xC35C6D8C, 10, 0x00, 0 }, { 0x3253A34C, 216, 0xA0, 0 } } }, //
   { "nes-test-roms/APU/duty_cycles_test/duty_cycles_test_ntsc.nes", MN_REGION_NTSC, 1, 0,
     { { -1, 20, 0, 0 },
       { -1, 20, MN_INPUT_SELECT, 0 },
@@ -118,18 +118,18 @@ static TestParams tests[] = {
   { "nes-test-roms/APU/test_apu_timers/triangle_pitch.nes", MN_REGION_NTSC, 1, 0, { { 0x5F7563CF, 200, 0, 0 } } }, //
   { "nes-test-roms/APU/test_tri_lin_ctr/lin_ctr.nes", MN_REGION_NTSC, 1, 0, { { 0xC992FA2C, 600, 0, 0 } } }, //
   { "nes-test-roms/APU/volume_tests/volumes.nes", MN_REGION_NTSC, 1, 0, { { -1, 10, 0, 0 }, { 0x1B0DEA5B, 1000, 1, 0 } } }, //
-  { "nes-test-roms/APU/4015_open_bus_test.nes", MN_REGION_NTSC, 0, 0, { { 0xF96B60A2, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/APU/4015_open_bus_test.nes", MN_REGION_NTSC, 0, 0, { { 0x30E65CE5, 5, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/blargg_nes_cpu_test5/cpu.nes", MN_REGION_NTSC, 0, 0, { { 0x80ED81E0, 981, 0, 0 } } }, //
   { "nes-test-roms/CPU/blargg_nes_cpu_test5/official.nes", MN_REGION_NTSC, 0, 0, { { 0x80ED81E0, 643, 0, 0 } } }, //
   { "nes-test-roms/CPU/branch_timing_tests/1.Branch_Basics.nes", MN_REGION_NTSC, 0, 0, { { 0xB6A4872B, 13, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/branch_timing_tests/2.Backward_Branch.nes", MN_REGION_NTSC, 0, 0, { { 0x36D590FE, 15, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/branch_timing_tests/3.Forward_Branch.nes", MN_REGION_NTSC, 0, 0, { { 0x6D0B3B45, 15, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/cpu_dummy_reads/cpu_dummy_reads.nes", MN_REGION_NTSC, 0, 0, { { 0xA942A3CF, 47, 0x00, 0 } } }, //
-  { "nes-test-roms/CPU/cpu_dummy_writes/cpu_dummy_writes_oam.nes", MN_REGION_NTSC, 0, 0, { { 0x5A174153, 331, 0x00, 0 } } }, //
-  { "nes-test-roms/CPU/cpu_dummy_writes/cpu_dummy_writes_ppumem.nes", MN_REGION_NTSC, 0, 0, { { 0xB9CCCCC0, 236, 0x00, 0 } } }, //
-  { "nes-test-roms/CPU/cpu_exec_space/test_cpu_exec_space_apu.nes", MN_REGION_NTSC, 0, 0, { { 0xACA38C28, 301, 0x00, 0 } } }, //
-  { "nes-test-roms/CPU/cpu_exec_space/test_cpu_exec_space_ppuio.nes", MN_REGION_NTSC, 0, 0, { { 0xB1E7AB62, 45, 0x00, 0 } } }, //
-  { "nes-test-roms/CPU/cpu_flag_concurrency/test_cpu_flag_concurrency.nes", MN_REGION_NTSC, 0, 0, { { 0x55FE9C5D, 855, 0x00, 0 } } },
+  { "nes-test-roms/CPU/cpu_dummy_writes/cpu_dummy_writes_oam.nes", MN_REGION_NTSC, 0, 0, { { 0xD1C89AA7, 331, 0x00, 0 } } }, //
+  { "nes-test-roms/CPU/cpu_dummy_writes/cpu_dummy_writes_ppumem.nes", MN_REGION_NTSC, 0, 0, { { 0x9232B0F7, 236, 0x00, 0 } } }, //
+  { "nes-test-roms/CPU/cpu_exec_space/test_cpu_exec_space_apu.nes", MN_REGION_NTSC, 0, 0, { { 0xC71E241F, 301, 0x00, 0 } } }, //
+  { "nes-test-roms/CPU/cpu_exec_space/test_cpu_exec_space_ppuio.nes", MN_REGION_NTSC, 0, 0, { { 0x7F68B91E, 45, 0x00, 0 } } }, //
+  { "nes-test-roms/CPU/cpu_flag_concurrency/test_cpu_flag_concurrency.nes", MN_REGION_NTSC, 0, 0, { { 0xB6833968, 855, 0x00, 0 } } },
   { "nes-test-roms/CPU/cpu_interrupts_v2/rom_singles/1-cli_latency.nes", MN_REGION_NTSC, 0, 0, { { 0x04E43C3C, 14, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/cpu_interrupts_v2/rom_singles/2-nmi_and_brk.nes", MN_REGION_NTSC, 0, 0, { { 0xEA3D7CA3, 105, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/cpu_interrupts_v2/rom_singles/3-nmi_and_irq.nes", MN_REGION_NTSC, 0, 0, { { 0xB47C1A9A, 125, 0x00, 0 } } }, //
@@ -196,17 +196,17 @@ static TestParams tests[] = {
   { "nes-test-roms/CPU/nes_instr_test/rom_singles/09-branches.nes", MN_REGION_NTSC, 0, 0, { { 0xB23466FB, 32, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/nes_instr_test/rom_singles/10-stack.nes", MN_REGION_NTSC, 0, 0, { { 0x17116DAB, 128, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/nes_instr_test/rom_singles/11-special.nes", MN_REGION_NTSC, 0, 0, { { 0x3A5F745A, 10, 0x00, 0 } } }, //
-  { "nes-test-roms/CPU/nestest/nestest.nes", MN_REGION_NTSC, 0, 0, { { 0x4E93D183, 10, 0, 0 }, { 0x99F7E65B, 20, 0x08, 0 }, { 0xCA5865AF, 10, 0x04, 0 }, { 0xB2B3DDF1, 20, 0x08, 0 } } }, //
+  { "nes-test-roms/CPU/nestest/nestest.nes", MN_REGION_NTSC, 0, 0, { { 0x46A653F1, 10, 0, 0 }, { 0x63F4D680, 20, 0x08, 0 }, { 0xA760E591, 10, 0x04, 0 }, { 0x49654EC3, 20, 0x08, 0 } } }, //
   { "nes-test-roms/CPU/shxdma/shxdma.nes", MN_REGION_NTSC, 0, 0, { { 0xDED20D8F, 101, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/shxing1/shxing1.nes", MN_REGION_NTSC, 0, 0, { { 0xA07B475E, 186, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/shxing2/shxing2.nes", MN_REGION_NTSC, 0, 0, { { 0xA07B475E, 111, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/sprdma_and_dmc_dma/sprdma_and_dmc_dma.nes", MN_REGION_NTSC, 0, 0, { { 0xF4998922, 143, 0x00, 0 } } }, //
   { "nes-test-roms/CPU/sprdma_and_dmc_dma/sprdma_and_dmc_dma_512.nes", MN_REGION_NTSC, 0, 0, { { 0x42149129, 143, 0x00, 0 } } }, //
-  { "nes-test-roms/CPU/out_timing_test.nes", MN_REGION_NTSC, 0, 0, { { 0x64B962A8, 5, 0x00, 0 }, { 0x64B962A8, 5, MN_INPUT_A, 0 }, { 0x7C518553, 5, 0, 0 }, { 0x7C518553, 5, MN_INPUT_B, 0 }, { 0x7C518553, 5, 0, 0 } } }, //
+  { "nes-test-roms/CPU/out_timing_test.nes", MN_REGION_NTSC, 0, 0, { { 0x7F71E42F, 5, 0x00, 0 }, { 0x7F71E42F, 5, MN_INPUT_A, 0 }, { 0x799851CF, 5, 0, 0 }, { 0x799851CF, 5, MN_INPUT_B, 0 }, { 0x799851CF, 5, 0, 0 } } }, //
   { "nes-test-roms/Demos/8bitpeoples_-_deadline_console_invitro.nes", MN_REGION_NTSC, 1, 0, { { 0xD3B664DE, 900, 0x00, 0 } } }, //
-  { "nes-test-roms/Demos/midscanline.nes", MN_REGION_NTSC, 0, 0, { { 0x80BE54D6, 20, 0x00, 0 } } }, //
-  { "nes-test-roms/Demos/scrolltest/scroll.nes", MN_REGION_NTSC, 0, 0, { { 0x95F078BC, 7, 0, 0 }, { 0xF0427789, 60, 0xA0, 0 } } }, //
-  { "nes-test-roms/Demos/stomper/smwstomp.nes", MN_REGION_NTSC, 0, 0, { { 0x3E04F985, 244, 0, 0 } } }, //
+  { "nes-test-roms/Demos/midscanline.nes", MN_REGION_NTSC, 0, 0, { { 0x06428147, 20, 0x00, 0 } } }, //
+  { "nes-test-roms/Demos/scrolltest/scroll.nes", MN_REGION_NTSC, 0, 0, { { 0xF050D3D3, 7, 0, 0 }, { 0x616EB3D8, 60, 0xA0, 0 } } }, //
+  { "nes-test-roms/Demos/stomper/smwstomp.nes", MN_REGION_NTSC, 0, 0, { { 0xE8285C45, 244, 0, 0 } } }, //
   { "nes-test-roms/Input/ControllerStrobeTest.nes", MN_REGION_NTSC, 0, 0, { { 0x66C3A864, 15, 0, 0 }, { 0xFE658A55, 10, MN_INPUT_A, 0 }, { 0xFA310F74, 10, MN_INPUT_B, 0 } } }, //
   { "nes-test-roms/Input/read_joy3/count_errors_fast.nes", MN_REGION_NTSC, 0, 0, { { 0x86C178F5, 40, 0x00, 0 } } }, //
   { "nes-test-roms/Input/read_joy3/count_errors.nes", MN_REGION_NTSC, 0, 0, { { 0xDCC8122C, 59, 0x00, 0 } } }, //
@@ -247,57 +247,57 @@ static TestParams tests[] = {
   { "nes-test-roms/Mappers/31_test_roms/31_test_1024.nes", MN_REGION_NTSC, 0, 0, { { 0xCB66CDDB, 116, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/34_test_src/34_test_1.nes", MN_REGION_NTSC, 0, 0, { { 0xFCDB7FD7, 54, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/34_test_src/34_test_2.nes", MN_REGION_NTSC, 0, 0, { { 0xA01A3864, 58, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/bntest/bntest_aorom.nes", MN_REGION_NTSC, 0, 0, { { 0x2904F001, 10, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/bntest/bntest_h.nes", MN_REGION_NTSC, 0, 0, { { 0x3B40E181, 10, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/bntest/bntest_v.nes", MN_REGION_NTSC, 0, 0, { { 0x13DACC05, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/bntest/bntest_aorom.nes", MN_REGION_NTSC, 0, 0, { { 0x750AE327, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/bntest/bntest_h.nes", MN_REGION_NTSC, 0, 0, { { 0xFB5014E6, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/bntest/bntest_v.nes", MN_REGION_NTSC, 0, 0, { { 0x97B38AF6, 10, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/bxrom_512k_test_src/bxrom_512k_test.nes", MN_REGION_NTSC, 0, 0, { { 0x3B545602, 457, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/exram/mmc5exram.nes", MN_REGION_NTSC, 0, 0, { { 0x03366E31, 60, 0, 0 } } }, //
-  { "nes-test-roms/Mappers/fme7acktest-r1/fme7acktest.nes", MN_REGION_NTSC, 0, 0, { { 0xD9408008, 16, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/fme7ramtest-r1/fme7ramtest_128k.nes", MN_REGION_NTSC, 0, 0, { { 0x0EB36897, 13, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/fme7ramtest-r1/fme7ramtest.nes", MN_REGION_NTSC, 0, 0, { { 0x20F7E45B, 13, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M0_P32K_C8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x981BD784, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M0_P32K_CR8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xE0E298B7, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M0_P32K_CR32K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xE0E298B7, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C32K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x8E756874, 81, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C32K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0x62412ED9, 81, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C32K.nes", MN_REGION_NTSC, 0, 0, { { 0x5AAC6663, 6, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C128K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x701554BB, 82, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C128K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0x9C211216, 82, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C128K.nes", MN_REGION_NTSC, 0, 0, { { 0x3AB7DB20, 6, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_CR8K.nes", MN_REGION_NTSC, 0, 0, { { 0x197C6D62, 77, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K.nes", MN_REGION_NTSC, 0, 0, { { 0xE6FC43EE, 77, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_CR8K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0xEAAA9550, 155, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_CR8K_S32K.nes", MN_REGION_NTSC, 0, 0, { { 0x68E2595B, 451, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x152ABBDC, 155, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_S32K.nes", MN_REGION_NTSC, 0, 0, { { 0x976277D7, 451, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M2_P128K_CR8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xB12E2EEB, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M2_P128K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x4EAE0067, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M3_P32K_C32K_H.nes", MN_REGION_NTSC, 0, 0, { { 0x0D541701, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M4_P128K_CR8K.nes", MN_REGION_NTSC, 0, 0, { { 0x5B785B84, 78, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M4_P128K_CR32K.nes", MN_REGION_NTSC, 0, 0, { { 0x6A06D7E0, 284, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M4_P128K.nes", MN_REGION_NTSC, 0, 0, { { 0xA4F87508, 78, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M4_P256K_C256K.nes", MN_REGION_NTSC, 0, 0, { { 0x67842BC7, 13, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M7_P128K_CR8K.nes", MN_REGION_NTSC, 0, 0, { { 0x63328D8D, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M7_P128K.nes", MN_REGION_NTSC, 0, 0, { { 0x9CB2A301, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M9_P128K_C64K.nes", MN_REGION_NTSC, 0, 0, { { 0x0B81BA06, 6, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M10_P128K_C64K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x9D8A3F35, 113, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M10_P128K_C64K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0x71BE7998, 81, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M11_P64K_C64K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x5E238DB4, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M11_P64K_CR32K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x87691334, 282, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M28_P512K_CR32K.nes", MN_REGION_NTSC, 0, 0, { { 0xF96705C9, 403, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M28_P512K.nes", MN_REGION_NTSC, 0, 0, { { 0xF12687C9, 198, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M34_P128K_CR8K_H.nes", MN_REGION_NTSC, 0, 0, { { 0x2CE60CEA, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M34_P128K_H.nes", MN_REGION_NTSC, 0, 0, { { 0xD3662266, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M66_P64K_C16K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xE8B5DD23, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M69_P128K_C64K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x0255D129, 113, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M69_P128K_C64K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0xEE619784, 83, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M78.3_P128K_C64K.nes", MN_REGION_NTSC, 0, 0, { { 0x7A52DE0F, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M118_P128K_C64K.nes", MN_REGION_NTSC, 0, 0, { { 0x965FFB01, 9, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M180_P128K_CR8K_H.nes", MN_REGION_NTSC, 0, 0, { { 0xD91F39C2, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/holy-mapperel/M180_P128K_H.nes", MN_REGION_NTSC, 0, 0, { { 0x269F174E, 76, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/MMC1_A12/mmc1_a12.nes", MN_REGION_NTSC, 0, 0, { { 0xD19AE5E0, 27, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/mmc1atest-0.01/mmc1atest-sn.nes", MN_REGION_NTSC, 0, 0, { { 0x34AB9BFB, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/mmc1atest-0.01/mmc1atest.nes", MN_REGION_NTSC, 0, 0, { { 0x34AB9BFB, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/exram/mmc5exram.nes", MN_REGION_NTSC, 0, 0, { { 0x725E5381, 60, 0, 0 } } }, //
+  { "nes-test-roms/Mappers/fme7acktest-r1/fme7acktest.nes", MN_REGION_NTSC, 0, 0, { { 0x9B78AB9B, 16, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/fme7ramtest-r1/fme7ramtest_128k.nes", MN_REGION_NTSC, 0, 0, { { 0x5B8510BF, 13, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/fme7ramtest-r1/fme7ramtest.nes", MN_REGION_NTSC, 0, 0, { { 0x7DFD2BF2, 13, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M0_P32K_C8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xCF8ACD35, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M0_P32K_CR8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xE6D24D9C, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M0_P32K_CR32K_V.nes", MN_REGION_NTSC, 0, 0, { { 0xE6D24D9C, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C32K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x14C770CF, 81, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C32K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0x097689D5, 81, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C32K.nes", MN_REGION_NTSC, 0, 0, { { 0x407CEEDE, 6, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C128K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x64DB0B08, 82, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C128K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0x796AF212, 82, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_C128K.nes", MN_REGION_NTSC, 0, 0, { { 0xFB3F1A57, 6, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K_CR8K.nes", MN_REGION_NTSC, 0, 0, { { 0x8E7DED2D, 77, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P128K.nes", MN_REGION_NTSC, 0, 0, { { 0x16126D47, 77, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_CR8K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0xA3DFDAC8, 155, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_CR8K_S32K.nes", MN_REGION_NTSC, 0, 0, { { 0x2FDBBF3F, 451, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x3BB05AA2, 155, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M1_P512K_S32K.nes", MN_REGION_NTSC, 0, 0, { { 0xB7B43F55, 451, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M2_P128K_CR8K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x04F46777, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M2_P128K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x9C9BE71D, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M3_P32K_C32K_H.nes", MN_REGION_NTSC, 0, 0, { { 0xE73CEAB6, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M4_P128K_CR8K.nes", MN_REGION_NTSC, 0, 0, { { 0xA8F3F097, 78, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M4_P128K_CR32K.nes", MN_REGION_NTSC, 0, 0, { { 0x12CC3504, 284, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M4_P128K.nes", MN_REGION_NTSC, 0, 0, { { 0x309C70FD, 78, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M4_P256K_C256K.nes", MN_REGION_NTSC, 0, 0, { { 0x8824EAE4, 13, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M7_P128K_CR8K.nes", MN_REGION_NTSC, 0, 0, { { 0x41CF968B, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M7_P128K.nes", MN_REGION_NTSC, 0, 0, { { 0xD9A016E1, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M9_P128K_C64K.nes", MN_REGION_NTSC, 0, 0, { { 0x5F062CA6, 6, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M10_P128K_C64K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x92B6AC92, 113, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M10_P128K_C64K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0x8F075588, 81, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M11_P64K_C64K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x6307E9D5, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M11_P64K_CR32K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x8E0C051B, 282, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M28_P512K_CR32K.nes", MN_REGION_NTSC, 0, 0, { { 0xFED542E3, 403, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M28_P512K.nes", MN_REGION_NTSC, 0, 0, { { 0xCE4637EC, 198, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M34_P128K_CR8K_H.nes", MN_REGION_NTSC, 0, 0, { { 0xA00860FB, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M34_P128K_H.nes", MN_REGION_NTSC, 0, 0, { { 0x3867E091, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M66_P64K_C16K_V.nes", MN_REGION_NTSC, 0, 0, { { 0x5789A689, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M69_P128K_C64K_S8K.nes", MN_REGION_NTSC, 0, 0, { { 0x10058296, 113, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M69_P128K_C64K_W8K.nes", MN_REGION_NTSC, 0, 0, { { 0x0DB47B8C, 83, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M78.3_P128K_C64K.nes", MN_REGION_NTSC, 0, 0, { { 0x7165D894, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M118_P128K_C64K.nes", MN_REGION_NTSC, 0, 0, { { 0x64797D35, 9, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M180_P128K_CR8K_H.nes", MN_REGION_NTSC, 0, 0, { { 0x5DA0664B, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/holy-mapperel/M180_P128K_H.nes", MN_REGION_NTSC, 0, 0, { { 0xC5CFE621, 76, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/MMC1_A12/mmc1_a12.nes", MN_REGION_NTSC, 0, 0, { { 0x537CFE19, 27, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/mmc1atest-0.01/mmc1atest-sn.nes", MN_REGION_NTSC, 0, 0, { { 0xBEF831FB, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/mmc1atest-0.01/mmc1atest.nes", MN_REGION_NTSC, 0, 0, { { 0xBEF831FB, 5, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/mmc3_irq_tests/1.Clocking.nes", MN_REGION_NTSC, 0, 0, { { 0xB732D83F, 18, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/mmc3_irq_tests/2.Details.nes", MN_REGION_NTSC, 0, 0, { { 0x3E64BDBE, 23, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/mmc3_irq_tests/3.A12_clocking.nes", MN_REGION_NTSC, 0, 0, { { 0x9A45FD7C, 18, 0x00, 0 } } }, //
@@ -316,27 +316,27 @@ static TestParams tests[] = {
   { "nes-test-roms/Mappers/mmc3_test_2/rom_singles/4-scanline_timing.nes", MN_REGION_NTSC, 0, 0, { { 0xF6D14A7E, 319, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/mmc3_test_2/rom_singles/5-MMC3.nes", MN_REGION_NTSC, 0, 0, { { 0xFAF35560, 25, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/mmc3_test_2/rom_singles/6-MMC3_alt_m12.nes", MN_REGION_NTSC, 0, 0, { { 0x09093FB9, 24, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/mmc3bigchrram-0.01/mmc3bigchrram.nes", MN_REGION_NTSC, 0, 0, { { 0xF54230B4, 10, 0x00, 0 }, { 0x44A5C30F, 70, MN_INPUT_START, 0 } } }, //
-  { "nes-test-roms/Mappers/mmc3irqtest.nes", MN_REGION_NTSC, 0, 0, { { 0x14A7B673, 20, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/mmc5test/mmc5test.nes", MN_REGION_NTSC, 0, 0, { { 0xE3DAEE3D, 120, 0, 0 } } },
+  { "nes-test-roms/Mappers/mmc3bigchrram-0.01/mmc3bigchrram.nes", MN_REGION_NTSC, 0, 0, { { 0xA241CAFF, 10, 0x00, 0 }, { 0xA9B5B616, 70, MN_INPUT_START, 0 } } }, //
+  { "nes-test-roms/Mappers/mmc3irqtest.nes", MN_REGION_NTSC, 0, 0, { { 0x21FF5C6E, 20, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/mmc5test/mmc5test.nes", MN_REGION_NTSC, 0, 0, { { 0xF5FCAD94, 120, 0, 0 } } },
   // { "nes-test-roms/Mappers/mmc5test_v2/mmc5test.nes", MN_REGION_NTSC, 0, 0, {} }, // todo
   { "nes-test-roms/Mappers/serom/serom.nes", MN_REGION_NTSC, 0, 0, { { 0x6C5F9EDD, 10, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/test28-0.04/test28-8Mbit.nes", MN_REGION_NTSC, 0, 0, { { 0xF1D3104A, 10, 0x00, 0 }, { 0x28BF334B, 2100, MN_INPUT_START, 0 }, { 0xE87350E8, 10, 0, 1 } } }, //
-  { "nes-test-roms/Mappers/test28-0.04/test28.nes", MN_REGION_NTSC, 0, 0, { { 0xF1D3104A, 10, 0x00, 0 }, { 0xE4FDA8DC, 1100, MN_INPUT_START, 0 }, { 0xE87350E8, 10, 0, 1 } } }, //
+  { "nes-test-roms/Mappers/test28-0.04/test28-8Mbit.nes", MN_REGION_NTSC, 0, 0, { { 0x6441DB19, 10, 0x00, 0 }, { 0xAD045045, 2100, MN_INPUT_START, 0 }, { 0xDDB9B84C, 10, 0, 1 } } }, //
+  { "nes-test-roms/Mappers/test28-0.04/test28.nes", MN_REGION_NTSC, 0, 0, { { 0x6441DB19, 10, 0x00, 0 }, { 0xC0560428, 1100, MN_INPUT_START, 0 }, { 0xDDB9B84C, 10, 0, 1 } } }, //
   { "nes-test-roms/Mappers/vrc6test/vrc6test24.nes", MN_REGION_NTSC, 0, 0, { { 0xB164284C, 540, 0x00, 0 } } }, //
   { "nes-test-roms/Mappers/vrc6test/vrc6test26.nes", MN_REGION_NTSC, 0, 0, { { 0xB164284C, 540, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest21s0.nes", MN_REGION_NTSC, 0, 0, { { 0x579C0323, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest21s1.nes", MN_REGION_NTSC, 0, 0, { { 0x24AFA780, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest21s2.nes", MN_REGION_NTSC, 0, 0, { { 0x3AB4BA0C, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest22.nes", MN_REGION_NTSC, 0, 0, { { 0x7271DB9B, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest23s0.nes", MN_REGION_NTSC, 0, 0, { { 0xED3AACB2, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest23s1.nes", MN_REGION_NTSC, 0, 0, { { 0xFFE71C79, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest23s2.nes", MN_REGION_NTSC, 0, 0, { { 0x771EDC58, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest23s3.nes", MN_REGION_NTSC, 0, 0, { { 0xAD21A096, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest25s0.nes", MN_REGION_NTSC, 0, 0, { { 0x2EA25E99, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest25s1.nes", MN_REGION_NTSC, 0, 0, { { 0x7B2EA541, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest25s2.nes", MN_REGION_NTSC, 0, 0, { { 0x081F36C0, 5, 0x00, 0 } } }, //
-  { "nes-test-roms/Mappers/vrctest/vrctest25s3.nes", MN_REGION_NTSC, 0, 0, { { 0x78CE440A, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest21s0.nes", MN_REGION_NTSC, 0, 0, { { 0xD5800A94, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest21s1.nes", MN_REGION_NTSC, 0, 0, { { 0xD418D2A7, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest21s2.nes", MN_REGION_NTSC, 0, 0, { { 0x40F6B210, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest22.nes", MN_REGION_NTSC, 0, 0, { { 0x7941E7B4, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest23s0.nes", MN_REGION_NTSC, 0, 0, { { 0x419A98CC, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest23s1.nes", MN_REGION_NTSC, 0, 0, { { 0x6EFA4343, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest23s2.nes", MN_REGION_NTSC, 0, 0, { { 0xAC2C2E5F, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest23s3.nes", MN_REGION_NTSC, 0, 0, { { 0x19511A42, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest25s0.nes", MN_REGION_NTSC, 0, 0, { { 0xA6A4167C, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest25s1.nes", MN_REGION_NTSC, 0, 0, { { 0x7C690124, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest25s2.nes", MN_REGION_NTSC, 0, 0, { { 0x22E98320, 5, 0x00, 0 } } }, //
+  { "nes-test-roms/Mappers/vrctest/vrctest25s3.nes", MN_REGION_NTSC, 0, 0, { { 0x9764364C, 5, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/blargg_ppu_tests_2005.09.15b/palette_ram.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 18, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/blargg_ppu_tests_2005.09.15b/sprite_ram.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 18, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/blargg_ppu_tests_2005.09.15b/vbl_clear_time.nes", MN_REGION_NTSC, 0, 0, { { 0x2886AFFC, 23, 0x00, 0 } } }, //
@@ -346,14 +346,14 @@ static TestParams tests[] = {
   { "nes-test-roms/PPU/dmc_dma_during_read4/dma_4016_read.nes", MN_REGION_NTSC, 0, 0, { { 0x441C2F34, 20, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/dmc_dma_during_read4/double_2007_read.nes", MN_REGION_NTSC, 0, 0, { { 0x80B4A112, 16, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/dmc_dma_during_read4/read_write_2007.nes", MN_REGION_NTSC, 0, 0, { { 0xEB956420, 18, 0x00, 0 } } }, //
-  { "nes-test-roms/PPU/full_palette/flowing_palette.nes", MN_REGION_NTSC, 0, 0, { { 0x26E5F0A2, 31, 0, 0 } } }, //
-  { "nes-test-roms/PPU/full_palette/full_palette_smooth.nes", MN_REGION_NTSC, 0, 0, { { 0x208EC12D, 31, 0, 0 } } }, //
-  { "nes-test-roms/PPU/full_palette/full_palette.nes", MN_REGION_NTSC, 0, 0, { { 0xDE3FEC30, 31, 0, 0 } } }, //
+  { "nes-test-roms/PPU/full_palette/flowing_palette.nes", MN_REGION_NTSC, 0, 0, { { 0x25D0BC31, 31, 0, 0 } } }, //
+  { "nes-test-roms/PPU/full_palette/full_palette_smooth.nes", MN_REGION_NTSC, 0, 0, { { 0xBA2EF74D, 31, 0, 0 } } }, //
+  { "nes-test-roms/PPU/full_palette/full_palette.nes", MN_REGION_NTSC, 0, 0, { { 0xF191B5B0, 31, 0, 0 } } }, //
   { "nes-test-roms/PPU/nmi_sync/demo_ntsc.nes", MN_REGION_NTSC, 0, 0, { { 0xB9F1DFBA, 29, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 }, { 0xB9F1DFBA, 1, 0, 0 }, { 0x1D8EF9BE, 1, 0, 0 } } }, //
   { "nes-test-roms/PPU/nmi_sync/demo_pal.nes", MN_REGION_PAL, 0, 0, { { 0x1E9B3479, 45, 0, 0 }, { 0x644FDA4C, 1, 0, 0 }, { 0x1E9B3479, 1, 0, 0 }, { 0x644FDA4C, 1, 0, 0 } } }, //
   { "nes-test-roms/PPU/oam_read/oam_read.nes", MN_REGION_NTSC, 0, 0, { { 0xA35A57E7, 32, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/oam_stress/oam_stress.nes", MN_REGION_NTSC, 0, 0, { { 0x596023FD, 1703, 0x00, 0 } } }, //
-  { "nes-test-roms/PPU/oamtest3/oam3.nes", MN_REGION_NTSC, 0, 0, { { 0xA87189F4, 10, 0x00, 0 } } }, //
+  { "nes-test-roms/PPU/oamtest3/oam3.nes", MN_REGION_NTSC, 0, 0, { { 0x59247280, 10, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/2nd2006_next_level.nes", MN_REGION_NTSC, 0, 0,
     { { 0xA728E1F7, 60, 0, 0 },
       { 0xA728E1F7, 1, 0, 0 },
@@ -375,9 +375,9 @@ static TestParams tests[] = {
       { 0x0BA45811, 1, 0, 0 } } }, //
   { "nes-test-roms/PPU/2003-test/2003-test.nes", MN_REGION_NTSC, 0, 0, { { 0x49BDA4AF, 15, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/oam_read_vbl_wait.nes", MN_REGION_NTSC, 0, 0, { { 0xEE5E359A, 47, 0x00, 0 } } }, //
-  { "nes-test-roms/PPU/read2004/read2004.nes", MN_REGION_NTSC, 0, 0, { { 0x519A9E5E, 20, 0x00, 0 } } }, //
+  { "nes-test-roms/PPU/read2004/read2004.nes", MN_REGION_NTSC, 0, 0, { { 0xF7BA3EEA, 20, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/ppu_open_bus/ppu_open_bus.nes", MN_REGION_NTSC, 0, 0, { { 0x3EB4ABE5, 250, 0x00, 0 } } }, //
-  { "nes-test-roms/PPU/ppu_read_buffer/test_ppu_read_buffer.nes", MN_REGION_NTSC, 0, 0, { { 0x7239FBBE, 1307, 0x00, 0 } } }, //
+  { "nes-test-roms/PPU/ppu_read_buffer/test_ppu_read_buffer.nes", MN_REGION_NTSC, 0, 0, { { 0x023268C4, 1307, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/ppu_sprite_hit/rom_singles/01-basics.nes", MN_REGION_NTSC, 0, 0, { { 0xE654945D, 43, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/ppu_sprite_hit/rom_singles/02-alignment.nes", MN_REGION_NTSC, 0, 0, { { 0x057D9670, 40, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/ppu_sprite_hit/rom_singles/03-corners.nes", MN_REGION_NTSC, 0, 0, { { 0xEFCA28B7, 25, 0x00, 0 } } }, //
@@ -406,8 +406,8 @@ static TestParams tests[] = {
   { "nes-test-roms/PPU/ppu_vbl_nmi/rom_singles/09-even_odd_frames.nes", MN_REGION_NTSC, 0, 0, { { 0xA590A81C, 76, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/ppu_vbl_nmi/rom_singles/10-even_odd_timing.nes", MN_REGION_NTSC, 0, 0, { { 0xB3F44119, 142, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/ppu_vbl_nmi/ppu_vbl_nmi.nes", MN_REGION_NTSC, 0, 0, { { 0xDDE50B5E, 1616, 0, 0 } } }, //
-  { "nes-test-roms/PPU/scanline/scanline.nes", MN_REGION_NTSC, 0, 0, { { 0x629D1349, 80, 0, 0 } } }, // area1 flicker pixels after line
-  { "nes-test-roms/PPU/scanline-a1/scanline.nes", MN_REGION_NTSC, 0, 0, { { 0x629D1349, 80, 0, 0 } } }, // same as above
+  { "nes-test-roms/PPU/scanline/scanline.nes", MN_REGION_NTSC, 0, 0, { { 0xA9BA69FC, 80, 0, 0 }, { 0x5CE9D52E, 3, 0, 0 } } }, //
+  { "nes-test-roms/PPU/scanline-a1/scanline.nes", MN_REGION_NTSC, 0, 0, { { 0xA9BA69FC, 80, 0, 0 }, { 0x5CE9D52E, 3, 0, 0 } } }, //
   { "nes-test-roms/PPU/sprite_hit_tests_2005.10.05/01.basics.nes", MN_REGION_NTSC, 0, 0, { { 0xAC38F2AD, 33, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/sprite_hit_tests_2005.10.05/02.alignment.nes", MN_REGION_NTSC, 0, 0, { { 0x3BF08842, 31, 0x00, 0 } } }, //
   { "nes-test-roms/PPU/sprite_hit_tests_2005.10.05/03.corners.nes", MN_REGION_NTSC, 0, 0, { { 0xC53BD4BF, 20, 0x00, 0 } } }, //
@@ -720,20 +720,22 @@ static uint run_test_step(TestStep step, bool audio, FILE* wav_file)
   if (step.reset) {
     mn_reset();
   }
-  for (uint i = 0; i < step.frames; ++i) {
-    mn_input(step.joy1, 0);
-    mn_frame();
-    if (audio) {
+  mn_input(step.joy1, 0);
+  if (audio) {
+    for (uint i = 0; i < step.frames; ++i) {
+      mn_frame();
       visualize_audio_frame();
 #if WRITE_WAV
       fwrite(mn_audio_data(), 1, mn_audio_size(), wav_file);
       wav_size += mn_audio_size();
 #endif
     }
-  }
-  if (audio_size) {
     return calc_crc((u8*)audio_data, audio_size * 256 * 4);
   } else {
+    for (uint i = 0; i < step.frames - 1; ++i) {
+      mn_frame_fast();
+    }
+    mn_frame();
     return calc_crc((u8*)mn_video_data(), 256 * 240 * 4);
   }
 }
