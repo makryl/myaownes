@@ -302,7 +302,7 @@ static void app_read_config(const char* path)
       if (imp.palette_path[0]) {
         size_t size = 0;
         u8* data = SDL_LoadFile(imp.palette_path, &size);
-        if (data && size == 192) {
+        if (data && size >= 192) {
           uint palette[64] = {};
           for (uint i = 0; i < 64; ++i) {
             u8 r = data[i * 3 + 0];

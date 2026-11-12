@@ -11,7 +11,6 @@ enum
   APU_FILTER_HP = 52, // US-NES-FL-N34169630.flac
   APU_FILTER_LP = 17000,
   APU_FILTER_DITHER = 1,
-  APU_FILTER_DMC = 0, // todo: make optional, nice pop filter, but fails apu_mixer tests
 };
 
 enum
@@ -427,21 +426,6 @@ static uint apu_noise_sample()
   return sample ? volume : 0;
 }
 
-static uint apu_dmc_sample()
-{
-  if (APU_FILTER_DMC) {
-    if ((apu.cyc % 4) == 0) {
-      if (apu.dmc_val_filtered < apu.dmc_val) {
-        ++apu.dmc_val_filtered;
-      } else if (apu.dmc_val_filtered > apu.dmc_val) {
-        --apu.dmc_val_filtered;
-      }
-    }
-    return apu.dmc_val_filtered;
-  }
-  return apu.dmc_val;
-}
-
 static uint apu_tnd_table_idx(uint t, uint n, uint d)
 {
 #if APU_MIX_LUT_APPROX
@@ -458,7 +442,7 @@ static uint apu_sample()
     apu.pulse2_val = apu_pulse2_sample();
     apu.noise_val = apu_noise_sample();
     uint pulse = apu_dyn.pulse_table[apu.pulse1_val + apu.pulse2_val];
-    uint tnd = apu_dyn.tnd_table[apu_tnd_table_idx(apu.triangle_val, apu.noise_val, apu_dmc_sample())];
+    uint tnd = apu_dyn.tnd_table[apu_tnd_table_idx(apu.triangle_val, apu.noise_val, apu.dmc_val)];
     apu.sample = pulse + tnd;
     apu.sample_dirty = false;
   }

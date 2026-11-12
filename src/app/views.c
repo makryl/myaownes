@@ -288,8 +288,6 @@ void app_draw_options()
     case MN_INPUT_LEFT: app_auto_save_period_down(); break;
     case MN_INPUT_RIGHT: app_auto_save_period_up(); break;
   }
-  // todo: auto_save_period
-  // todo: fast_forward_scale
   ++line;
   if (app_draw_menu_line("Defaults", line++, menu++)) {
     app_reset_config();
