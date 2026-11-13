@@ -80,7 +80,6 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
   for (int i = 0; i < argc; ++i) {
     if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
-      SDL_Log("MyaowNES v" MN_VERSION);
       SDL_Log("Usage: myaownes <path/to/game.nes> [options]");
       SDL_Log("Options:");
       SDL_Log("-h, --help                       Display help");

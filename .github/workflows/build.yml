@@ -71,6 +71,8 @@ jobs:
 
       - name: build
         run: |
+          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+
           cmake --preset Linux-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
           cmake --build build/Linux-Release --clean-first --target myaownes-pgo-run
 
@@ -106,6 +108,8 @@ jobs:
       - name: build
         shell: msys2 {0}
         run: |
+          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+
           cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
           cmake --build build/Windows-Release --clean-first --target myaownes-pgo-run
 
@@ -129,6 +133,8 @@ jobs:
 
       - name: build
         run: |
+          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+
           cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/MacOS-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/MacOS-Release/pgo"
           cmake --build build/MacOS-Release --clean-first --target myaownes-pgo-run
 
@@ -173,7 +179,9 @@ jobs:
         with:
           submodules: true
 
-      - run: ./platforms/android/build.sh
+      - run: |
+          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+          ./platforms/android/build.sh
 
       - uses: actions/upload-artifact@v7
         with:
@@ -194,6 +202,8 @@ jobs:
 
       - name: build
         run: |
+          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+
           cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo -sNODERAWFS=1"
           cmake --build build/Emscripten-Release --clean-first --target myaownes-pgo-run
 

@@ -3,6 +3,8 @@
 #include "myaownes.h"
 #include <SDL3/SDL.h>
 
+#define MN_VERSION "000000"
+
 enum
 {
   APP_PATH_SIZE = 4096,
