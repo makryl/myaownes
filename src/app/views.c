@@ -224,7 +224,7 @@ void app_draw_menu()
   app_draw_line(line++, "     Touch to show controls     ");
 
   if (!imp.embed_enabled) {
-    app_draw_line(27, "                MyaowNES v" MN_VERSION " ");
+    app_draw_line(27, "               MyaowNES v" MN_VERSION " ");
   }
 }
 
@@ -241,7 +241,7 @@ void app_draw_start()
 
 void app_draw_options()
 {
-  app_draw_menu_prepare(12);
+  app_draw_menu_prepare(14);
   uint line = 6;
   uint menu = 0;
   if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
@@ -279,6 +279,18 @@ void app_draw_options()
   switch (app_draw_menu_line_arrows(app_fast_forward_labels[imp.fast_forward_scale - 2], line++, menu++)) {
     case MN_INPUT_LEFT: app_fast_forward_down(); break;
     case MN_INPUT_RIGHT: app_fast_forward_up(); break;
+  }
+  switch (app_draw_menu_line_arrows(app_rewind_scale_labels[imp.rewind_scale - 1], line++, menu++)) {
+    case MN_INPUT_LEFT: app_rewind_scale_down(); break;
+    case MN_INPUT_RIGHT: app_rewind_scale_up(); break;
+  }
+  imp.rewind_seconds = (imp.rewind_seconds / 10) * 10;
+  if (imp.rewind_seconds > 60) {
+    imp.rewind_seconds = 60;
+  }
+  switch (app_draw_menu_line_arrows(app_rewind_seconds_labels[imp.rewind_seconds / 10], line++, menu++)) {
+    case MN_INPUT_LEFT: app_rewind_seconds_down(); break;
+    case MN_INPUT_RIGHT: app_rewind_seconds_up(); break;
   }
   imp.auto_save_period = (imp.auto_save_period / 30) * 30;
   if (imp.auto_save_period > 300) {
@@ -346,7 +358,7 @@ void app_draw_help()
                 K(APP_ACTION_SLOT9));
   app_draw_line(line++, " Aspect %7.7s  Pause %8.8s ", K(APP_ACTION_ASPECT), K(APP_ACTION_PAUSE));
   app_draw_line(line++, " Overscan %5.5s  Show FPS %5.5s ", K(APP_ACTION_OVERSCAN), K(APP_ACTION_SHOW_FPS));
-  app_draw_line(line++, " Load %9.9s                 ", K(APP_ACTION_LOAD));
+  app_draw_line(line++, " Load %9.9s  Rewind %7.7s ", K(APP_ACTION_LOAD), K(APP_ACTION_REWIND));
 #ifndef __EMSCRIPTEN__
   app_draw_line(line++, " Quit %9.9s  Scale  %3.3s/%-3.3s ", K(APP_ACTION_QUIT), K(APP_ACTION_SCALE_DOWN),
                 K(APP_ACTION_SCALE_UP));

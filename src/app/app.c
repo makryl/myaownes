@@ -146,6 +146,57 @@ static void app_save_history()
   fclose(f);
 }
 
+static void app_rewind_release()
+{
+  SDL_free(imp.rewind_buffer);
+  imp.rewind_buffer = nullptr;
+  imp.rewind_start = 0;
+  imp.rewind_curr = 0;
+}
+
+void app_rewind_init()
+{
+  app_rewind_release();
+  size_t size = 60ULL * imp.rewind_seconds * mn_save_size();
+  if (size) {
+    imp.rewind_buffer = SDL_malloc(size);
+  }
+}
+
+void app_rewind_save()
+{
+  if (!imp.rewind_buffer) {
+    return;
+  }
+  void* data = imp.rewind_buffer + (size_t)imp.rewind_curr * mn_save_size();
+  mn_save_data(data);
+  if (++imp.rewind_curr == imp.rewind_seconds * 60) {
+    imp.rewind_curr = 0;
+  }
+  if (imp.rewind_curr == imp.rewind_start) {
+    if (++imp.rewind_start == imp.rewind_seconds * 60) {
+      imp.rewind_start = 0;
+    }
+  }
+}
+
+void app_rewind_load()
+{
+  if (!imp.rewind_buffer) {
+    return;
+  }
+  for (uint i = 0; i < imp.rewind_scale; ++i) {
+    if (imp.rewind_curr != imp.rewind_start) {
+      if (imp.rewind_curr == 0) {
+        imp.rewind_curr = imp.rewind_seconds * 60;
+      }
+      --imp.rewind_curr;
+    }
+  }
+  void* data = imp.rewind_buffer + (size_t)imp.rewind_curr * mn_save_size();
+  mn_load_data(data);
+}
+
 void app_rom_update()
 {
   mn_rom rom = imp.rom;
@@ -191,6 +242,7 @@ void app_rom_update()
 
   app_try_resize();
   app_save_history();
+  app_rewind_init();
 }
 
 void app_tas_unload()
@@ -217,6 +269,7 @@ void app_rom_unload()
       mn_rom_save(imp.sram_path);
     }
     mn_rom_release(imp.rom);
+    app_rewind_release();
   }
 }
 
@@ -248,6 +301,8 @@ void app_save_config()
   fprintf(f, "auto_save_period %u\n", imp.auto_save_period);
   fprintf(f, "show_fps %u\n", imp.fps);
   fprintf(f, "fast_forward_scale %u\n", imp.fast_forward_scale);
+  fprintf(f, "rewind_scale %u\n", imp.rewind_scale);
+  fprintf(f, "rewind_seconds %u\n", imp.rewind_seconds);
   fprintf(f, "region %u\n", imp.region);
 #ifndef __EMSCRIPTEN__
   // fprintf(f, "filter_hp %u\n", imp.filter_hp);
@@ -291,6 +346,10 @@ static void app_read_config(const char* path)
       imp.fps = val;
     } else if (strcmp(key, "fast_forward_scale") == 0) {
       fscanf(f, "%u", &imp.fast_forward_scale);
+    } else if (strcmp(key, "rewind_scale") == 0) {
+      fscanf(f, "%u", &imp.rewind_scale);
+    } else if (strcmp(key, "rewind_seconds") == 0) {
+      fscanf(f, "%u", &imp.rewind_seconds);
     } else if (strcmp(key, "region") == 0) {
       fscanf(f, "%u", &imp.region);
       // } else if (strcmp(key, "filter_hp") == 0) {
@@ -355,6 +414,8 @@ static void app_config_defaults()
   imp.fps = false;
   imp.fps_test = false;
   imp.fast_forward_scale = 4;
+  imp.rewind_scale = 4;
+  imp.rewind_seconds = 10;
   imp.region = MN_REGION_AUTO;
   // imp.filter_hp = 0;
   // imp.filter_lp = 0;
@@ -394,6 +455,7 @@ static void app_config_defaults()
   imp.scancode_by_action[APP_ACTION_SHOW_FPS] = SDL_SCANCODE_GRAVE;
   imp.scancode_by_action[APP_ACTION_MAX_FPS] = SDL_SCANCODE_Z;
   imp.scancode_by_action[APP_ACTION_FAST_FORWARD] = SDL_SCANCODE_TAB;
+  imp.scancode_by_action[APP_ACTION_REWIND] = SDL_SCANCODE_BACKSPACE;
   imp.scancode_by_action[APP_ACTION_SLOT0] = SDL_SCANCODE_0;
   imp.scancode_by_action[APP_ACTION_SLOT1] = SDL_SCANCODE_1;
   imp.scancode_by_action[APP_ACTION_SLOT2] = SDL_SCANCODE_2;

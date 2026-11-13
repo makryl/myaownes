@@ -244,6 +244,12 @@ SDL_AppResult SDL_AppIterate(void*)
       if (imp.fps) {
         ++imp.fps_count;
       }
+      if (imp.rewind) {
+        app_rewind_load();
+        app_popup("<<", 0.5);
+      } else {
+        app_rewind_save();
+      }
       if (!has_video || !has_audio) {
         mn_frame();
         uint audio_size = mn_audio_size();

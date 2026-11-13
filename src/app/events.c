@@ -25,7 +25,7 @@ void app_save()
   char ext[5] = ".qs0";
   ext[3] += imp.slot;
   app_save_path(qs_path, "Saves", ext);
-  if (mn_save(qs_path)) {
+  if (mn_save_file(qs_path)) {
     app_popup("Saved", 2);
   }
 }
@@ -36,7 +36,7 @@ bool app_load_check()
   char ext[5] = ".qs0";
   ext[3] += imp.slot;
   app_save_path(qs_path, "Saves", ext);
-  bool result = mn_load(qs_path);
+  bool result = mn_load_file(qs_path);
   if (result) {
     app_popup("Loaded", 2);
   }
@@ -256,6 +256,45 @@ void app_fast_forward_up()
   }
 }
 
+static void app_rewind_on() { imp.rewind = true; }
+static void app_rewind_off() { imp.rewind = false; }
+
+void app_rewind_scale_down()
+{
+  if (imp.rewind_scale > 1) {
+    --imp.rewind_scale;
+    imp.dirty_config = true;
+  }
+}
+
+void app_rewind_scale_up()
+{
+  if (imp.rewind_scale < 5) {
+    ++imp.rewind_scale;
+    imp.dirty_config = true;
+  }
+}
+
+void app_rewind_seconds_down()
+{
+  imp.rewind_seconds = (imp.rewind_seconds / 10) * 10;
+  if (imp.rewind_seconds > 0) {
+    imp.rewind_seconds -= 10;
+    imp.dirty_config = true;
+    app_rewind_init();
+  }
+}
+
+void app_rewind_seconds_up()
+{
+  imp.rewind_seconds = (imp.rewind_seconds / 10) * 10;
+  if (imp.rewind_seconds < 60) {
+    imp.rewind_seconds += 10;
+    imp.dirty_config = true;
+    app_rewind_init();
+  }
+}
+
 void app_auto_save_period_down()
 {
   imp.auto_save_period = (imp.auto_save_period / 30) * 30;
@@ -400,6 +439,7 @@ const app_action_data app_actions[APP_ACTION_COUNT] = {
   [APP_ACTION_SHOW_FPS] = { "bind_show_fps", app_toggle_fps, nullptr },
   [APP_ACTION_MAX_FPS] = { "bind_max_fps", app_toggle_fps_test, nullptr },
   [APP_ACTION_FAST_FORWARD] = { "bind_fast_forward", app_fast_forward_on, app_fast_forward_off },
+  [APP_ACTION_REWIND] = { "bind_rewind", app_rewind_on, app_rewind_off },
   [APP_ACTION_SLOT0] = { "bind_slot0", app_slot0, nullptr },
   [APP_ACTION_SLOT1] = { "bind_slot1", app_slot1, nullptr },
   [APP_ACTION_SLOT2] = { "bind_slot2", app_slot2, nullptr },

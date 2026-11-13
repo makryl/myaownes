@@ -233,7 +233,79 @@ void mn_region_set(uint region)
   dev_region_update();
 }
 
-bool mn_save(const char* path)
+uint mn_save_size()
+{
+  mn_rom rom = mn_rom_get();
+  if (!rom) {
+    return 0;
+  }
+  uint size = dev_size() + apu_size() + cpu_size() + ppu_size() + map_size();
+  if (rom->prg_ram) {
+    size += rom->prg_ram_size;
+  }
+  if (rom->chr_ram) {
+    size += rom->chr_ram_size;
+  }
+  return size;
+}
+
+void mn_save_data(void* data)
+{
+  mn_rom rom = mn_rom_get();
+  if (!rom) {
+    errorf("no active rom set\n");
+    return;
+  }
+  u8* ptr = data;
+  memcpy(ptr, dev_data(), dev_size());
+  ptr += dev_size();
+  memcpy(ptr, apu_data(), apu_size());
+  ptr += apu_size();
+  memcpy(ptr, cpu_data(), cpu_size());
+  ptr += cpu_size();
+  memcpy(ptr, ppu_data(), ppu_size());
+  ptr += ppu_size();
+  memcpy(ptr, map_data(), map_size());
+  ptr += map_size();
+  if (rom->prg_ram && rom->prg_ram_size) {
+    memcpy(ptr, rom->prg_ram, rom->prg_ram_size);
+    ptr += rom->prg_ram_size;
+  }
+  if (rom->chr_ram && rom->chr_ram_size) {
+    memcpy(ptr, rom->chr_ram, rom->chr_ram_size);
+    ptr += rom->chr_ram_size;
+  }
+}
+
+void mn_load_data(const void* data)
+{
+  mn_rom rom = mn_rom_get();
+  if (!rom) {
+    errorf("no active rom set\n");
+    return;
+  }
+  const u8* ptr = data;
+  memcpy(dev_data(), ptr, dev_size());
+  ptr += dev_size();
+  memcpy(apu_data(), ptr, apu_size());
+  ptr += apu_size();
+  memcpy(cpu_data(), ptr, cpu_size());
+  ptr += cpu_size();
+  memcpy(ppu_data(), ptr, ppu_size());
+  ptr += ppu_size();
+  memcpy(map_data(), ptr, map_size());
+  ptr += map_size();
+  if (rom->prg_ram && rom->prg_ram_size) {
+    memcpy(rom->prg_ram, ptr, rom->prg_ram_size);
+    ptr += rom->prg_ram_size;
+  }
+  if (rom->chr_ram && rom->chr_ram_size) {
+    memcpy(rom->chr_ram, ptr, rom->chr_ram_size);
+    ptr += rom->chr_ram_size;
+  }
+}
+
+bool mn_save_file(const char* path)
 {
   mn_rom rom = mn_rom_get();
   if (!rom) {
@@ -289,7 +361,7 @@ bool mn_save(const char* path)
   return true;
 }
 
-bool mn_load(const char* path)
+bool mn_load_file(const char* path)
 {
   mn_rom rom = mn_rom_get();
   if (!rom) {

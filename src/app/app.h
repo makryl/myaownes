@@ -77,6 +77,7 @@ typedef enum
   APP_ACTION_SHOW_FPS,
   APP_ACTION_MAX_FPS,
   APP_ACTION_FAST_FORWARD,
+  APP_ACTION_REWIND,
   APP_ACTION_SLOT0,
   APP_ACTION_SLOT1,
   APP_ACTION_SLOT2,
@@ -119,6 +120,7 @@ typedef struct
   SDL_FRect rect;
   SDL_FRect ui_offset;
   const char* popup_text;
+  void* rewind_buffer;
   u64 last_time;
   u64 curr_time;
   u64 target_frame_time;
@@ -167,6 +169,10 @@ typedef struct
   int width;
   int height;
   SDL_AtomicInt load_rom_dialog_done;
+  uint rewind_seconds;
+  uint rewind_start;
+  uint rewind_curr;
+  uint rewind_scale;
   bool pause;
   bool fps;
   bool fps_test;
@@ -179,6 +185,7 @@ typedef struct
   bool embed_enabled;
   bool start_screen;
   bool quit;
+  bool rewind;
   mn_rom rom;
   mn_tas tas;
   char rom_info[6][15];
@@ -214,6 +221,11 @@ static const char* const app_fps_test_labels[2] = { "Max FPS OFF", "Max FPS ON" 
 static const char* const app_fullscreen_labels[2] = { "Fullscreen OFF", "Fullscreen ON" };
 static const char* const app_fast_forward_labels[4] = { "Fast forward x2", "Fast forward x3", "Fast forward x4",
                                                         "Fast forward x5" };
+static const char* const app_rewind_scale_labels[5] = { "Rewind speed x1", "Rewind speed x2", "Rewind speed x3",
+                                                        "Rewind speed x4", "Rewind speed x5" };
+static const char* const app_rewind_seconds_labels[7] = { "Rewind OFF",        "Rewind seconds 10", "Rewind seconds 20",
+                                                          "Rewind seconds 30", "Rewind seconds 40", "Rewind seconds 50",
+                                                          "Rewind seconds 60" };
 static const char* const app_auto_save_period_labels[11] = {
   "Auto-save OFF",     "Auto-save 30 sec",  "Auto-save 60 sec",  "Auto-save 90 sec",
   "Auto-save 120 sec", "Auto-save 150 sec", "Auto-save 180 sec", "Auto-save 210 sec",
@@ -234,3 +246,6 @@ void app_save_config();
 void app_load_history();
 void app_load_config();
 void app_reset_config();
+void app_rewind_init();
+void app_rewind_save();
+void app_rewind_load();
