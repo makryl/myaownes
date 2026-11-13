@@ -133,7 +133,7 @@ jobs:
 
       - name: build
         run: |
-          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+          sed -i "" "s/000000/$(date +%y%m%d)/" src/app/app.h
 
           cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/MacOS-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/MacOS-Release/pgo"
           cmake --build build/MacOS-Release --clean-first --target myaownes-pgo-run
