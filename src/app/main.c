@@ -78,7 +78,7 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 {
   SDL_Log("MyaowNES v%s", MN_VERSION);
   SDL_memset(&imp, 0, sizeof(imp));
-  app_net_init();
+  net_init();
 
   // imp.net_is_client = true;
   // SDL_strlcpy(imp.net_address, "127.0.0.1", sizeof(imp.net_address));
@@ -119,9 +119,9 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
   }
 
   if (imp.net_is_server) {
-    app_net_server_listen(imp.net_address, imp.net_port);
+    net_server(imp.net_address, imp.net_port);
   } else if (imp.net_is_client) {
-    app_net_client_connect(imp.net_address, imp.net_port);
+    net_client(imp.net_address, imp.net_port);
   }
 
   if (imp.save_dir[0] == 0) {
@@ -257,10 +257,12 @@ SDL_AppResult SDL_AppIterate(void*)
     bool has_video = false;
     bool has_audio = queued_size >= imp.audio_buffer_size;
 
-    if (imp.tas) {
+    if (imp.net_is_server) {
+      mn_input(imp.joy1, imp.net_joy2);
+    } else if (imp.net_is_client) {
+      mn_input(imp.net_joy1, imp.net_joy2);
+    } else if (imp.tas) {
       mn_tas_input(imp.tas);
-    } else if (imp.net_is_server || imp.net_is_client) {
-      // app_net_input();
     } else {
       mn_input(imp.joy1, imp.joy2);
     }
@@ -354,5 +356,5 @@ void SDL_AppQuit(void*, SDL_AppResult)
   SDL_DestroyTexture(imp.tex_buttons);
   SDL_DestroyRenderer(imp.renderer);
   SDL_DestroyWindow(imp.window);
-  app_net_quit();
+  net_quit();
 }

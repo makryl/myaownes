@@ -121,7 +121,8 @@ typedef struct
   SDL_FRect ui_offset;
   const char* popup_text;
   void* rewind_buffer;
-  u8* net_buf;
+  u8* net_tx;
+  u8* net_rx;
   u64 last_time;
   u64 curr_time;
   u64 target_frame_time;
@@ -178,9 +179,11 @@ typedef struct
   uint net_joy2;
   uint net_sent_joy1;
   uint net_sent_joy2;
-  uint net_buf_size;
-  uint net_buf_expected;
-  uint net_buf_received;
+  uint net_tx_size;
+  uint net_tx_scheduled;
+  uint net_rx_size;
+  uint net_rx_expected;
+  uint net_rx_received;
   uint frame;
   uint fps_prev;
   uint fps_value;
