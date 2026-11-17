@@ -8,7 +8,7 @@
 
 enum
 {
-  APP_NET_STATE_NONE,
+  APP_NET_STATE_NONE = 0,
   APP_NET_STATE_SYNC_STATE,
   APP_NET_STATE_SYNC_INPUT,
   APP_NET_STATE_PLAY,
@@ -16,6 +16,7 @@ enum
 
 enum
 {
+  APP_NET_PACKET_TYPE_NONE = 0,
   APP_NET_PACKET_TYPE_SERVER_ROM,
   APP_NET_PACKET_TYPE_SERVER_STATE,
   APP_NET_PACKET_TYPE_SERVER_INPUT,
@@ -23,6 +24,13 @@ enum
   APP_NET_PACKET_TYPE_CLIENT_READY,
   APP_NET_PACKET_TYPE_CLIENT_INPUT,
 };
+
+typedef struct
+{
+  u8 type;
+  uint frame;
+  u16 joy;
+} __attribute__((packed)) net_packet_client_input;
 
 #define app_net_trace(fmt, ...) \
   printf("NET state=%d frame=%d  " fmt "\n", imp.net_state, imp.frame __VA_OPT__(, ) __VA_ARGS__)
@@ -89,10 +97,12 @@ static void app_net_send_packet(u8 type)
       break;
     }
     case APP_NET_PACKET_TYPE_CLIENT_INPUT: {
-      u16 joy1 = imp.joy1;
-      app_net_send_schedule(&type, sizeof(type));
-      app_net_send_schedule(&imp.frame, sizeof(imp.frame));
-      app_net_send_schedule(&joy1, sizeof(joy1));
+      net_packet_client_input packet = { type, imp.frame, imp.joy1 };
+      net_send_datagram(&packet, sizeof(net_packet_client_input));
+      // u16 joy1 = imp.joy1;
+      // app_net_send_schedule(&type, sizeof(type));
+      // app_net_send_schedule(&imp.frame, sizeof(imp.frame));
+      // app_net_send_schedule(&joy1, sizeof(joy1));
       break;
     }
     case APP_NET_PACKET_TYPE_CLIENT_STATE:
@@ -250,6 +260,18 @@ static void app_net_recv_stream()
   } while (received);
 }
 
+static void app_net_recv_datagram()
+{
+  uint received = 0;
+  do {
+    u8 buf[16];
+    received = net_recv_datagram(&buf, sizeof(buf));
+    if (received > 0) {
+      app_net_recv_packet(buf, received);
+    }
+  } while (received);
+}
+
 void app_net_update()
 {
   if (net_connected()) {
@@ -266,6 +288,7 @@ void app_net_update()
         break;
       case APP_NET_STATE_PLAY:
         app_net_recv_stream();
+        app_net_recv_datagram();
         app_net_send_input();
         app_net_send_stream();
         break;
