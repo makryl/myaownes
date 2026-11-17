@@ -113,7 +113,7 @@ jobs:
           cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
           cmake --build build/Windows-Release --clean-first --target myaownes-pgo-run
 
-          cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
+          cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use -mwindows"
           cmake --build build/Windows-Release --clean-first --target install
 
           zip -j dist/myaownes_latest_windows_x64.zip LICENSE.txt README.md dist/Windows-Release/*

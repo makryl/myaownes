@@ -91,7 +91,6 @@ Some ideas and reminders for future:
 - NSF player mode
 - Fake stereo
 - Slowdown
-- Rewind
 - CRT shader
 - App icons
 - More tests:

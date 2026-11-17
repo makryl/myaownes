@@ -45,22 +45,6 @@ bool app_load_check()
 
 void app_load() { app_load_check(); }
 
-void app_menu_state(uint state)
-{
-  if (state == APP_MENU_OFF && !imp.rom) {
-    state = APP_MENU_MAIN;
-  }
-  if (state == imp.menu_state) {
-    return;
-  }
-  if (imp.menu_state != APP_MENU_HELP) {
-    imp.menu_state_prev = imp.menu_state;
-  }
-  imp.menu_state = state;
-  imp.menu_selection = 0;
-  imp.pause = state != APP_MENU_OFF;
-}
-
 static void app_toggle_menu() { app_menu_state(imp.menu_state == APP_MENU_MAIN ? APP_MENU_OFF : APP_MENU_MAIN); }
 void app_toggle_help() { app_menu_state(imp.menu_state == APP_MENU_HELP ? imp.menu_state_prev : APP_MENU_HELP); }
 

@@ -2,6 +2,7 @@
 #include "app.h"
 #include "events.h"
 #include "views.h"
+#include "net.h"
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
@@ -77,6 +78,11 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 {
   SDL_Log("MyaowNES v%s", MN_VERSION);
   SDL_memset(&imp, 0, sizeof(imp));
+  app_net_init();
+
+  // imp.net_is_client = true;
+  // SDL_strlcpy(imp.net_address, "127.0.0.1", sizeof(imp.net_address));
+  // imp.net_port = 12345;
 
   for (int i = 0; i < argc; ++i) {
     if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
@@ -86,6 +92,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
       SDL_Log("--embed                          Embed mode");
       SDL_Log("--config   <path/to/config.txt>  Default config");
       SDL_Log("--path     <path/to/save/dir>    Path to save directory");
+      SDL_Log("--server   <address>:<port>      Address and port to listen");
+      SDL_Log("--client   <address>:<port>      Address and port to connect");
       return SDL_APP_SUCCESS;
     } else if (SDL_strcmp(argv[i], "--embed") == 0) {
       imp.embed_enabled = true;
@@ -97,9 +105,23 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
       if (len > 0 && imp.save_dir[len - 1] != '/' && imp.save_dir[len - 1] != '\\') {
         SDL_strlcat(imp.save_dir, "/", APP_PATH_SIZE);
       }
+    } else if (SDL_strcmp(argv[i], "--server") == 0) {
+      imp.net_is_server = true;
+      imp.net_is_client = false;
+      SDL_sscanf(argv[++i], "%[^:]:%u", imp.net_address, &imp.net_port);
+    } else if (SDL_strcmp(argv[i], "--client") == 0) {
+      imp.net_is_server = false;
+      imp.net_is_client = true;
+      SDL_sscanf(argv[++i], "%[^:]:%u", imp.net_address, &imp.net_port);
     } else if (i > 0) {
       SDL_strlcpy(imp.load_rom_path, argv[i], APP_PATH_SIZE);
     }
+  }
+
+  if (imp.net_is_server) {
+    app_net_server_listen(imp.net_address, imp.net_port);
+  } else if (imp.net_is_client) {
+    app_net_client_connect(imp.net_address, imp.net_port);
   }
 
   if (imp.save_dir[0] == 0) {
@@ -196,6 +218,8 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 
 SDL_AppResult SDL_AppIterate(void*)
 {
+  app_net_update();
+
   if (imp.load_rom_dialog_wait) {
     if (SDL_CompareAndSwapAtomicInt(&imp.load_rom_dialog_done, 1, 0)) {
       imp.load_rom_dialog_wait = false;
@@ -235,17 +259,17 @@ SDL_AppResult SDL_AppIterate(void*)
 
     if (imp.tas) {
       mn_tas_input(imp.tas);
+    } else if (imp.net_is_server || imp.net_is_client) {
+      // app_net_input();
     } else {
       mn_input(imp.joy1, imp.joy2);
     }
 
     while (imp.curr_time >= imp.target_frame_time || !has_audio) {
       imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
-      if (imp.fps) {
-        ++imp.fps_count;
-      }
+      ++imp.frame;
       if (imp.rewind) {
-        app_rewind_load();
+        app_rewind_load(imp.rewind_scale);
         app_popup("<<", 0.5);
       } else {
         app_rewind_save();
@@ -269,16 +293,16 @@ SDL_AppResult SDL_AppIterate(void*)
   if (imp.fps) {
     imp.fps_time += imp.real_frame_time;
     if (imp.fps_time > imp.perf_freq) {
-      imp.fps_value = imp.fps_count;
+      imp.fps_value = imp.frame - imp.fps_prev;
       imp.fps_time -= imp.perf_freq;
-      imp.fps_count = 0;
+      imp.fps_prev = imp.frame;
     }
   }
 
   imp.auto_save_time += imp.real_frame_time;
   if (imp.auto_save_time >= imp.auto_save_period * imp.perf_freq) {
     imp.auto_save_time -= imp.auto_save_period * imp.perf_freq;
-    if (imp.rom) {
+    if (imp.rom && !imp.net_is_client) {
       mn_rom_save(imp.sram_path);
     }
   }
@@ -330,4 +354,5 @@ void SDL_AppQuit(void*, SDL_AppResult)
   SDL_DestroyTexture(imp.tex_buttons);
   SDL_DestroyRenderer(imp.renderer);
   SDL_DestroyWindow(imp.window);
+  app_net_quit();
 }

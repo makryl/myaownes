@@ -180,12 +180,29 @@ void app_rewind_save()
   }
 }
 
-void app_rewind_load()
+void* app_rewind_data(uint offset)
+{
+  if (!imp.rewind_buffer) {
+    return nullptr;
+  }
+  uint idx = imp.rewind_curr;
+  for (uint i = 0; i < offset; ++i) {
+    if (idx != imp.rewind_start) {
+      if (idx == 0) {
+        idx = imp.rewind_seconds * 60;
+      }
+      --idx;
+    }
+  }
+  return imp.rewind_buffer + (size_t)idx * mn_save_size();
+}
+
+void app_rewind_load(uint offset)
 {
   if (!imp.rewind_buffer) {
     return;
   }
-  for (uint i = 0; i < imp.rewind_scale; ++i) {
+  for (uint i = 0; i < offset; ++i) {
     if (imp.rewind_curr != imp.rewind_start) {
       if (imp.rewind_curr == 0) {
         imp.rewind_curr = imp.rewind_seconds * 60;
@@ -197,11 +214,30 @@ void app_rewind_load()
   mn_load_data(data);
 }
 
+void app_menu_state(uint state)
+{
+  if (state == APP_MENU_OFF && !imp.rom) {
+    if (!imp.rom) {
+      state = APP_MENU_MAIN;
+    } else if (imp.rom->mapper_error) {
+      state = APP_MENU_INFO;
+    }
+  }
+  if (state == imp.menu_state) {
+    return;
+  }
+  if (imp.menu_state != APP_MENU_HELP) {
+    imp.menu_state_prev = imp.menu_state;
+  }
+  imp.menu_state = state;
+  imp.menu_selection = 0;
+  imp.pause = state != APP_MENU_OFF;
+}
+
 void app_rom_update()
 {
   mn_rom rom = imp.rom;
-  imp.menu_state = !rom ? APP_MENU_MAIN : rom->mapper_error ? APP_MENU_INFO : APP_MENU_OFF;
-  imp.pause = !rom || rom->mapper_error;
+  app_menu_state(APP_MENU_OFF);
   if (!rom) {
     for (uint i = 0; i < 6; ++i) {
       imp.rom_info[i][0] = 0;
@@ -211,7 +247,7 @@ void app_rom_update()
 
   if (!imp.embed_enabled) {
     char title[256] = {};
-    SDL_strlcat(title, app_rom_name(imp.rom_path), APP_PATH_SIZE);
+    SDL_strlcat(title, imp.net_is_client ? "Client" : app_rom_name(imp.rom_path), APP_PATH_SIZE);
     SDL_strlcat(title, " - MyaowNES", APP_PATH_SIZE);
     SDL_SetWindowTitle(imp.window, title);
   }
@@ -265,7 +301,7 @@ void app_tas_load(const char* path)
 void app_rom_unload()
 {
   if (imp.rom) {
-    if ((imp.rom->prg_has_battery || imp.rom->chr_has_battery)) {
+    if ((imp.rom->prg_has_battery || imp.rom->chr_has_battery) && !imp.net_is_client) {
       mn_rom_save(imp.sram_path);
     }
     mn_rom_release(imp.rom);

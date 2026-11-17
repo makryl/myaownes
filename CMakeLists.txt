@@ -27,6 +27,8 @@ add_executable(${PROJECT_NAME}
   src/app/events.c
   src/app/main.c
   src/app/views.c
+  src/app/net.c
+  src/app/net_posix.c
 )
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}-static)
 
