@@ -9,6 +9,8 @@ enum
 {
   APP_PATH_SIZE = 4096,
   APP_RECENT_COUNT = 20,
+  APP_NET_INPUT_SIZE = 8,
+  APP_NET_MAX_PACKET_SIZE = 64,
 };
 
 enum
@@ -171,20 +173,18 @@ typedef struct
   SDL_AtomicInt load_rom_dialog_done;
   uint rewind_seconds;
   uint rewind_start;
-  uint rewind_curr;
+  uint rewind_end;
   uint rewind_scale;
   uint net_state;
   uint net_port;
   uint net_joy1;
   uint net_joy2;
-  uint net_sent_joy1;
-  uint net_sent_joy2;
   uint net_tx_size;
   uint net_tx_scheduled;
   uint net_rx_size;
   uint net_rx_expected;
   uint net_rx_received;
-  uint frame;
+  uint net_frame;
   uint fps_prev;
   uint fps_value;
   bool pause;
@@ -218,6 +218,10 @@ typedef struct
   SDL_Scancode scancode_by_action[APP_ACTION_COUNT];
   app_action action_by_scancode[SDL_SCANCODE_COUNT];
   char net_address[32];
+  uint net_input[APP_NET_INPUT_SIZE];
+  u8 net_client_input_packet[APP_NET_MAX_PACKET_SIZE];
+  u8 net_server_input_packet[APP_NET_MAX_PACKET_SIZE];
+  u8 net_packet[APP_NET_MAX_PACKET_SIZE];
 } app;
 
 extern const app_action_data app_actions[APP_ACTION_COUNT];
@@ -265,6 +269,6 @@ void app_load_config();
 void app_reset_config();
 void app_rewind_init();
 void app_rewind_save();
-void app_rewind_load(uint offset);
+bool app_rewind_load(uint offset);
 void* app_rewind_data(uint offset);
 void app_menu_state(uint state);

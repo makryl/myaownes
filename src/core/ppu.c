@@ -227,7 +227,7 @@ void ppu_reset()
   ppu.sprite_height = 8;
 }
 
-uint ppu_frame() { return ppu.frame; }
+uint mn_frame_num() { return ppu.frame; }
 uint ppu_cyc() { return ppu.cyc; }
 uint ppu_dot() { return ppu.dot; }
 uint ppu_sl() { return ppu.sl; }

@@ -9,7 +9,6 @@ void ppu_reset();
 uint ppu_bus_read(uint addr, bool trace);
 void ppu_bus_write(uint addr, uint val);
 void ppu_tick();
-uint ppu_frame();
 uint ppu_cyc();
 uint ppu_dot();
 uint ppu_sl();

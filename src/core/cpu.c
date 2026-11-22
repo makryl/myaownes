@@ -633,7 +633,13 @@ static void cpu_op_NOP(uint am) { cpu_read(am); }
 static void cpu_op_KIL(uint)
 {
   cpu.pc = ((cpu.pc - 1) & 0xFFFF);
-  errorf("KIL $%02X\n", cpu_read_addr_raw(cpu.pc, true));
+#if MN_ERROR
+  static uint last_kil_cyc = 0;
+  if (cpu.cyc - last_kil_cyc > 100) {
+    errorf("KIL $%02X cyc=%d\n", cpu_read_addr_raw(cpu.pc, true), cpu.cyc);
+  }
+  last_kil_cyc = cpu.cyc;
+#endif
 }
 
 static void cpu_op_SLO(uint am) { cpu_ora(cpu_read_write(am, cpu_asl)); }

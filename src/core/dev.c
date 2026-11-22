@@ -44,6 +44,7 @@ static struct
   uint io_out;
   uint io_shift_idx;
   uint io_shift_delay;
+  uint io_port[2];
   uint io_input[2];
   uint io_mask[2];
   uint io_shift[2];
@@ -93,14 +94,35 @@ static uint dev_dpad_filter(uint input, uint port, uint changed)
   return input;
 }
 
+static void dev_apply_input()
+{
+  const uint dpad_mask = ~(MN_INPUT_UP | MN_INPUT_DOWN | MN_INPUT_LEFT | MN_INPUT_RIGHT);
+  uint changed1 = (dev.io_port[0] ^ dev.io_mask[0]) | dpad_mask;
+  uint changed2 = (dev.io_port[1] ^ dev.io_mask[1]) | dpad_mask;
+  dev.io_mask[0] = dev.io_port[0];
+  dev.io_mask[1] = dev.io_port[1];
+  dev.io_input[0] = dev_dpad_filter(dev.io_input[0], dev.io_port[0], changed1);
+  dev.io_input[1] = dev_dpad_filter(dev.io_input[1], dev.io_port[1], changed2);
+  if (mn_frame_num() & 1) {
+    if (dev.io_input[0] & MN_INPUT_TURBO_A) {
+      dev.io_input[0] ^= MN_INPUT_A;
+    }
+    if (dev.io_input[0] & MN_INPUT_TURBO_B) {
+      dev.io_input[0] ^= MN_INPUT_B;
+    }
+    if (dev.io_input[1] & MN_INPUT_TURBO_A) {
+      dev.io_input[1] ^= MN_INPUT_A;
+    }
+    if (dev.io_input[1] & MN_INPUT_TURBO_B) {
+      dev.io_input[1] ^= MN_INPUT_B;
+    }
+  }
+}
+
 void mn_input(uint port1, uint port2)
 {
-  uint changed1 = (port1 ^ dev.io_mask[0]) | 0x0F;
-  uint changed2 = (port2 ^ dev.io_mask[1]) | 0x0F;
-  dev.io_mask[0] = port1;
-  dev.io_mask[1] = port2;
-  dev.io_input[0] = dev_dpad_filter(dev.io_input[0], port1, changed1);
-  dev.io_input[1] = dev_dpad_filter(dev.io_input[1], port2, changed2);
+  dev.io_port[0] = port1;
+  dev.io_port[1] = port2;
 }
 
 uint dev_bus_read(uint addr, uint val, bool trace)
@@ -125,20 +147,6 @@ void dev_tick()
       dev.io_shift[dev.io_shift_idx] = (dev.io_shift[dev.io_shift_idx] >> 1) | 0x80;
     }
   }
-  if (ppu_frame() & 1) {
-    if (dev.io_input[0] & MN_INPUT_TURBO_A) {
-      dev.io_input[0] ^= MN_INPUT_A;
-    }
-    if (dev.io_input[0] & MN_INPUT_TURBO_B) {
-      dev.io_input[0] ^= MN_INPUT_B;
-    }
-    if (dev.io_input[1] & MN_INPUT_TURBO_A) {
-      dev.io_input[1] ^= MN_INPUT_A;
-    }
-    if (dev.io_input[1] & MN_INPUT_TURBO_B) {
-      dev.io_input[1] ^= MN_INPUT_B;
-    }
-  }
   if ((dev.io_out & 1) && (cpu_cyc() & 1)) {
     dev.io_shift[0] = (dev.io_input[0] & 0xFF);
     dev.io_shift[1] = (dev.io_input[1] & 0xFF);
@@ -151,6 +159,7 @@ void mn_frame()
     return;
   }
   apu_reset_out();
+  dev_apply_input();
   bool vblank_before;
   do {
     vblank_before = ppu_vblank();
@@ -249,12 +258,17 @@ uint mn_save_size()
   return size;
 }
 
-void mn_save_data(void* data)
+bool mn_save_data(void* data, uint size)
 {
   mn_rom rom = mn_rom_get();
   if (!rom) {
     errorf("no active rom set\n");
-    return;
+    return false;
+  }
+  uint expected_size = mn_save_size();
+  if (size < expected_size) {
+    errorf("save size %d to small, expected %d\n", size, expected_size);
+    return false;
   }
   u8* ptr = data;
   memcpy(ptr, dev_data(), dev_size());
@@ -275,14 +289,20 @@ void mn_save_data(void* data)
     memcpy(ptr, rom->chr_ram, rom->chr_ram_size);
     ptr += rom->chr_ram_size;
   }
+  return true;
 }
 
-void mn_load_data(const void* data)
+bool mn_load_data(const void* data, uint size)
 {
   mn_rom rom = mn_rom_get();
   if (!rom) {
     errorf("no active rom set\n");
-    return;
+    return false;
+  }
+  uint expected_size = mn_save_size();
+  if (size < expected_size) {
+    errorf("save size %d to small, expected %d\n", size, expected_size);
+    return false;
   }
   const u8* ptr = data;
   memcpy(dev_data(), ptr, dev_size());
@@ -303,6 +323,7 @@ void mn_load_data(const void* data)
     memcpy(rom->chr_ram, ptr, rom->chr_ram_size);
     ptr += rom->chr_ram_size;
   }
+  return map_rom_load(rom, false);
 }
 
 bool mn_save_file(const char* path)

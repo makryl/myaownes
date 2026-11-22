@@ -151,7 +151,7 @@ static void app_rewind_release()
   SDL_free(imp.rewind_buffer);
   imp.rewind_buffer = nullptr;
   imp.rewind_start = 0;
-  imp.rewind_curr = 0;
+  imp.rewind_end = 0;
 }
 
 void app_rewind_init()
@@ -168,12 +168,13 @@ void app_rewind_save()
   if (!imp.rewind_buffer) {
     return;
   }
-  void* data = imp.rewind_buffer + (size_t)imp.rewind_curr * mn_save_size();
-  mn_save_data(data);
-  if (++imp.rewind_curr == imp.rewind_seconds * 60) {
-    imp.rewind_curr = 0;
+  uint size = mn_save_size();
+  void* data = imp.rewind_buffer + (size_t)imp.rewind_end * size;
+  mn_save_data(data, size);
+  if (++imp.rewind_end == imp.rewind_seconds * 60) {
+    imp.rewind_end = 0;
   }
-  if (imp.rewind_curr == imp.rewind_start) {
+  if (imp.rewind_end == imp.rewind_start) {
     if (++imp.rewind_start == imp.rewind_seconds * 60) {
       imp.rewind_start = 0;
     }
@@ -185,33 +186,45 @@ void* app_rewind_data(uint offset)
   if (!imp.rewind_buffer) {
     return nullptr;
   }
-  uint idx = imp.rewind_curr;
+  uint idx = imp.rewind_end;
   for (uint i = 0; i < offset; ++i) {
-    if (idx != imp.rewind_start) {
-      if (idx == 0) {
-        idx = imp.rewind_seconds * 60;
-      }
-      --idx;
+    if (idx == imp.rewind_start) {
+      return nullptr;
     }
+    if (idx == 0) {
+      idx = imp.rewind_seconds * 60;
+    }
+    --idx;
   }
   return imp.rewind_buffer + (size_t)idx * mn_save_size();
 }
 
-void app_rewind_load(uint offset)
+bool app_rewind_load(uint offset)
 {
   if (!imp.rewind_buffer) {
-    return;
+    return false;
   }
+  if (offset == 0) {
+    return false;
+  }
+  uint idx = imp.rewind_end;
   for (uint i = 0; i < offset; ++i) {
-    if (imp.rewind_curr != imp.rewind_start) {
-      if (imp.rewind_curr == 0) {
-        imp.rewind_curr = imp.rewind_seconds * 60;
-      }
-      --imp.rewind_curr;
+    if (idx == imp.rewind_start) {
+      return false;
     }
+    if (idx == 0) {
+      idx = imp.rewind_seconds * 60;
+    }
+    --idx;
   }
-  void* data = imp.rewind_buffer + (size_t)imp.rewind_curr * mn_save_size();
-  mn_load_data(data);
+  uint size = mn_save_size();
+  void* data = imp.rewind_buffer + (size_t)idx * size;
+  bool result = mn_load_data(data, size);
+  if (++idx == imp.rewind_seconds * 60) {
+    idx = 0;
+  }
+  imp.rewind_end = idx;
+  return result;
 }
 
 void app_menu_state(uint state)

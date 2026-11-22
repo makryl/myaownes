@@ -257,19 +257,17 @@ SDL_AppResult SDL_AppIterate(void*)
     bool has_video = false;
     bool has_audio = queued_size >= imp.audio_buffer_size;
 
-    if (imp.net_is_server) {
-      mn_input(imp.joy1, imp.net_joy2);
-    } else if (imp.net_is_client) {
-      mn_input(imp.net_joy1, imp.net_joy2);
-    } else if (imp.tas) {
-      mn_tas_input(imp.tas);
-    } else {
-      mn_input(imp.joy1, imp.joy2);
-    }
-
     while (imp.curr_time >= imp.target_frame_time || !has_audio) {
       imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
-      ++imp.frame;
+      if (imp.net_is_server || imp.net_is_client) {
+        if (!app_net_input()) {
+          break;
+        }
+      } else if (imp.tas) {
+        mn_tas_input(imp.tas);
+      } else {
+        mn_input(imp.joy1, imp.joy2);
+      }
       if (imp.rewind) {
         app_rewind_load(imp.rewind_scale);
         app_popup("<<", 0.5);
@@ -295,9 +293,10 @@ SDL_AppResult SDL_AppIterate(void*)
   if (imp.fps) {
     imp.fps_time += imp.real_frame_time;
     if (imp.fps_time > imp.perf_freq) {
-      imp.fps_value = imp.frame - imp.fps_prev;
+      uint frame = mn_frame_num();
+      imp.fps_value = frame - imp.fps_prev;
       imp.fps_time -= imp.perf_freq;
-      imp.fps_prev = imp.frame;
+      imp.fps_prev = frame;
     }
   }
 

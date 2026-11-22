@@ -14,3 +14,4 @@ uint net_send_datagram(const void* data, uint size);
 uint net_recv_datagram(void* data, uint size);
 
 void app_net_update();
+bool app_net_input();
