@@ -1,6 +1,6 @@
 #include "net.h"
 
-#ifdef __linux__
+#ifndef __EMSCRIPTEN__
 
 #include <sys/socket.h>
 #include <netinet/in.h>
