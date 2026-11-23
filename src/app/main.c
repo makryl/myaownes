@@ -76,7 +76,7 @@ static bool app_audio_suspended()
 
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 {
-  SDL_Log("MyaowNES v%s", MN_VERSION);
+  SDL_Log("MyaowNES v%s", APP_VERSION);
   SDL_memset(&imp, 0, sizeof(imp));
   net_init();
 

@@ -3,7 +3,7 @@
 #include "myaownes.h"
 #include <SDL3/SDL.h>
 
-#define MN_VERSION "000000"
+#define APP_VERSION "000000"
 
 enum
 {

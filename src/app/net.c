@@ -16,6 +16,7 @@ enum
 enum
 {
   APP_NET_PACKET_TYPE_NONE = 0,
+  APP_NET_PACKET_TYPE_VERSION,
   APP_NET_PACKET_TYPE_SERVER_ROM,
   APP_NET_PACKET_TYPE_SERVER_STATE,
   APP_NET_PACKET_TYPE_SERVER_INPUT,
@@ -90,6 +91,13 @@ static void app_net_send_stream()
 static void app_net_send_packet(u8 type)
 {
   switch (type) {
+    case APP_NET_PACKET_TYPE_VERSION: {
+      uint version_size = sizeof(APP_VERSION) - 1;
+      app_net_send_schedule(&type, sizeof(type));
+      app_net_send_schedule(&version_size, sizeof(version_size));
+      app_net_send_schedule(APP_VERSION, version_size);
+      break;
+    }
     case APP_NET_PACKET_TYPE_SERVER_ROM: {
       uint rom_size = sizeof(struct mn_rom) + imp.rom->prg_rom_size + imp.rom->chr_rom_size + imp.rom->prg_ram_size
                     + imp.rom->chr_ram_size;
@@ -143,6 +151,31 @@ static void app_net_send_packet(u8 type)
 static uint app_net_recv_packet(u8* packet, uint packet_size)
 {
   switch (packet[0]) {
+    case APP_NET_PACKET_TYPE_VERSION: {
+      if (packet_size < 5) {
+        return 5;
+      }
+      uint version_size = 0;
+      memcpy(&version_size, packet + 1, 4);
+      if (version_size != sizeof(APP_VERSION) - 1) {
+        app_net_error("version mismatch");
+        net_disconnect();
+        return 0;
+      }
+      uint total_size = 5 + version_size;
+      if (packet_size < total_size) {
+        return total_size;
+      }
+      char version[sizeof(APP_VERSION)];
+      memcpy(version, packet + 5, version_size);
+      version[sizeof(version) - 1] = 0;
+      if (strcmp(version, APP_VERSION) != 0) {
+        app_net_error("version mismatch");
+        net_disconnect();
+        return 0;
+      }
+      return 0;
+    }
     case APP_NET_PACKET_TYPE_SERVER_ROM: {
       if (packet_size < 5) {
         return 5;
@@ -343,6 +376,7 @@ void app_net_update()
     switch (imp.net_state) {
       case APP_NET_STATE_NONE:
         if (imp.net_is_server) {
+          app_net_send_packet(APP_NET_PACKET_TYPE_VERSION);
           app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_ROM);
         }
         app_net_state(APP_NET_STATE_SYNC_STATE);

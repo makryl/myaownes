@@ -224,7 +224,7 @@ void app_draw_menu()
   app_draw_line(line++, "     Touch to show controls     ");
 
   if (!imp.embed_enabled) {
-    app_draw_line(27, "               MyaowNES v" MN_VERSION " ");
+    app_draw_line(27, "               MyaowNES v" APP_VERSION " ");
   }
 }
 
