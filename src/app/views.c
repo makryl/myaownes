@@ -1,6 +1,7 @@
 #include "views.h"
 
 #include "app.h"
+#include "net.h"
 #include "events.h"
 #include "res_ui.h"
 
@@ -81,9 +82,18 @@ void app_draw_popup()
 {
   imp.popup_time -= imp.popup_time > imp.real_frame_time ? imp.real_frame_time : imp.popup_time;
   app_text_color(0x80, 0, 0x80);
-  app_draw_text(imp.ui_offset.x + 2, imp.ui_offset.y + 21, imp.popup_text);
+  app_draw_text(imp.ui_offset.x + 2, imp.ui_offset.y + 20 + 1, imp.popup_text);
   app_text_color(0x80, 0xFF, 0x80);
-  app_draw_text(imp.ui_offset.x + 1, imp.ui_offset.y + 20, imp.popup_text);
+  app_draw_text(imp.ui_offset.x + 1, imp.ui_offset.y + 20 + 0, imp.popup_text);
+}
+
+void app_draw_popup_bottom()
+{
+  imp.popup_bottom_time -= imp.popup_bottom_time > imp.real_frame_time ? imp.real_frame_time : imp.popup_bottom_time;
+  app_text_color(0x80, 0, 0x80);
+  app_draw_text(imp.ui_offset.x + 2, imp.ui_offset.y + 240 - 24 + 0, imp.popup_bottom_text);
+  app_text_color(0x80, 0xFF, 0x80);
+  app_draw_text(imp.ui_offset.x + 1, imp.ui_offset.y + 240 - 24 - 1, imp.popup_bottom_text);
 }
 
 void app_draw_fps()
@@ -163,42 +173,55 @@ static void app_draw_menu_prepare(int menu_size)
 void app_draw_menu()
 {
   bool rom_loaded = imp.rom && !imp.rom->mapper_error;
-  app_draw_menu_prepare(rom_loaded ? 11 : 4);
-  uint line = 8;
+  uint rom_menu_count = 6;
+  uint rom_menu_height = 8;
+  if (!rom_loaded) {
+    rom_menu_count = 0;
+    rom_menu_height = 0;
+  } else if (imp.net_is_client) {
+    rom_menu_count = 1;
+    rom_menu_height = 2;
+  }
+  uint other_menu_count = 4;
+  uint other_menu_height = 5;
+  if (imp.embed_enabled || imp.net_is_client) {
+    other_menu_count -= 2;
+    other_menu_height -= 3;
+  }
+  app_draw_menu_prepare(rom_menu_count + other_menu_count);
+  uint line = 11 - (rom_menu_height + other_menu_height) / 2;
   uint menu = 0;
   if (rom_loaded) {
-    line -= 4;
     if (app_draw_menu_line("Continue", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
       app_menu_state(APP_MENU_OFF);
     }
-    if (app_draw_menu_line("Reset", line++, menu++)) {
-      app_reset();
-      app_menu_state(APP_MENU_OFF);
-    }
-    if (app_draw_menu_line("Reload", line++, menu++)) {
-      app_reload();
-      app_menu_state(APP_MENU_OFF);
-    }
-    ++line;
-    switch (app_draw_menu_line_arrows(app_save_slot_labels[imp.slot], line++, menu++)) {
-      case MN_INPUT_RIGHT: app_slot_next(); break;
-      case MN_INPUT_LEFT: app_slot_prev(); break;
-    }
-    if (app_draw_menu_line("Save", line++, menu++)) {
-      app_save();
-      app_menu_state(APP_MENU_OFF);
-    }
-    if (app_draw_menu_line("Load", line++, menu++)) {
-      if (app_load_check()) {
+    if (!imp.net_is_client) {
+      if (app_draw_menu_line("Reset", line++, menu++)) {
+        app_reset();
         app_menu_state(APP_MENU_OFF);
       }
-    }
-    if (!imp.embed_enabled && app_draw_menu_line("ROM info", line++, menu++)) {
-      app_menu_state(APP_MENU_INFO);
+      if (app_draw_menu_line("Reload", line++, menu++)) {
+        app_reload();
+        app_menu_state(APP_MENU_OFF);
+      }
+      ++line;
+      if (app_draw_menu_line("Save", line++, menu++)) {
+        app_save();
+        app_menu_state(APP_MENU_OFF);
+      }
+      if (app_draw_menu_line("Load", line++, menu++)) {
+        if (app_load_check()) {
+          app_menu_state(APP_MENU_OFF);
+        }
+      }
+      switch (app_draw_menu_line_arrows(app_save_slot_labels[imp.slot], line++, menu++)) {
+        case MN_INPUT_RIGHT: app_slot_next(); break;
+        case MN_INPUT_LEFT: app_slot_prev(); break;
+      }
     }
     ++line;
   }
-  if (!imp.embed_enabled) {
+  if (!imp.embed_enabled && !imp.net_is_client) {
     if (app_draw_menu_line("Open ROM", line++, menu++)) {
       app_open_file();
     }
@@ -213,15 +236,12 @@ void app_draw_menu()
   if (app_draw_menu_line("Keymap", line++, menu++)) {
     app_menu_state(APP_MENU_HELP);
   }
-  ++line;
-  ++line;
-  if (!imp.embed_enabled) {
-    app_draw_line(line++, " Drag-n-drop *.nes file to play ");
-    ++line;
+
+  if (!imp.embed_enabled && !imp.net_is_client) {
+    app_draw_line(20, " Drag-n-drop *.nes file to play ");
   }
-  app_draw_line(line++, "     Press F1 to show keymap    ");
-  ++line;
-  app_draw_line(line++, "     Touch to show controls     ");
+  app_draw_line(22, "     Press F1 to show keymap    ");
+  app_draw_line(24, "     Touch to show controls     ");
 
   if (!imp.embed_enabled) {
     app_draw_line(27, "               MyaowNES v" APP_VERSION " ");
@@ -231,21 +251,29 @@ void app_draw_menu()
 void app_draw_start()
 {
   app_draw_menu_prepare(0);
-  uint line = 12;
-  app_draw_line(line++, "    Press any button to start   ");
-  line += 4;
-  app_draw_line(line++, "     Press F1 to show keymap    ");
-  ++line;
-  app_draw_line(line++, "     Touch to show controls     ");
+  app_draw_line(12, "    Press any button to start   ");
+  app_draw_line(22, "     Press F1 to show keymap    ");
+  app_draw_line(24, "     Touch to show controls     ");
 }
 
 void app_draw_options()
 {
-  app_draw_menu_prepare(14);
-  uint line = 6;
+  app_draw_menu_prepare(16);
+  uint line = 5;
   uint menu = 0;
   if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
     app_menu_state(APP_MENU_MAIN);
+  }
+  ++line;
+  if (app_draw_menu_line(app_net_server_labels[imp.net_is_server], line++, menu++)) {
+    net_disconnect();
+    imp.net_is_client = false;
+    imp.net_is_server = !imp.net_is_server;
+  }
+  if (app_draw_menu_line(app_net_client_labels[imp.net_is_client], line++, menu++)) {
+    net_disconnect();
+    imp.net_is_server = false;
+    imp.net_is_client = !imp.net_is_client;
   }
   ++line;
   Uint32 flags = SDL_GetWindowFlags(imp.window);

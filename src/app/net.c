@@ -8,13 +8,6 @@
 
 enum
 {
-  APP_NET_STATE_NONE = 0,
-  APP_NET_STATE_SYNC_STATE,
-  APP_NET_STATE_PLAY,
-};
-
-enum
-{
   APP_NET_PACKET_TYPE_NONE = 0,
   APP_NET_PACKET_TYPE_VERSION,
   APP_NET_PACKET_TYPE_SERVER_ROM,
@@ -88,7 +81,7 @@ static void app_net_send_stream()
   }
 }
 
-static void app_net_send_packet(u8 type)
+static bool app_net_send_packet(u8 type)
 {
   switch (type) {
     case APP_NET_PACKET_TYPE_VERSION: {
@@ -99,6 +92,9 @@ static void app_net_send_packet(u8 type)
       break;
     }
     case APP_NET_PACKET_TYPE_SERVER_ROM: {
+      if (!imp.rom) {
+        return false;
+      }
       uint rom_size = sizeof(struct mn_rom) + imp.rom->prg_rom_size + imp.rom->chr_rom_size + imp.rom->prg_ram_size
                     + imp.rom->chr_ram_size;
       app_net_send_schedule(&type, sizeof(type));
@@ -110,10 +106,7 @@ static void app_net_send_packet(u8 type)
       uint state_size = mn_save_size();
       void* data = app_rewind_data(1);
       if (!data) {
-        // todo: retry later?
-        app_net_error("state data error");
-        net_disconnect();
-        break;
+        return false;
       }
       app_net_send_schedule(&type, sizeof(type));
       app_net_send_schedule(&state_size, sizeof(state_size));
@@ -146,6 +139,7 @@ static void app_net_send_packet(u8 type)
       break;
     }
   }
+  return true;
 }
 
 static uint app_net_recv_packet(u8* packet, uint packet_size)
@@ -202,7 +196,7 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
       mn_rom_set(imp.rom);
       app_rom_update();
       app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_STATE);
-      app_net_state(APP_NET_STATE_SYNC_STATE);
+      app_net_state(APP_NET_STATE_SYNC_WAIT);
       return 0;
     }
     case APP_NET_PACKET_TYPE_SERVER_STATE: {
@@ -227,7 +221,6 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
       return 0;
     }
     case APP_NET_PACKET_TYPE_CLIENT_STATE: {
-      app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_STATE);
       app_net_state(APP_NET_STATE_SYNC_STATE);
       break;
     }
@@ -259,11 +252,7 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
       }
       if (imp.net_joy2 != joy2) {
         imp.net_joy2 = joy2;
-        if (net_diff > 1) {
-          app_net_trace_input("input %04X merged %d", joy2, net_diff);
-        } else {
-          app_net_trace_input("input %04X", joy2);
-        }
+        app_net_trace_input("input %04X %d %s", joy2, net_diff, net_diff > 1 ? "merged" : "");
       }
       imp.net_frame = packet_frame;
       return 0;
@@ -283,7 +272,7 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
       if (net_diff > APP_NET_INPUT_SIZE) {
         app_net_trace("lag %d", net_diff);
         app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_STATE);
-        app_net_state(APP_NET_STATE_SYNC_STATE);
+        app_net_state(APP_NET_STATE_SYNC_WAIT);
         return 0;
       }
       for (uint net_frame = imp.net_frame + 1; net_frame <= packet_frame; ++net_frame) {
@@ -311,7 +300,7 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
           if (!app_rewind_load(local_diff)) {
             app_net_trace("rwnd error");
             app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_STATE);
-            app_net_state(APP_NET_STATE_SYNC_STATE);
+            app_net_state(APP_NET_STATE_SYNC_WAIT);
             return 0;
           }
         }
@@ -372,40 +361,84 @@ static void app_net_recv_datagram()
 
 void app_net_update()
 {
-  if (net_connected()) {
-    switch (imp.net_state) {
-      case APP_NET_STATE_NONE:
-        if (imp.net_is_server) {
-          app_net_send_packet(APP_NET_PACKET_TYPE_VERSION);
-          app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_ROM);
-        }
-        app_net_state(APP_NET_STATE_SYNC_STATE);
-        break;
-      case APP_NET_STATE_SYNC_STATE:
-      case APP_NET_STATE_PLAY:
-        app_net_recv_stream();
-        app_net_recv_datagram();
-        app_net_send_stream();
-        break;
-    }
-  } else {
-    app_net_state(APP_NET_STATE_NONE);
+  switch (net_update()) {
+    case NET_STATE_DISCONNECTED:
+      switch (imp.net_state) {
+        case APP_NET_STATE_DISCONNECTED:
+          if (imp.net_is_server || imp.net_is_client) {
+            app_net_state(APP_NET_STATE_CONNECTING);
+          }
+          break;
+        case APP_NET_STATE_CONNECTING:
+          if (imp.net_is_server) {
+            net_server(imp.net_address, imp.net_port == 0 ? APP_NET_DEFAULT_PORT : imp.net_port);
+          } else if (imp.net_is_client) {
+            net_client(imp.net_address, imp.net_port == 0 ? APP_NET_DEFAULT_PORT : imp.net_port);
+          } else {
+            app_popup_bottom("Disconnected", 2);
+            app_net_state(APP_NET_STATE_DISCONNECTED);
+          }
+          break;
+        case APP_NET_STATE_SYNC_ROM:
+        case APP_NET_STATE_SYNC_STATE:
+        case APP_NET_STATE_PLAY:
+          if (imp.net_is_client) {
+            app_rom_unload();
+            app_rom_update();
+          }
+          app_net_state(APP_NET_STATE_CONNECTING);
+          break;
+      }
+      break;
+    case NET_STATE_CONNECTING: app_popup_bottom("Connecting", 0.5); break;
+    case NET_STATE_CONNECTED:
+      switch (imp.net_state) {
+        case APP_NET_STATE_DISCONNECTED:
+        case APP_NET_STATE_CONNECTING:
+          if (imp.net_is_server) {
+            app_net_send_packet(APP_NET_PACKET_TYPE_VERSION);
+            app_net_state(APP_NET_STATE_SYNC_ROM);
+          } else {
+            app_net_state(APP_NET_STATE_SYNC_WAIT);
+          }
+          break;
+        case APP_NET_STATE_SYNC_ROM:
+          app_popup_bottom("Sync ROM", 0.5);
+          if (app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_ROM)) {
+            app_net_state(APP_NET_STATE_SYNC_WAIT);
+          }
+          break;
+        case APP_NET_STATE_SYNC_STATE:
+          app_popup_bottom("Sync state", 0.5);
+          if (app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_STATE)) {
+            app_net_state(APP_NET_STATE_SYNC_WAIT);
+          }
+          break;
+        case APP_NET_STATE_SYNC_WAIT: app_popup_bottom("Sync", 0.5);
+        case APP_NET_STATE_PLAY:
+          app_net_recv_stream();
+          app_net_recv_datagram();
+          app_net_send_stream();
+          break;
+      }
+      break;
   }
 }
 
-bool app_net_input()
+void app_net_input()
 {
-  if (imp.net_is_server) {
-    if (imp.net_state == APP_NET_STATE_PLAY) {
-      app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_INPUT);
+  if (!imp.pause) {
+    if (imp.net_is_server) {
+      if (imp.net_state == APP_NET_STATE_PLAY) {
+        app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_INPUT);
+      }
+      mn_input(imp.joy1, imp.net_joy2);
+    } else if (imp.net_is_client) {
+      if (imp.net_state == APP_NET_STATE_PLAY) {
+        app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_INPUT);
+      }
+      mn_input(imp.net_joy1, imp.net_joy2);
+      imp.net_input[mn_frame_num() % APP_NET_INPUT_SIZE] = (imp.net_joy1 & 0xFFFF) | (imp.net_joy2 << 16);
     }
-    mn_input(imp.joy1, imp.net_joy2);
-  } else if (imp.net_is_client) {
-    if (imp.net_state == APP_NET_STATE_PLAY) {
-      app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_INPUT);
-    }
-    mn_input(imp.net_joy1, imp.net_joy2);
-    imp.net_input[mn_frame_num() % APP_NET_INPUT_SIZE] = (imp.net_joy1 & 0xFFFF) | (imp.net_joy2 << 16);
   }
-  return true;
 }

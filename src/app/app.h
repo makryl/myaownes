@@ -11,6 +11,7 @@ enum
   APP_RECENT_COUNT = 20,
   APP_NET_INPUT_SIZE = 8,
   APP_NET_MAX_PACKET_SIZE = 64,
+  APP_NET_DEFAULT_PORT = 26111,
 };
 
 enum
@@ -122,6 +123,7 @@ typedef struct
   SDL_FRect rect;
   SDL_FRect ui_offset;
   const char* popup_text;
+  const char* popup_bottom_text;
   void* rewind_buffer;
   u8* net_tx;
   u8* net_rx;
@@ -130,6 +132,7 @@ typedef struct
   u64 target_frame_time;
   u64 real_frame_time;
   u64 popup_time;
+  u64 popup_bottom_time;
   u64 fps_time;
   u64 auto_save_time;
   u64 perf_freq;
@@ -252,6 +255,8 @@ static const char* const app_auto_save_period_labels[11] = {
   "Auto-save 120 sec", "Auto-save 150 sec", "Auto-save 180 sec", "Auto-save 210 sec",
   "Auto-save 240 sec", "Auto-save 270 sec", "Auto-save 300 sec"
 };
+static const char* const app_net_server_labels[2] = { "Server OFF", "Server ON" };
+static const char* const app_net_client_labels[2] = { "Client OFF", "Client ON" };
 
 void app_ondisplaychange();
 void app_try_resize();
@@ -272,3 +277,5 @@ void app_rewind_save();
 bool app_rewind_load(uint offset);
 void* app_rewind_data(uint offset);
 void app_menu_state(uint state);
+void app_popup(const char* text, float time);
+void app_popup_bottom(const char* text, float time);

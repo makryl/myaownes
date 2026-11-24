@@ -1,6 +1,5 @@
 #include "myaownes.h"
 #include "app.h"
-#include "events.h"
 #include "views.h"
 #include "net.h"
 
@@ -74,15 +73,27 @@ static bool app_audio_suspended()
 #endif
 }
 
+static bool app_address_port(const char* arg)
+{
+  imp.net_address[0] = 0;
+  imp.net_port = 0;
+  bool success = false;
+  if (arg[0] == ':') {
+    success = SDL_sscanf(arg, ":%u", &imp.net_port);
+  } else {
+    success = SDL_sscanf(arg, " %15[0-9.]:%u", imp.net_address, &imp.net_port);
+    if (!success) {
+      success = SDL_sscanf(arg, " %15[0-9.]", imp.net_address);
+    }
+  }
+  return success;
+}
+
 SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
 {
   SDL_Log("MyaowNES v%s", APP_VERSION);
   SDL_memset(&imp, 0, sizeof(imp));
   net_init();
-
-  // imp.net_is_client = true;
-  // SDL_strlcpy(imp.net_address, "127.0.0.1", sizeof(imp.net_address));
-  // imp.net_port = 12345;
 
   for (int i = 0; i < argc; ++i) {
     if (SDL_strcmp(argv[i], "-h") == 0 || SDL_strcmp(argv[i], "--help") == 0) {
@@ -92,8 +103,10 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
       SDL_Log("--embed                          Embed mode");
       SDL_Log("--config   <path/to/config.txt>  Default config");
       SDL_Log("--path     <path/to/save/dir>    Path to save directory");
-      SDL_Log("--server   <address>:<port>      Address and port to listen");
-      SDL_Log("--client   <address>:<port>      Address and port to connect");
+      SDL_Log("--server   [address][:port]      Start server with optional address and port (default 0.0.0.0:%d)",
+              APP_NET_DEFAULT_PORT);
+      SDL_Log("--client   <address>[:port]      Connect to server with address and optional port (default %d)",
+              APP_NET_DEFAULT_PORT);
       return SDL_APP_SUCCESS;
     } else if (SDL_strcmp(argv[i], "--embed") == 0) {
       imp.embed_enabled = true;
@@ -108,20 +121,18 @@ SDL_AppResult SDL_AppInit(void**, int argc, char* argv[])
     } else if (SDL_strcmp(argv[i], "--server") == 0) {
       imp.net_is_server = true;
       imp.net_is_client = false;
-      SDL_sscanf(argv[++i], "%[^:]:%u", imp.net_address, &imp.net_port);
+      if (app_address_port(i + 1 < argc ? argv[i + 1] : "")) {
+        ++i;
+      }
     } else if (SDL_strcmp(argv[i], "--client") == 0) {
       imp.net_is_server = false;
       imp.net_is_client = true;
-      SDL_sscanf(argv[++i], "%[^:]:%u", imp.net_address, &imp.net_port);
+      if (app_address_port(i + 1 < argc ? argv[i + 1] : "")) {
+        ++i;
+      }
     } else if (i > 0) {
       SDL_strlcpy(imp.load_rom_path, argv[i], APP_PATH_SIZE);
     }
-  }
-
-  if (imp.net_is_server) {
-    net_server(imp.net_address, imp.net_port);
-  } else if (imp.net_is_client) {
-    net_client(imp.net_address, imp.net_port);
   }
 
   if (imp.save_dir[0] == 0) {
@@ -237,7 +248,7 @@ SDL_AppResult SDL_AppIterate(void*)
   imp.real_frame_time = time - imp.last_time;
   imp.last_time = time;
 
-  if (!imp.pause) {
+  if (!imp.pause || imp.net_state == APP_NET_STATE_PLAY) {
     Uint64 game_frame_time = imp.real_frame_time;
     if (imp.fast_forward) {
       game_frame_time *= imp.fast_forward_scale;
@@ -260,9 +271,7 @@ SDL_AppResult SDL_AppIterate(void*)
     while (imp.curr_time >= imp.target_frame_time || !has_audio) {
       imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
       if (imp.net_is_server || imp.net_is_client) {
-        if (!app_net_input()) {
-          break;
-        }
+        app_net_input();
       } else if (imp.tas) {
         mn_tas_input(imp.tas);
       } else {
@@ -327,6 +336,9 @@ SDL_AppResult SDL_AppIterate(void*)
   }
   if (imp.popup_time > 0) {
     app_draw_popup();
+  }
+  if (imp.popup_bottom_time > 0) {
+    app_draw_popup_bottom();
   }
   if (imp.fps) {
     app_draw_fps();

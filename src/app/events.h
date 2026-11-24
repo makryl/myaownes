@@ -1,8 +1,5 @@
 #pragma once
 
-#include "myaownes.h"
-
-void app_popup(const char* text, float time);
 void app_reload();
 void app_reset();
 void app_slot_next();

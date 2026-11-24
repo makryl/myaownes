@@ -3,6 +3,7 @@
 bool app_load_atlas();
 void app_draw_fps();
 void app_draw_popup();
+void app_draw_popup_bottom();
 void app_draw_menu();
 void app_draw_start();
 void app_draw_options();

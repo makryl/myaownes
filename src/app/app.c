@@ -88,7 +88,7 @@ void app_save_path(char* dst, const char* subdir, const char* ext)
 
 void app_load_history()
 {
-  if (imp.embed_enabled) {
+  if (imp.embed_enabled || imp.net_is_client) {
     return;
   }
   for (uint i = 0; i < APP_RECENT_COUNT; ++i) {
@@ -108,7 +108,7 @@ void app_load_history()
 
 static void app_save_history()
 {
-  if (imp.embed_enabled) {
+  if (imp.embed_enabled || imp.net_is_client) {
     return;
   }
   int idx = -1;
@@ -318,6 +318,7 @@ void app_rom_unload()
       mn_rom_save(imp.sram_path);
     }
     mn_rom_release(imp.rom);
+    imp.rom = nullptr;
     app_rewind_release();
   }
 }
@@ -547,4 +548,16 @@ void app_reset_config()
     }
   }
   app_try_resize();
+}
+
+void app_popup(const char* text, float time)
+{
+  imp.popup_text = text;
+  imp.popup_time = imp.perf_freq * time;
+}
+
+void app_popup_bottom(const char* text, float time)
+{
+  imp.popup_bottom_text = text;
+  imp.popup_bottom_time = imp.perf_freq * time;
 }

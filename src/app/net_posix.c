@@ -145,11 +145,15 @@ static socket_t net_socket(const char* address, unsigned int port, int type, str
   }
   addr->sin_family = AF_INET;
   addr->sin_port = htons(port);
-  int result = inet_pton(AF_INET, address, &addr->sin_addr);
-  if (result <= 0) {
-    fprintf(stderr, "inet_pton() error: %s\n", result == 0 ? "invalid address" : net_strerror());
-    close(fd);
-    return INVALID_SOCKET;
+  if (!address || !address[0]) {
+    addr->sin_addr.s_addr = htonl(INADDR_ANY);
+  } else {
+    int result = inet_pton(AF_INET, address, &addr->sin_addr);
+    if (result <= 0) {
+      fprintf(stderr, "inet_pton() error: %s\n", result == 0 ? "invalid address" : net_strerror());
+      close(fd);
+      return INVALID_SOCKET;
+    }
   }
   return fd;
 }
@@ -260,7 +264,7 @@ static void net_client_poll()
     return;
   }
   if (err != 0 || (pfd.revents & (POLLERR | POLLHUP | POLLNVAL))) {
-    fprintf(stderr, "net_client_poll error: %s\n", err == 0 ? "poll hangup or invalid" : net_strerror(err));
+    // fprintf(stderr, "poll() error: %s\n", err == 0 ? "hangup or invalid" : net_strerror(err));
     net_disconnect();
     return;
   }
@@ -269,6 +273,9 @@ static void net_client_poll()
 
 unsigned int net_send_stream(const void* data, unsigned int size)
 {
+  if (net.reliable_fd == INVALID_SOCKET) {
+    return 0;
+  }
   int sent = send(net.reliable_fd, data, size, MSG_NOSIGNAL);
   if (sent == SOCKET_ERROR) {
     if (!net_wouldblock()) {
@@ -282,10 +289,15 @@ unsigned int net_send_stream(const void* data, unsigned int size)
 
 unsigned int net_recv_stream(void* data, unsigned int size)
 {
+  if (net.reliable_fd == INVALID_SOCKET) {
+    return 0;
+  }
   int received = recv(net.reliable_fd, data, size, 0);
   if (received <= 0) {
     if (received == 0 || !net_wouldblock()) {
-      fprintf(stderr, "recv() error: %s\n", received == 0 ? "disconnected" : net_strerror());
+      if (received != 0) {
+        fprintf(stderr, "recv() error: %s\n", net_strerror());
+      }
       net_disconnect();
     }
     return 0;
@@ -295,6 +307,9 @@ unsigned int net_recv_stream(void* data, unsigned int size)
 
 unsigned int net_send_datagram(const void* data, unsigned int size)
 {
+  if (net.unreliable_fd == INVALID_SOCKET) {
+    return 0;
+  }
   int sent = send(net.unreliable_fd, data, size, 0);
   if (sent == SOCKET_ERROR) {
     if (!net_wouldblock()) {
@@ -308,6 +323,9 @@ unsigned int net_send_datagram(const void* data, unsigned int size)
 
 unsigned int net_recv_datagram(void* data, unsigned int size)
 {
+  if (net.unreliable_fd == INVALID_SOCKET) {
+    return 0;
+  }
   int received = recv(net.unreliable_fd, data, size, 0);
   if (received == SOCKET_ERROR) {
     if (!net_wouldblock()) {
@@ -360,10 +378,15 @@ static void net_server_pong()
   net.unreliable_state = NET_UNRELIABLE_STATE_CONNECTED;
 }
 
-bool net_connected()
+unsigned int net_update()
 {
+  if (net.reliable_state == NET_RELIABLE_STATE_DISCONNECTED
+      && net.unreliable_state == NET_UNRELIABLE_STATE_DISCONNECTED)
+  {
+    return NET_STATE_DISCONNECTED;
+  }
   if (net.reliable_state == NET_RELIABLE_STATE_CONNECTED && net.unreliable_state == NET_UNRELIABLE_STATE_CONNECTED) {
-    return true;
+    return NET_STATE_CONNECTED;
   }
   switch (net.reliable_state) {
     case NET_RELIABLE_STATE_ACCEPTING: net_server_accept(); break;
@@ -374,7 +397,7 @@ bool net_connected()
     case NET_UNRELIABLE_STATE_PINGING: net_client_ping(); break;
     case NET_UNRELIABLE_STATE_PONGING: net_server_pong(); break;
   }
-  return false;
+  return NET_STATE_CONNECTING;
 }
 
 #endif

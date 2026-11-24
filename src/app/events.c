@@ -1,11 +1,5 @@
 #include "app.h"
 
-void app_popup(const char* text, float time)
-{
-  imp.popup_text = text;
-  imp.popup_time = imp.perf_freq * time;
-}
-
 void app_reload()
 {
   app_rom_load(imp.rom_path);
@@ -21,6 +15,9 @@ void app_reset()
 
 void app_save()
 {
+  if (imp.net_is_client) {
+    return;
+  }
   char qs_path[APP_PATH_SIZE] = {};
   char ext[5] = ".qs0";
   ext[3] += imp.slot;
@@ -32,6 +29,9 @@ void app_save()
 
 bool app_load_check()
 {
+  if (imp.net_is_client) {
+    return false;
+  }
   char qs_path[APP_PATH_SIZE] = {};
   char ext[5] = ".qs0";
   ext[3] += imp.slot;
@@ -87,7 +87,7 @@ static void SDLCALL app_file_dialog_cb(void*, const char* const* files, int)
 
 void app_open_file()
 {
-  if (imp.load_rom_dialog_wait || imp.embed_enabled) {
+  if (imp.load_rom_dialog_wait || imp.embed_enabled || imp.net_is_client) {
     return;
   }
   imp.load_rom_dialog_wait = true;
@@ -97,7 +97,7 @@ void app_open_file()
 
 static void app_drop_file(const char* path)
 {
-  if (path && !imp.embed_enabled) {
+  if (path && !imp.embed_enabled && !imp.net_is_client) {
     app_copy_tmp_file(path, imp.load_rom_path);
     app_rom_load(imp.load_rom_path);
     app_rom_update();
@@ -214,8 +214,10 @@ void app_downscale()
 
 static void app_fast_forward_on()
 {
-  imp.fast_forward = true;
-  SDL_SetAudioStreamFrequencyRatio(imp.stream, imp.fast_forward_scale);
+  if (!imp.net_is_client) {
+    imp.fast_forward = true;
+    SDL_SetAudioStreamFrequencyRatio(imp.stream, imp.fast_forward_scale);
+  }
 }
 
 static void app_fast_forward_off()
@@ -240,7 +242,13 @@ void app_fast_forward_up()
   }
 }
 
-static void app_rewind_on() { imp.rewind = true; }
+static void app_rewind_on()
+{
+  if (!imp.net_is_client && !imp.net_is_server) {
+    imp.rewind = true;
+  }
+}
+
 static void app_rewind_off() { imp.rewind = false; }
 
 void app_rewind_scale_down()
