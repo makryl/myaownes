@@ -1,0 +1,26 @@
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: "Release notes"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          mkdir -p dist
+          gh release download latest -D dist
+          FILE=$(ls dist/myaownes_* | head -n 1)
+          VERSION=$(basename "$FILE" | cut -d'_' -f2)
+          SHA=$(gh api repos/${{ github.repository }}/git/refs/tags/latest --jq '.object.sha')
+          gh release create "$VERSION" dist/* --target "$SHA" --title "$VERSION" --notes "$NOTES"

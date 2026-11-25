@@ -71,7 +71,8 @@ jobs:
 
       - name: build
         run: |
-          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+          VERSION=$(date +%y%m%d)
+          sed -i "s/000000/$VERSION/" src/app/app.h
 
           cmake --preset Linux-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
           cmake --build build/Linux-Release --clean-first --target myaownes-pgo-run
@@ -79,12 +80,12 @@ jobs:
           cmake --preset Linux-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use"
           cmake --build build/Linux-Release --clean-first --target install
 
-          zip -j dist/myaownes_latest_linux_x64.zip LICENSE.txt README.md dist/Linux-Release/*
+          zip -j dist/myaownes_${VERSION}_linux_x64.zip LICENSE.txt README.md dist/Linux-Release/*
 
       - uses: actions/upload-artifact@v7
         with:
           name: dist-linux
-          path: dist
+          path: dist/myaownes_*
 
   build-windows:
     runs-on: windows-latest
@@ -106,7 +107,8 @@ jobs:
       - name: build
         shell: msys2 {0}
         run: |
-          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+          VERSION=$(date +%y%m%d)
+          sed -i "s/000000/$VERSION/" src/app/app.h
 
           cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-generate" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate"
           cmake --build build/Windows-Release --clean-first --target myaownes-pgo-run
@@ -114,12 +116,12 @@ jobs:
           cmake --preset Windows-Release -DCMAKE_C_FLAGS="-fprofile-use -Wno-missing-profile -Wno-coverage-mismatch" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-use -mwindows"
           cmake --build build/Windows-Release --clean-first --target install
 
-          zip -j dist/myaownes_latest_windows_x64.zip LICENSE.txt README.md dist/Windows-Release/*
+          zip -j dist/myaownes_${VERSION}_windows_x64.zip LICENSE.txt README.md dist/Windows-Release/*
 
       - uses: actions/upload-artifact@v7
         with:
           name: dist-windows
-          path: dist
+          path: dist/myaownes_*
 
   build-macos:
     runs-on: macos-latest
@@ -131,7 +133,8 @@ jobs:
 
       - name: build
         run: |
-          sed -i "" "s/000000/$(date +%y%m%d)/" src/app/app.h
+          VERSION=$(date +%y%m%d)
+          sed -i "" "s/000000/$VERSION/" src/app/app.h
 
           cmake --preset MacOS-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/MacOS-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/MacOS-Release/pgo"
           cmake --build build/MacOS-Release --clean-first --target myaownes-pgo-run
@@ -144,12 +147,12 @@ jobs:
           mkdir -p dist/MacOS-Release/myaownes.app/Contents/Resources
           cp LICENSE.txt dist/MacOS-Release/myaownes.app/Contents/Resources/
           cp README.md dist/MacOS-Release/myaownes.app/Contents/Resources/
-          (cd dist/MacOS-Release && zip -r ../myaownes_latest_macos_universal.zip *)
+          (cd dist/MacOS-Release && zip -r ../myaownes_${VERSION}_macos_universal.zip *)
 
       - uses: actions/upload-artifact@v7
         with:
           name: dist-macos
-          path: dist
+          path: dist/myaownes_*
 
   build-android:
     runs-on: ubuntu-latest
@@ -178,13 +181,15 @@ jobs:
           submodules: true
 
       - run: |
-          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+          VERSION=$(date +%y%m%d)
+          sed -i "s/000000/$VERSION/" src/app/app.h
           ./platforms/android/build.sh
+          cp dist/Android-Release/myaownes.apk dist/myaownes_${VERSION}_android_arm64-v8a.apk
 
       - uses: actions/upload-artifact@v7
         with:
           name: dist-android
-          path: dist
+          path: dist/myaownes_*
 
   build-emscripten:
     runs-on: ubuntu-latest
@@ -200,7 +205,8 @@ jobs:
 
       - name: build
         run: |
-          sed -i "s/000000/$(date +%y%m%d)/" src/app/app.h
+          VERSION=$(date +%y%m%d)
+          sed -i "s/000000/$VERSION/" src/app/app.h
 
           cmake --preset Emscripten-Release -DCMAKE_C_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo" -DCMAKE_EXE_LINKER_FLAGS="-fprofile-generate=build/Emscripten-Release/pgo -sNODERAWFS=1"
           cmake --build build/Emscripten-Release --clean-first --target myaownes-pgo-run
@@ -211,7 +217,7 @@ jobs:
           cmake --build build/Emscripten-Release --clean-first --target install
 
           (base64 -w 0 dist/Emscripten-Release/index.html; echo; base64 -w 0 res/ui_default.png; echo; base64 -w 0 res/ui_sans.png; echo; base64 -w 0 res/ui_fantasy.png; echo; base64 -w 0 res/ui_scifi.png) | awk 'NR==1{b1=$0;next} NR==2{b2=$0;next} NR==3{b3=$0;next} NR==4{b4=$0;next} NR==5{b5=$0;next} {gsub(/%%HTML%%/,b1); gsub(/%%ATLAS0%%/,b2); gsub(/%%ATLAS1%%/,b3); gsub(/%%ATLAS2%%/,b4); gsub(/%%ATLAS3%%/,b5); print}' - platforms/web/embed.html > dist/Emscripten-Release/embed.html
-          zip -j dist/myaownes_latest_wasm32.zip LICENSE.txt README.md platforms/web/embed.js dist/Emscripten-Release/*
+          zip -j dist/myaownes_${VERSION}_wasm32.zip LICENSE.txt README.md platforms/web/embed.js dist/Emscripten-Release/*
 
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -220,7 +226,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: dist-emscripten
-          path: dist
+          path: dist/myaownes_*
 
   publish:
     runs-on: ubuntu-latest
@@ -240,14 +246,10 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           prerelease: true
+          cleanup: true
           tag_name: "latest"
           name: "Development build"
           body: "Automatic build from the main branch"
-          files: |
-            dist/myaownes_latest_android_arm64-v8a.apk
-            dist/myaownes_latest_linux_x64.zip
-            dist/myaownes_latest_macos_universal.zip
-            dist/myaownes_latest_wasm32.zip
-            dist/myaownes_latest_windows_x64.zip
+          files: dist/myaownes_*
 
       - uses: actions/deploy-pages@v4
