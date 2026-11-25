@@ -81,8 +81,6 @@ jobs:
 
           zip -j dist/myaownes_latest_linux_x64.zip LICENSE.txt README.md dist/Linux-Release/*
 
-          git tag -f latest && git push -f origin latest
-
       - uses: actions/upload-artifact@v7
         with:
           name: dist-linux
@@ -219,8 +217,6 @@ jobs:
         with:
           path: "./dist/Emscripten-Release"
 
-      - uses: actions/deploy-pages@v4
-
       - uses: actions/upload-artifact@v7
         with:
           name: dist-emscripten
@@ -236,6 +232,11 @@ jobs:
           pattern: dist-*
           merge-multiple: true
 
+      - name: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PATCH repos/${{ github.repository }}/git/refs/tags/latest -f sha=${{ github.sha }} -F force=true
+
       - uses: softprops/action-gh-release@v3
         with:
           prerelease: true
@@ -248,3 +249,5 @@ jobs:
             dist/myaownes_latest_macos_universal.zip
             dist/myaownes_latest_wasm32.zip
             dist/myaownes_latest_windows_x64.zip
+
+      - uses: actions/deploy-pages@v4
