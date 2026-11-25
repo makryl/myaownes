@@ -469,20 +469,48 @@ SDL_AppResult SDL_AppEvent(void*, SDL_Event* event)
     //   app_set_fullscreen(event->display.data1 == SDL_ORIENTATION_LANDSCAPE
     //                      || event->display.data1 == SDL_ORIENTATION_LANDSCAPE_FLIPPED);
     // break;
+    case SDL_EVENT_TEXT_INPUT:
+      SDL_strlcat(imp.text_input_buffer, event->text.text, sizeof(imp.text_input_buffer));
+      break;
     case SDL_EVENT_KEY_DOWN: {
       imp.touch_active = false;
-      void (*onkeydown)() = app_actions[imp.action_by_scancode[event->key.scancode]].onkeydown;
-      if (onkeydown) {
-        onkeydown();
+      if (imp.text_input_mode) {
+        switch (event->key.key) {
+          case SDLK_BACKSPACE:
+            const char* end = imp.text_input_buffer + strlen(imp.text_input_buffer);
+            if (end > imp.text_input_buffer) {
+              SDL_StepBackUTF8(imp.text_input_buffer, &end);
+              *(char*)end = 0;
+            }
+            break;
+        }
       } else {
-        app_popup("Press F1 to show keymap", 2);
+        void (*onkeydown)() = app_actions[imp.action_by_scancode[event->key.scancode]].onkeydown;
+        if (onkeydown) {
+          onkeydown();
+        } else {
+          app_popup("Press F1 to show keymap", 2);
+        }
       }
       break;
     }
     case SDL_EVENT_KEY_UP: {
-      void (*onkeyup)() = app_actions[imp.action_by_scancode[event->key.scancode]].onkeyup;
-      if (onkeyup) {
-        onkeyup();
+      if (imp.text_input_mode) {
+        switch (event->key.key) {
+          case SDLK_RETURN:
+            SDL_StopTextInput(imp.window);
+            imp.text_input_done = true;
+            break;
+          case SDLK_ESCAPE:
+            SDL_StopTextInput(imp.window);
+            imp.text_input_cancel = true;
+            break;
+        }
+      } else {
+        void (*onkeyup)() = app_actions[imp.action_by_scancode[event->key.scancode]].onkeyup;
+        if (onkeyup) {
+          onkeyup();
+        }
       }
       app_start_off();
       break;

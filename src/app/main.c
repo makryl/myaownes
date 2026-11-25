@@ -333,6 +333,7 @@ SDL_AppResult SDL_AppIterate(void*)
     case APP_MENU_HELP: app_draw_help(); break;
     case APP_MENU_RECENT: app_draw_recent(); break;
     case APP_MENU_START: app_draw_start(); break;
+    case APP_MENU_NETWORK: app_draw_network(); break;
   }
   if (imp.popup_time > 0) {
     app_draw_popup();

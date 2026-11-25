@@ -110,7 +110,7 @@ void app_draw_fps()
 static bool app_menu_button_down(uint mask) { return (imp.menu_input & mask) && !(imp.menu_input_prev & mask); }
 static bool app_menu_button_up(uint mask) { return !(imp.menu_input & mask) && (imp.menu_input_prev & mask); }
 
-static bool app_draw_menu_line_raw(const char* label, uint line, int selection_id)
+static bool app_draw_menu_line_raw(const char* label, uint line, uint selection_id)
 {
   bool selected = imp.menu_selection == selection_id;
   if (selected) {
@@ -121,7 +121,7 @@ static bool app_draw_menu_line_raw(const char* label, uint line, int selection_i
   return selected;
 }
 
-static bool app_draw_menu_line(const char* label, uint line, int selection_id)
+static bool app_draw_menu_line(const char* label, uint line, uint selection_id)
 {
   if (app_draw_menu_line_raw(label, line, selection_id)) {
     if (app_menu_button_up(MN_INPUT_A | MN_INPUT_START)) {
@@ -131,7 +131,7 @@ static bool app_draw_menu_line(const char* label, uint line, int selection_id)
   return false;
 }
 
-static uint app_draw_menu_line_arrows(const char* label, uint line, int selection_id)
+static uint app_draw_menu_line_arrows(const char* label, uint line, uint selection_id)
 {
   if (app_draw_menu_line_raw(label, line, selection_id)) {
     if (app_menu_button_down(MN_INPUT_LEFT)) {
@@ -144,22 +144,43 @@ static uint app_draw_menu_line_arrows(const char* label, uint line, int selectio
   return 0;
 }
 
-static void app_draw_menu_prepare(int menu_size)
+static int app_draw_menu_line_input(const char* label, uint line, uint selection_id)
+{
+  if (app_draw_menu_line(label, line, selection_id)) {
+    imp.text_input_mode = true;
+    imp.text_input_done = false;
+    imp.text_input_cancel = false;
+    imp.text_input_buffer[0] = 0;
+    SDL_StartTextInput(imp.window);
+  }
+  if (imp.menu_selection == selection_id && (imp.text_input_done || imp.text_input_cancel)) {
+    bool done = imp.text_input_done && !imp.text_input_cancel;
+    imp.text_input_mode = false;
+    imp.text_input_done = false;
+    imp.text_input_cancel = false;
+    return done;
+  }
+  return false;
+}
+
+static void app_draw_menu_prepare(uint menu_size)
 {
   imp.menu_input_prev = imp.menu_input;
   imp.menu_input = (imp.joy1 | imp.joy2);
 
   if (app_menu_button_down(MN_INPUT_DOWN | MN_INPUT_SELECT)) {
-    ++imp.menu_selection;
+    if (imp.menu_selection < menu_size - 1) {
+      ++imp.menu_selection;
+    } else {
+      imp.menu_selection = 0;
+    }
   }
   if (app_menu_button_down(MN_INPUT_UP)) {
-    --imp.menu_selection;
-  }
-  if (imp.menu_selection >= menu_size) {
-    imp.menu_selection = 0;
-  }
-  if (imp.menu_selection < 0) {
-    imp.menu_selection = menu_size - 1;
+    if (imp.menu_selection > 0) {
+      --imp.menu_selection;
+    } else {
+      imp.menu_selection = menu_size - 1;
+    }
   }
 
   SDL_FRect fill = { imp.ui_offset.x, imp.ui_offset.y, 256, 240 };
@@ -182,8 +203,8 @@ void app_draw_menu()
     rom_menu_count = 1;
     rom_menu_height = 2;
   }
-  uint other_menu_count = 4;
-  uint other_menu_height = 5;
+  uint other_menu_count = 5;
+  uint other_menu_height = 6;
   if (imp.embed_enabled || imp.net_is_client) {
     other_menu_count -= 2;
     other_menu_height -= 3;
@@ -230,6 +251,9 @@ void app_draw_menu()
     }
     ++line;
   }
+  if (app_draw_menu_line("Netplay", line++, menu++)) {
+    app_menu_state(APP_MENU_NETWORK);
+  }
   if (app_draw_menu_line("Options", line++, menu++)) {
     app_menu_state(APP_MENU_OPTIONS);
   }
@@ -258,22 +282,11 @@ void app_draw_start()
 
 void app_draw_options()
 {
-  app_draw_menu_prepare(16);
-  uint line = 5;
+  app_draw_menu_prepare(14);
+  uint line = 7;
   uint menu = 0;
   if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
     app_menu_state(APP_MENU_MAIN);
-  }
-  ++line;
-  if (app_draw_menu_line(app_net_server_labels[imp.net_is_server], line++, menu++)) {
-    net_disconnect();
-    imp.net_is_client = false;
-    imp.net_is_server = !imp.net_is_server;
-  }
-  if (app_draw_menu_line(app_net_client_labels[imp.net_is_client], line++, menu++)) {
-    net_disconnect();
-    imp.net_is_server = false;
-    imp.net_is_client = !imp.net_is_client;
   }
   ++line;
   Uint32 flags = SDL_GetWindowFlags(imp.window);
@@ -331,6 +344,48 @@ void app_draw_options()
   ++line;
   if (app_draw_menu_line("Defaults", line++, menu++)) {
     app_reset_config();
+  }
+}
+
+void app_draw_network()
+{
+  app_draw_menu_prepare(5);
+  uint line = 10;
+  uint menu = 0;
+  if (app_draw_menu_line("Back", line++, menu++) || app_menu_button_up(MN_INPUT_B)) {
+    app_menu_state(APP_MENU_MAIN);
+  }
+  ++line;
+  if (app_draw_menu_line(app_net_server_labels[imp.net_is_server], line++, menu++)) {
+    net_disconnect();
+    imp.net_is_client = false;
+    imp.net_is_server = !imp.net_is_server;
+  }
+  if (app_draw_menu_line(app_net_client_labels[imp.net_is_client], line++, menu++)) {
+    net_disconnect();
+    imp.net_is_server = false;
+    imp.net_is_client = !imp.net_is_client;
+  }
+  ++line;
+
+  char buf[32] = {};
+  if (menu == imp.menu_selection && imp.text_input_mode) {
+    SDL_snprintf(buf, sizeof(buf), "IP: %s_", imp.text_input_buffer);
+  } else {
+    SDL_snprintf(buf, sizeof(buf), "IP: %s", imp.net_address[0] == 0 ? "0.0.0.0" : imp.net_address);
+  }
+  if (app_draw_menu_line_input(buf, line++, menu++)) {
+    imp.net_address[0] = 0;
+    SDL_strlcat(imp.net_address, imp.text_input_buffer, sizeof(imp.net_address));
+  }
+  if (menu == imp.menu_selection && imp.text_input_mode) {
+    SDL_snprintf(buf, sizeof(buf), "Port: %s_", imp.text_input_buffer);
+  } else {
+    SDL_snprintf(buf, sizeof(buf), "Port: %u", imp.net_port == 0 ? APP_NET_DEFAULT_PORT : imp.net_port);
+  }
+  if (app_draw_menu_line_input(buf, line++, menu++)) {
+    imp.net_port = 0;
+    SDL_sscanf(imp.text_input_buffer, "%u", &imp.net_port);
   }
 }
 

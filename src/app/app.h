@@ -23,6 +23,7 @@ enum
   APP_MENU_HELP,
   APP_MENU_RECENT,
   APP_MENU_START,
+  APP_MENU_NETWORK,
 };
 
 enum
@@ -150,7 +151,7 @@ typedef struct
   uint joy2;
   uint menu_state;
   uint menu_state_prev;
-  int menu_selection;
+  uint menu_selection;
   uint menu_input;
   uint menu_input_prev;
   int touch_button_radius;
@@ -205,6 +206,9 @@ typedef struct
   bool rewind;
   bool net_is_server;
   bool net_is_client;
+  bool text_input_mode;
+  bool text_input_done;
+  bool text_input_cancel;
   mn_rom rom;
   mn_tas tas;
   char rom_info[6][15];
@@ -225,6 +229,7 @@ typedef struct
   u8 net_client_input_packet[APP_NET_MAX_PACKET_SIZE];
   u8 net_server_input_packet[APP_NET_MAX_PACKET_SIZE];
   u8 net_packet[APP_NET_MAX_PACKET_SIZE];
+  char text_input_buffer[32];
 } app;
 
 extern const app_action_data app_actions[APP_ACTION_COUNT];
