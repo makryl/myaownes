@@ -19,8 +19,8 @@ jobs:
           NOTES: ${{ inputs.notes }}
         run: |
           mkdir -p dist
-          gh release download latest -D dist
+          gh release download latest --repo ${{ github.repository }} --dir dist
           FILE=$(ls dist/myaownes_* | head -n 1)
           VERSION=$(basename "$FILE" | cut -d'_' -f2)
           SHA=$(gh api repos/${{ github.repository }}/git/refs/tags/latest --jq '.object.sha')
-          gh release create "$VERSION" dist/* --target "$SHA" --title "$VERSION" --notes "$NOTES"
+          gh release create "$VERSION" dist/* --repo ${{ github.repository }} --target "$SHA" --title "$VERSION" --notes "$NOTES"
