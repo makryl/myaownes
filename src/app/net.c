@@ -118,7 +118,7 @@ static bool app_net_send_packet(u8 type)
     case APP_NET_PACKET_TYPE_SERVER_INPUT: {
       static_assert(APP_NET_SERVER_INPUT_PACKET_SIZE <= sizeof(imp.net_server_input_packet));
       uint frame = mn_frame_num();
-      uint input = (imp.joy1 & 0xFFFF) | (imp.net_joy2 << 16);
+      uint input = (imp.net_joy1 & 0xFFFF) | (imp.net_joy2 << 16);
       imp.net_server_input_packet[0] = type;
       memcpy(imp.net_server_input_packet + 1, &imp.net_sync, 4);
       memcpy(imp.net_server_input_packet + 5, &frame, 4);
@@ -129,7 +129,7 @@ static bool app_net_send_packet(u8 type)
     case APP_NET_PACKET_TYPE_CLIENT_INPUT: {
       static_assert(APP_NET_CLIENT_INPUT_PACKET_SIZE <= sizeof(imp.net_client_input_packet));
       uint frame = mn_frame_num();
-      u16 input = imp.joy1;
+      u16 input = imp.pause ? 0 : imp.joy1;
       imp.net_client_input_packet[0] = type;
       memcpy(imp.net_client_input_packet + 1, &imp.net_sync, 4);
       memcpy(imp.net_client_input_packet + 5, &frame, 4);
@@ -458,18 +458,17 @@ bool app_net_input()
     case APP_NET_STATE_SYNC_STATE:
     case APP_NET_STATE_SYNC_WAIT: return false;
     case APP_NET_STATE_PLAY:
-      if (!imp.pause) {
-        if (imp.net_is_server) {
-          app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_INPUT);
-          mn_input(imp.joy1, imp.net_joy2);
-        } else {
-          if (mn_frame_num() >= imp.net_frame + APP_NET_INPUT_SIZE) {
-            return false;
-          }
-          app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_INPUT);
-          mn_input(imp.net_joy1, imp.net_joy2);
-          imp.net_input[mn_frame_num() % APP_NET_INPUT_SIZE] = (imp.net_joy1 & 0xFFFF) | (imp.net_joy2 << 16);
+      if (imp.net_is_server) {
+        imp.net_joy1 = imp.pause ? 0 : imp.joy1;
+        app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_INPUT);
+        mn_input(imp.net_joy1, imp.net_joy2);
+      } else {
+        if (mn_frame_num() >= imp.net_frame + APP_NET_INPUT_SIZE) {
+          return false;
         }
+        app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_INPUT);
+        mn_input(imp.net_joy1, imp.net_joy2);
+        imp.net_input[mn_frame_num() % APP_NET_INPUT_SIZE] = (imp.net_joy1 & 0xFFFF) | (imp.net_joy2 << 16);
       }
       break;
   }
