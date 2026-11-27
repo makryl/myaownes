@@ -18,6 +18,9 @@ typedef u_long ioctl_arg_t;
 #define poll WSAPoll
 #define MSG_NOSIGNAL 0
 #define net_wouldblock() (WSAGetLastError() == WSAEWOULDBLOCK || WSAGetLastError() == WSAEINPROGRESS)
+#define net_dgram_ignore_error()                                                                                     \
+  (WSAGetLastError() == WSAECONNRESET || WSAGetLastError() == WSAECONNREFUSED || WSAGetLastError() == WSAENETUNREACH \
+   || WSAGetLastError() == WSAEHOSTUNREACH || WSAGetLastError() == WSAENOBUFS)
 static const char* net_strerror_impl(int err)
 {
   static char buf[256];
@@ -44,6 +47,9 @@ typedef int ioctl_arg_t;
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define net_wouldblock() (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINPROGRESS)
+#define net_dgram_ignore_error()                                                                                     \
+  (errno == ECONNRESET || errno == ECONNREFUSED || errno == ENETUNREACH || errno == EHOSTUNREACH || errno == ENOBUFS \
+   || errno == EINTR)
 #define net_strerror(...) strerror((__VA_ARGS__ + 0) ? (__VA_ARGS__ + 0) : errno)
 
 #endif
@@ -312,7 +318,7 @@ unsigned int net_send_datagram(const void* data, unsigned int size)
   }
   int sent = send(net.unreliable_fd, data, size, 0);
   if (sent == SOCKET_ERROR) {
-    if (!net_wouldblock()) {
+    if (!net_wouldblock() && !net_dgram_ignore_error()) {
       fprintf(stderr, "send() error: %s\n", net_strerror());
       net_disconnect();
     }
@@ -328,7 +334,7 @@ unsigned int net_recv_datagram(void* data, unsigned int size)
   }
   int received = recv(net.unreliable_fd, data, size, 0);
   if (received == SOCKET_ERROR) {
-    if (!net_wouldblock()) {
+    if (!net_wouldblock() && !net_dgram_ignore_error()) {
       fprintf(stderr, "recv() error: %s\n", net_strerror());
       net_disconnect();
     }
@@ -343,7 +349,7 @@ static void net_server_connect()
   socklen_t addr_size = sizeof(addr);
   char data;
   if (recvfrom(net.unreliable_fd, &data, sizeof(data), 0, (struct sockaddr*)&addr, &addr_size) == SOCKET_ERROR) {
-    if (!net_wouldblock()) {
+    if (!net_wouldblock() && !net_dgram_ignore_error()) {
       fprintf(stderr, "recvfrom() error: %s\n", net_strerror());
       net_disconnect();
     }
@@ -391,11 +397,13 @@ unsigned int net_update()
   switch (net.reliable_state) {
     case NET_RELIABLE_STATE_ACCEPTING: net_server_accept(); break;
     case NET_RELIABLE_STATE_POLLING: net_client_poll(); break;
-  }
-  switch (net.unreliable_state) {
-    case NET_UNRELIABLE_STATE_CONNECTING: net_server_connect(); break;
-    case NET_UNRELIABLE_STATE_PINGING: net_client_ping(); break;
-    case NET_UNRELIABLE_STATE_PONGING: net_server_pong(); break;
+    case NET_RELIABLE_STATE_CONNECTED:
+      switch (net.unreliable_state) {
+        case NET_UNRELIABLE_STATE_CONNECTING: net_server_connect(); break;
+        case NET_UNRELIABLE_STATE_PINGING: net_client_ping(); break;
+        case NET_UNRELIABLE_STATE_PONGING: net_server_pong(); break;
+      }
+      break;
   }
   return NET_STATE_CONNECTING;
 }
