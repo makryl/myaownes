@@ -271,7 +271,9 @@ SDL_AppResult SDL_AppIterate(void*)
     while (imp.curr_time >= imp.target_frame_time || !has_audio) {
       imp.curr_time = imp.curr_time > imp.target_frame_time ? imp.curr_time - imp.target_frame_time : 0;
       if (imp.net_is_server || imp.net_is_client) {
-        app_net_input();
+        if (!app_net_input()) {
+          break;
+        }
       } else if (imp.tas) {
         mn_tas_input(imp.tas);
       } else {

@@ -20,8 +20,8 @@ enum
 
 enum
 {
-  APP_NET_CLIENT_INPUT_PACKET_SIZE = 1 + 4 + APP_NET_INPUT_SIZE * 2,
-  APP_NET_SERVER_INPUT_PACKET_SIZE = 1 + 4 + APP_NET_INPUT_SIZE * 4,
+  APP_NET_CLIENT_INPUT_PACKET_SIZE = 1 + 4 + 4 + APP_NET_INPUT_SIZE * 2,
+  APP_NET_SERVER_INPUT_PACKET_SIZE = 1 + 4 + 4 + APP_NET_INPUT_SIZE * 4,
 };
 
 #define APP_NET_TRACE 0
@@ -29,8 +29,9 @@ enum
 #define APP_NET_ERROR 1
 
 #if APP_NET_TRACE
-#define app_net_trace(fmt, ...) \
-  printf("NET state=%d frame=%d  " fmt "\n", imp.net_state, mn_frame_num() __VA_OPT__(, ) __VA_ARGS__)
+static const char* app_net_trace_state_name[6] = { "DISCONNECTED", "CONNECTING", "SYNC_ROM",
+                                                   "SYNC_STATE",   "SYNC_WAIT",  "PLAY" };
+#define app_net_trace(fmt, ...) printf("NET frame=%-10d  " fmt "\n", mn_frame_num() __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define app_net_trace(fmt, ...) (void)0
 #endif
@@ -52,7 +53,7 @@ void app_net_state(uint state)
 {
   if (imp.net_state != state) {
     imp.net_state = state;
-    app_net_trace("");
+    app_net_trace("%s", app_net_trace_state_name[state]);
   }
 }
 
@@ -109,6 +110,7 @@ static bool app_net_send_packet(u8 type)
         return false;
       }
       app_net_send_schedule(&type, sizeof(type));
+      app_net_send_schedule(&imp.net_sync, sizeof(imp.net_sync));
       app_net_send_schedule(&state_size, sizeof(state_size));
       app_net_send_schedule(data, state_size);
       break;
@@ -118,8 +120,9 @@ static bool app_net_send_packet(u8 type)
       uint frame = mn_frame_num();
       uint input = (imp.joy1 & 0xFFFF) | (imp.net_joy2 << 16);
       imp.net_server_input_packet[0] = type;
-      memcpy(imp.net_server_input_packet + 1, &frame, 4);
-      memcpy(imp.net_server_input_packet + (5 + (frame % APP_NET_INPUT_SIZE) * 4), &input, 4);
+      memcpy(imp.net_server_input_packet + 1, &imp.net_sync, 4);
+      memcpy(imp.net_server_input_packet + 5, &frame, 4);
+      memcpy(imp.net_server_input_packet + (9 + (frame % APP_NET_INPUT_SIZE) * 4), &input, 4);
       net_send_datagram(imp.net_server_input_packet, APP_NET_SERVER_INPUT_PACKET_SIZE);
       break;
     }
@@ -128,8 +131,9 @@ static bool app_net_send_packet(u8 type)
       uint frame = mn_frame_num();
       u16 input = imp.joy1;
       imp.net_client_input_packet[0] = type;
-      memcpy(imp.net_client_input_packet + 1, &frame, 4);
-      memcpy(imp.net_client_input_packet + (5 + (frame % APP_NET_INPUT_SIZE) * 2), &input, 2);
+      memcpy(imp.net_client_input_packet + 1, &imp.net_sync, 4);
+      memcpy(imp.net_client_input_packet + 5, &frame, 4);
+      memcpy(imp.net_client_input_packet + (9 + (frame % APP_NET_INPUT_SIZE) * 2), &input, 2);
       net_send_datagram(imp.net_client_input_packet, APP_NET_CLIENT_INPUT_PACKET_SIZE);
       break;
     }
@@ -193,6 +197,7 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
       imp.rom->chr_rom = imp.rom->chr_rom_size > 0 ? chr_rom : nullptr;
       imp.rom->prg_ram = imp.rom->prg_ram_size > 0 ? prg_ram : nullptr;
       imp.rom->chr_ram = imp.rom->chr_ram_size > 0 ? chr_ram : nullptr;
+      imp.net_sync = 0;
       mn_rom_set(imp.rom);
       app_rom_update();
       app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_STATE);
@@ -203,41 +208,61 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
       if (packet_size < 9) {
         return 9;
       }
-      uint state_size = 0;
-      memcpy(&state_size, packet + 1, 4);
-      uint total_size = 5 + state_size;
+      uint packet_sync;
+      uint state_size;
+      memcpy(&packet_sync, packet + 1, 4);
+      memcpy(&state_size, packet + 5, 4);
+      uint total_size = 9 + state_size;
       if (packet_size < total_size) {
         return total_size;
       }
-      if (!mn_load_data(packet + 5, state_size)) {
+      if (!mn_load_data(packet + 9, state_size)) {
         // todo: reconnect?
         app_net_error("state load error");
         net_disconnect();
         return 0;
       }
+      imp.net_sync = packet_sync;
       imp.net_frame = mn_frame_num();
       app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_READY);
       app_net_state(APP_NET_STATE_PLAY);
       return 0;
     }
     case APP_NET_PACKET_TYPE_CLIENT_STATE: {
+      ++imp.net_sync;
       app_net_state(APP_NET_STATE_SYNC_STATE);
       break;
     }
     case APP_NET_PACKET_TYPE_CLIENT_READY: {
       app_net_state(APP_NET_STATE_PLAY);
+      imp.net_frame = mn_frame_num();
       return 0;
     }
     case APP_NET_PACKET_TYPE_CLIENT_INPUT: {
       if (packet_size < APP_NET_CLIENT_INPUT_PACKET_SIZE) {
         return 0;
       }
+      uint packet_sync;
       uint packet_frame;
       u16 packet_input[APP_NET_INPUT_SIZE];
-      memcpy(&packet_frame, packet + 1, sizeof(packet_frame));
-      memcpy(packet_input, packet + 5, sizeof(packet_input));
+      memcpy(&packet_sync, packet + 1, sizeof(packet_sync));
+      memcpy(&packet_frame, packet + 5, sizeof(packet_frame));
+      memcpy(packet_input, packet + 9, sizeof(packet_input));
+      if (packet_sync != imp.net_sync) {
+        return 0;
+      }
       if (packet_frame <= imp.net_frame) {
         return 0;
+      }
+      uint local_frame = mn_frame_num();
+      if (packet_frame > local_frame) {
+        uint local_diff = packet_frame - local_frame;
+        if (local_diff > APP_NET_INPUT_SIZE) {
+          app_net_trace("lag local %d", local_diff);
+          ++imp.net_sync;
+          app_net_state(APP_NET_STATE_SYNC_STATE);
+          return 0;
+        }
       }
       uint net_diff = packet_frame - imp.net_frame;
       if (net_diff > APP_NET_INPUT_SIZE) {
@@ -261,16 +286,22 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
       if (packet_size < APP_NET_SERVER_INPUT_PACKET_SIZE) {
         return 0;
       }
+      uint packet_sync;
       uint packet_frame;
       uint packet_input[APP_NET_INPUT_SIZE];
-      memcpy(&packet_frame, packet + 1, sizeof(packet_frame));
-      memcpy(packet_input, packet + 5, sizeof(packet_input));
+      memcpy(&packet_sync, packet + 1, sizeof(packet_sync));
+      memcpy(&packet_frame, packet + 5, sizeof(packet_frame));
+      memcpy(packet_input, packet + 9, sizeof(packet_input));
+      if (packet_sync != imp.net_sync) {
+        return 0;
+      }
       if (packet_frame <= imp.net_frame) {
         return 0;
       }
       uint net_diff = packet_frame - imp.net_frame;
       if (net_diff > APP_NET_INPUT_SIZE) {
         app_net_trace("lag %d", net_diff);
+        imp.net_sync = 0;
         app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_STATE);
         app_net_state(APP_NET_STATE_SYNC_WAIT);
         return 0;
@@ -279,14 +310,11 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
         uint net_input = packet_input[net_frame % APP_NET_INPUT_SIZE];
         uint local_frame = mn_frame_num();
         if (net_frame > local_frame) {
-          if (net_frame - local_frame > 1) {
-            app_net_trace("ffwd %d", net_frame);
-          }
           uint local_diff = net_frame - local_frame;
+          app_net_trace("ffwd %d", local_diff);
           for (uint j = 0; j < local_diff; ++j) {
             app_rewind_save();
             mn_frame_fast();
-            // mn_frame();
           }
         } else if (net_frame < local_frame) {
           uint local_diff = local_frame - net_frame;
@@ -294,11 +322,10 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
           if (local_input == net_input) {
             continue;
           }
-          if (local_diff > 1) {
-            app_net_trace("rwnd %d", net_frame);
-          }
+          app_net_trace("rwnd %d", local_diff);
           if (!app_rewind_load(local_diff)) {
             app_net_trace("rwnd error");
+            imp.net_sync = 0;
             app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_STATE);
             app_net_state(APP_NET_STATE_SYNC_WAIT);
             return 0;
@@ -306,11 +333,11 @@ static uint app_net_recv_packet(u8* packet, uint packet_size)
         }
         uint joy1 = (net_input & 0xFFFF);
         uint joy2 = (net_input >> 16);
+        mn_input(joy1, joy2);
+        imp.net_input[net_frame % APP_NET_INPUT_SIZE] = net_input;
         if (imp.net_joy1 != joy1 || imp.net_joy2 != joy2) {
           imp.net_joy1 = joy1;
           imp.net_joy2 = joy2;
-          mn_input(joy1, joy2);
-          imp.net_input[net_frame % APP_NET_INPUT_SIZE] = net_input;
           app_net_trace_input("input %04X %04X", joy1, joy2);
         }
       }
@@ -425,20 +452,26 @@ void app_net_update()
   }
 }
 
-void app_net_input()
+bool app_net_input()
 {
-  if (!imp.pause) {
-    if (imp.net_is_server) {
-      if (imp.net_state == APP_NET_STATE_PLAY) {
-        app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_INPUT);
+  switch (imp.net_state) {
+    case APP_NET_STATE_SYNC_STATE:
+    case APP_NET_STATE_SYNC_WAIT: return false;
+    case APP_NET_STATE_PLAY:
+      if (!imp.pause) {
+        if (imp.net_is_server) {
+          app_net_send_packet(APP_NET_PACKET_TYPE_SERVER_INPUT);
+          mn_input(imp.joy1, imp.net_joy2);
+        } else {
+          if (mn_frame_num() >= imp.net_frame + APP_NET_INPUT_SIZE) {
+            return false;
+          }
+          app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_INPUT);
+          mn_input(imp.net_joy1, imp.net_joy2);
+          imp.net_input[mn_frame_num() % APP_NET_INPUT_SIZE] = (imp.net_joy1 & 0xFFFF) | (imp.net_joy2 << 16);
+        }
       }
-      mn_input(imp.joy1, imp.net_joy2);
-    } else if (imp.net_is_client) {
-      if (imp.net_state == APP_NET_STATE_PLAY) {
-        app_net_send_packet(APP_NET_PACKET_TYPE_CLIENT_INPUT);
-      }
-      mn_input(imp.net_joy1, imp.net_joy2);
-      imp.net_input[mn_frame_num() % APP_NET_INPUT_SIZE] = (imp.net_joy1 & 0xFFFF) | (imp.net_joy2 << 16);
-    }
+      break;
   }
+  return true;
 }

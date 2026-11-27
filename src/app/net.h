@@ -29,4 +29,4 @@ unsigned int net_send_datagram(const void* data, unsigned int size);
 unsigned int net_recv_datagram(void* data, unsigned int size);
 
 void app_net_update();
-void app_net_input();
+bool app_net_input();

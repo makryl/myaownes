@@ -188,6 +188,7 @@ typedef struct
   uint net_rx_size;
   uint net_rx_expected;
   uint net_rx_received;
+  uint net_sync;
   uint net_frame;
   uint fps_prev;
   uint fps_value;
